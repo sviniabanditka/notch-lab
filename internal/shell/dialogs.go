@@ -72,7 +72,11 @@ func (s *Shell) dialogView(c *ui.Context) {
 	d := &s.dlg
 	t := c.Theme()
 	ui.Modal(c, &d.open, func() {
-		ui.Column(c).Width(420).Gap(12).Children(func() {
+		width := float32(420)
+		if d.kind == dlgNewBench {
+			width = 560
+		}
+		ui.Column(c).Width(width).Gap(12).Children(func() {
 			switch d.kind {
 			case dlgNewBench:
 				s.newBenchSheet(c, d)
@@ -164,30 +168,38 @@ func (s *Shell) dialogView(c *ui.Context) {
 
 func (s *Shell) newBenchSheet(c *ui.Context, d *dialog) {
 	t := c.Theme()
-	ui.Text(c, "New Bench").Bold().FontSize(15)
-	ui.Column(c).Gap(2).Children(func() {
-		for i, typ := range model.Types {
-			row := ui.Row(c.Key(string(typ))).Padding(6, 8).Gap(10).Radius(6)
-			fg, muted := t.Text, t.TextMuted
-			if i == d.typ {
-				row.Background(t.Accent)
-				fg, muted = t.AccentText, t.AccentText.Alpha(0.75)
-			} else if row.Hovered() {
-				row.Background(t.SurfaceHover)
-			}
-			row.Children(func() {
-				ui.Icon(c, TypeIcon(typ)).FontSize(16).TextColor(fg)
-				ui.Column(c).Children(func() {
-					ui.Text(c, typ.Title()).TextColor(fg).Bold()
-					ui.Text(c, typ.Description()).TextColor(muted).FontSize(11)
-				})
-			})
-			if row.Clicked() {
-				d.typ = i
-				if !d.named {
-					d.text = typ.Title()
+	ui.Text(c, "New Bench").FontWeight(700).FontSize(17)
+	ui.Text(c, "A Bench is one kind of work in the Lab, with its own Tabs.").FontSize(12).TextColor(faint(t))
+	ui.Column(c).Gap(6).Children(func() {
+		for r := 0; r < len(model.Types); r += 2 {
+			ui.Row(c.Key(r)).Gap(6).Children(func() {
+				for i := r; i < min(r+2, len(model.Types)); i++ {
+					i, typ := i, model.Types[i]
+					tile := ui.Row(c.Key(string(typ))).Grow(1).Basis(0).MinWidth(0).Padding(8, 10).Gap(10).Radius(10).AlignItems(ui.Center).
+						Border(1, stroke(t)).Transition(hoverMotion)
+					if i == d.typ {
+						tile.Background(chosen(t)).Border(1, t.Accent.Alpha(0.7))
+					} else if tile.Hovered() {
+						tile.Background(hover(t))
+					}
+					tile.Children(func() {
+						col := TypeColor(typ)
+						ui.Box(c).Size(30, 30).Shrink(0).Center().Radius(8).Gradient(col, col.Alpha(0.75), 135).Children(func() {
+							ui.Icon(c, TypeIcon(typ)).FontSize(15).TextColor(ui.RGB(255, 255, 255))
+						})
+						ui.Column(c).Shrink(1).MinWidth(0).Children(func() {
+							ui.Text(c, typ.Title()).FontWeight(600).SingleLine()
+							ui.Text(c, typ.Description()).TextColor(faint(t)).FontSize(11).SingleLine()
+						})
+					})
+					if tile.Clicked() {
+						d.typ = i
+						if !d.named {
+							d.text = typ.Title()
+						}
+					}
 				}
-			}
+			})
 		}
 	})
 	name := ui.TextInput(c.Key("name"), &d.text).Placeholder("Name")

@@ -140,6 +140,9 @@ func (n *notch) show() {
 	})
 	n.win = win
 	n.sh.Win = win
+	// The rail and sidebar show the popover material, as the main window
+	// shows the sidebar material.
+	win.SetVibrancy(mygo.VibrancyPopover)
 	// Above the menu bar, so AppKit keeps the panel's top at the top of
 	// the display, around the notch (R-SHELL-013).
 	if h := win.NativeHandle(); h != 0 {

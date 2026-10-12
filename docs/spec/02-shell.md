@@ -10,7 +10,7 @@ R-SHELL-002. The main window's minimum size is 720 x 480 pt.
 
 R-SHELL-003. The main window uses `TitleBarHidden`. The Shell draws the title bar: a 38 pt strip under the traffic lights that shows the focused Tab's title and is a drag area (`DragWindow`).
 
-R-SHELL-004. The main window uses `Vibrancy` under the rail and the sidebar. The Layout area has an opaque background from the theme.
+R-SHELL-004. The main window uses the `sidebar` material (`Vibrancy`) under the rail and the sidebar. The Layout, the toolbar and the status bar are in a card: 8 pt from the window edges, 11 pt corner radius, a 1 pt hairline border and a soft shadow, with an opaque background from the theme. The notch panel and the Settings window use the same look; the notch panel uses the `popover` material.
 
 R-SHELL-005. The main window restores its frame from State row `window` with key `main`. A frame that lies fully outside every display is replaced by the primary display's centered 1200 x 800 pt frame.
 
@@ -98,11 +98,11 @@ R-SHELL-032. The tray icon shows a dot when any Tab is Unread.
 
 ## Rail
 
-R-SHELL-040. The rail is 48 pt wide at the left edge of the Shell. It holds, top to bottom: the Lab menu button, one icon per Bench in order, the "+" button, a spacer, the Settings button.
+R-SHELL-040. The rail is 52 pt wide at the left edge of the Shell. It holds, top to bottom: the Lab menu button, one icon per Bench in order, the "+" button, a spacer, the Settings button.
 
-R-SHELL-041. The Lab menu button is 40 x 40 pt and shows the Lab's color dot (10 pt) and the Lab's initial letter. A click opens the Lab menu: every Lab in order, each with its color dot, name and an Unread dot; a separator; "New Lab…"; "Lab settings…".
+R-SHELL-041. The Lab menu button is a 36 x 36 pt rounded square with a gradient of the Lab's color and the Lab's initial letter in white. A click opens the Lab menu: every Lab in order, each with its color dot, name and an Unread dot; a separator; "New Lab…"; "Lab settings…".
 
-R-SHELL-042. A Bench icon is 32 x 32 pt inside a 40 x 40 pt hit area. The selected Bench's icon has the accent background. A Bench with an Unread Tab shows a 6 pt dot at the icon's top right.
+R-SHELL-042. A Bench icon is 36 x 36 pt with a 9 pt corner radius. The selected Bench's icon has a tint of the accent color and the icon in the accent color. A Bench with an Unread Tab shows a 6 pt dot at the icon's top right.
 
 R-SHELL-043. A Bench icon is the type's icon by default (Lucide shapes). `[later]` The user sets a custom icon from a fixed set of 40 symbols from the context menu.
 
@@ -300,6 +300,10 @@ R-SHELL-151. The theme is mygo's default theme, which follows the system and the
 R-SHELL-152. A theme change applies to every open window within one frame, including the Settings window.
 
 R-SHELL-153. The 16 ANSI colors for terminal Tabs are part of the theme.
+
+R-SHELL-154. The look tokens are in `internal/shell/style.go`: corner radii 6, 8 and 11 pt; 6 pt gaps between Splits; a hairline of the text color at 9 %; hover and press tints of the text color. A selected row has a tint of the accent color, not a solid fill. Each Split is a rounded pane; the focused pane has an accent border. Icon buttons in the toolbar are 28 x 28 pt. Each Bench type has a color (`TypeColor`) for its tile in the New Bench sheet.
+
+R-SHELL-155. Syntax colors in the editor and the db Bench follow a change of the theme between dark and light.
 
 ## Settings
 

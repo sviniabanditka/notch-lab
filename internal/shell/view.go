@@ -2,6 +2,7 @@ package shell
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/egoist/mygo/ui"
 
@@ -12,8 +13,8 @@ import (
 // Sizes of the Shell, in pt (R-SHELL-003, R-SHELL-040, R-SHELL-070).
 const (
 	titleH   = 38
-	railW    = 48
-	statusH  = 24
+	railW    = 52
+	statusH  = 26
 	rowH     = 28
 	minLeafW = 120
 	minLeafH = 80
@@ -24,11 +25,14 @@ const (
 func (s *Shell) ApplyTheme(c *ui.Context) {
 	t := *c.Theme()
 	t.FontSize = float32(s.Set.S.Appearance.UIFontSize)
+	t.Background = card(&t) // every Bench paints the card's color
+	t.Border = stroke(&t)
 	c.SetTheme(&t)
 	theme.Follow(&t) // the views ported from herdr-go read these tokens
 }
 
-// View draws the main window.
+// View draws the main window: the rail and the sidebar over the window's
+// material, and the work in a rounded card beside them.
 func (s *Shell) View(c *ui.Context) {
 	if s.BeforeFrame != nil {
 		s.BeforeFrame()
@@ -44,25 +48,21 @@ func (s *Shell) View(c *ui.Context) {
 	}
 	s.actions = nil
 	if c.Vibrancy() {
-		c.Root().Background(ui.Transparent)
+		c.Root().Background(ui.Transparent) // the material shows around the card
+	} else {
+		c.Root().Background(chrome(t))
 	}
 	ui.Row(c).Fill().AlignItems(ui.Stretch).Children(func() {
 		s.rail(c)
 		if s.win().Sidebar {
 			s.sidebar(c)
 		}
-		ui.Column(c).Grow(1).Basis(0).MinWidth(0).Background(t.Background).Children(func() {
-			if s.Strip != nil {
-				s.Strip(c)
-			} else {
-				s.titleStrip(c)
-			}
-			ui.Column(c).Grow(1).Basis(0).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
-				s.layout(c)
-			})
-			if s.Set.S.Appearance.ShowStatusBar {
-				s.statusBar(c)
-			}
+		left := float32(cardInset)
+		if s.win().Sidebar {
+			left = 2
+		}
+		ui.Column(c.Key("stage")).Grow(1).Basis(0).MinWidth(0).Padding(cardInset, cardInset, cardInset, left).AlignItems(ui.Stretch).Children(func() {
+			s.card(c)
 		})
 	})
 	s.switcherView(c)
@@ -71,6 +71,29 @@ func (s *Shell) View(c *ui.Context) {
 		o(c)
 	}
 	s.syncMenu()
+}
+
+// card is the rounded, raised surface the Layout lives on.
+func (s *Shell) card(c *ui.Context) {
+	t := c.Theme()
+	shadow := ui.RGBA(0, 0, 0, 0.10)
+	if t.Dark {
+		shadow = ui.RGBA(0, 0, 0, 0.35)
+	}
+	ui.Column(c.Key("card")).Grow(1).Basis(0).MinWidth(0).MinHeight(0).AlignItems(ui.Stretch).
+		Radius(radiusLg).Background(card(t)).Border(1, stroke(t)).Shadow(0, 1, 10, 0, shadow).Clip().Children(func() {
+		if s.Strip != nil {
+			s.Strip(c)
+		} else {
+			s.toolbar(c)
+		}
+		ui.Column(c.Key("layout")).Grow(1).Basis(0).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
+			s.layout(c)
+		})
+		if s.Set.S.Appearance.ShowStatusBar {
+			s.statusBar(c)
+		}
+	})
 }
 
 // Title is the focused Tab's title and its Bench's name.
@@ -85,41 +108,86 @@ func (s *Shell) Title() string {
 	return title
 }
 
-func (s *Shell) titleStrip(c *ui.Context) {
+// toolbar is the card's top bar: the focused Tab's icon and title, its
+// Bench, and the Layout's buttons; the bar drags the window (R-SHELL-003).
+func (s *Shell) toolbar(c *ui.Context) {
 	t := c.Theme()
-	title := s.Title()
-	ui.Row(c).Height(titleH).Shrink(0).Center().DragWindow().Children(func() {
-		ui.Text(c, title).FontSize(13).TextColor(t.TextMuted).SingleLine()
+	b := s.bench()
+	// The window's buttons sit over the card while the sidebar hides.
+	inset := float32(14)
+	if !s.win().Sidebar {
+		inset = max(inset, c.TitleBar().Left-railW-cardInset+6)
+	}
+	ui.Row(c.Key("toolbar")).Height(toolbarH).Shrink(0).Padding(0, 8, 0, inset).Gap(8).AlignItems(ui.Center).
+		BorderWidth(0, 0, 1, 0).BorderColor(stroke(t)).DragWindow().Children(func() {
+		if b == nil {
+			ui.Text(c, "notch-lab").FontWeight(600).TextColor(t.TextMuted)
+			return
+		}
+		if !s.win().Sidebar {
+			if iconBtn(c, "show-sidebar", "Show Sidebar (⌘B)", iconSidebar, false).Clicked() {
+				s.ToggleSidebar()
+			}
+		}
+		ui.Icon(c, TypeIcon(b.Type)).FontSize(14).TextColor(t.Accent)
+		title := b.Name
+		if tab := b.FocusedTab(); tab != nil {
+			title = tab.DisplayTitle()
+		}
+		ui.Text(c, title).FontSize(13).FontWeight(600).SingleLine().Shrink(1).MinWidth(0)
+		if b.FocusedTab() != nil {
+			ui.Text(c, b.Name).FontSize(12).TextColor(faint(t)).SingleLine().Shrink(2).MinWidth(0)
+		}
+		ui.Box(c).Grow(1)
+		has := b.FocusedTab() != nil
+		if has {
+			if iconBtn(c, "split-right", "Split Right (⌘D)", iconSplitR, false).Clicked() {
+				s.Split(model.Row)
+			}
+			if iconBtn(c, "split-down", "Split Down (⇧⌘D)", iconSplitD, false).Clicked() {
+				s.Split(model.Column)
+			}
+			if !b.Layout.IsLeaf() {
+				icon, label := iconZoomIn, "Zoom Pane (⇧⌘↩)"
+				if b.Zoomed {
+					icon, label = iconZoomOut, "Show All Panes (⇧⌘↩)"
+				}
+				if iconBtn(c, "zoom", label, icon, b.Zoomed).Clicked() {
+					s.ToggleZoom()
+				}
+			}
+		}
+		if iconBtn(c, "switcher", "Go to Tab (⌘K)", iconSearch, false).Clicked() {
+			s.OpenSwitcher()
+		}
 	})
 }
 
-// rail draws the Lab menu button, the Bench icons, "+" and Settings (R-SHELL-040).
+func (s *Shell) titleStrip(c *ui.Context) { s.toolbar(c) }
+
+// rail draws the Lab button, the Bench icons, "+" and Settings over the
+// material (R-SHELL-040).
 func (s *Shell) rail(c *ui.Context) {
 	t := c.Theme()
-	col := ui.Column(c.Key("rail")).Width(railW).Shrink(0).AlignItems(ui.Center).Gap(4)
-	if !c.Vibrancy() {
-		col.Background(t.Surface)
-	}
-	col.Children(func() {
-		ui.Row(c).Height(titleH).Shrink(0).FillWidth().DragWindow()
+	ui.Column(c.Key("rail")).Width(railW).Shrink(0).AlignItems(ui.Center).Gap(6).Children(func() {
+		ui.Row(c).Height(titleH + 6).Shrink(0).FillWidth().DragWindow()
 		s.labButton(c)
-		ui.Box(c).Height(4).Shrink(0)
+		ui.Box(c).Size(20, 1).Shrink(0).Margin(2, 0).Background(stroke(t))
 		l := s.lab()
 		for i, b := range l.Benches {
 			s.benchIcon(c, b, i)
 		}
-		plus := ui.Button(c.Key("new-bench"), "").Label("New Bench").Tooltip("New Bench").Size(40, 40).Padding(0).Background(ui.Transparent)
-		plus.Children(func() { ui.Icon(c, iconPlus).FontSize(16).TextColor(t.TextMuted) })
-		if plus.Clicked() {
+		if iconBtn(c, "new-bench", "New Bench", iconPlus, false).Size(36, 36).Clicked() {
 			s.OpenNewBench()
 		}
 		ui.Spacer(c)
-		set := ui.Button(c.Key("settings"), "").Label("Settings").Tooltip("Settings (⌘,)").Size(40, 40).Padding(0).Background(ui.Transparent)
-		set.Children(func() { ui.Icon(c, iconSettings).FontSize(16).TextColor(t.TextMuted) })
-		if set.Clicked() && s.OpenSettings != nil {
+		if iconBtn(c, "toggle-sidebar", "Toggle Sidebar (⌘B)", iconSidebar, s.win().Sidebar).Size(36, 36).Clicked() {
+			s.ToggleSidebar()
+		}
+		if iconBtn(c, "settings", "Settings (⌘,)", iconSettings, false).Size(36, 36).Clicked() && s.OpenSettings != nil {
 			s.OpenSettings("")
 		}
-		ui.Box(c).Height(8).Shrink(0)
+		ui.Box(c).Height(10).Shrink(0)
 	})
 }
 
@@ -129,13 +197,18 @@ func (s *Shell) labButton(c *ui.Context) {
 	l := s.lab()
 	initial := "?"
 	if r := []rune(l.Name); len(r) > 0 {
-		initial = string(r[0])
+		initial = strings.ToUpper(string(r[0]))
 	}
-	btn := ui.Button(c.Key("lab-menu"), "").Label("Lab menu: "+l.Name).Tooltip(l.Name).Size(40, 40).Padding(0).Radius(10).Background(ui.Hex(l.Color).Alpha(0.22))
+	col := ui.Hex(l.Color)
+	if l.Color == "" {
+		col = t.Accent
+	}
+	btn := ui.Button(c.Key("lab-menu"), "").Label("Lab menu: "+l.Name).Tooltip(l.Name).Size(36, 36).Padding(0).Radius(10).
+		Gradient(col, col.Alpha(0.72), 135).Border(1, ui.RGBA(255, 255, 255, 0.18)).Shadow(0, 1, 3, 0, ui.RGBA(0, 0, 0, 0.18))
 	btn.Children(func() {
-		ui.Text(c, initial).Bold().FontSize(16).TextColor(t.Text)
+		ui.Text(c, initial).FontWeight(700).FontSize(15).TextColor(ui.RGB(255, 255, 255))
 		if l.AnyUnread() {
-			ui.Box(c).Size(6, 6).Radius(3).Background(t.Accent).Absolute().Top(3).Right(3)
+			ui.Box(c).Size(8, 8).Radius(4).Background(t.Accent).Border(1.5, card(t)).Absolute().Top(-2).Right(-2)
 		}
 	})
 	btn.Menu(s.LabMenu)
@@ -169,14 +242,15 @@ func (s *Shell) benchIcon(c *ui.Context, b *model.Bench, i int) {
 	t := c.Theme()
 	selected := b == s.bench()
 	tip := b.Name + "\n" + b.EffectiveRoot(s.Home)
-	btn := ui.Button(c.Key(b.ID), "").Label(b.Name).Tooltip(tip).Size(40, 40).Padding(0).Radius(10).Drag(b)
+	btn := ui.Button(c.Key(b.ID), "").Label(b.Name).Tooltip(tip).Size(36, 36).Padding(0).Radius(9).Border(1, ui.Transparent).Drag(b)
 	fg := t.TextMuted
 	switch {
 	case selected:
-		btn.Background(t.Accent)
-		fg = t.AccentText
+		btn.Background(chosen(t))
+		fg = t.Accent
 	case btn.Hovered():
-		btn.Background(t.SurfaceHover)
+		btn.Background(hover(t))
+		fg = t.Text
 	default:
 		btn.Background(ui.Transparent)
 	}
@@ -187,13 +261,9 @@ func (s *Shell) benchIcon(c *ui.Context, b *model.Bench, i int) {
 		s.St.MoveBench(moved, i)
 	}
 	btn.Children(func() {
-		ui.Icon(c, TypeIcon(b.Type)).FontSize(18).TextColor(fg)
+		ui.Icon(c, TypeIcon(b.Type)).FontSize(17).TextColor(fg)
 		if b.AnyUnread() {
-			dot := t.Accent
-			if selected {
-				dot = t.AccentText
-			}
-			ui.Box(c).Size(6, 6).Radius(3).Background(dot).Absolute().Top(4).Right(4)
+			ui.Box(c).Size(7, 7).Radius(3.5).Background(t.Accent).Absolute().Top(4).Right(4)
 		}
 	})
 	if btn.Clicked() {
@@ -220,15 +290,12 @@ func (s *Shell) benchIcon(c *ui.Context, b *model.Bench, i int) {
 	})
 }
 
-// sidebar draws the Bench header and the Tab list (R-SHELL-050 … R-SHELL-058).
+// sidebar draws the Bench header and the Tab list over the material
+// (R-SHELL-050 … R-SHELL-058).
 func (s *Shell) sidebar(c *ui.Context) {
 	t := c.Theme()
 	w := float32(s.Set.S.Sidebar.Width)
-	col := ui.Column(c.Key("sidebar")).Width(w).Shrink(0).AlignItems(ui.Stretch)
-	if !c.Vibrancy() {
-		col.Background(t.Surface)
-	}
-	col.Children(func() {
+	ui.Column(c.Key("sidebar")).Width(w).Shrink(0).AlignItems(ui.Stretch).Children(func() {
 		ui.Row(c).Height(titleH).Shrink(0).DragWindow()
 		b := s.bench()
 		if b == nil {
@@ -256,7 +323,6 @@ func (s *Shell) sidebar(c *ui.Context) {
 			s.Set.Changed(nil)
 		}
 	})
-	ui.Box(c).Width(1).Shrink(0).Background(t.Border)
 }
 
 // tabsAndPanel stacks the Tab list over the Panel with a divider the user
@@ -268,10 +334,14 @@ func (s *Shell) tabsAndPanel(c *ui.Context, b *model.Bench, pn Paneler) {
 		h = 360
 	}
 	ui.Column(c.Key("tabs-box")).Grow(1).Basis(0).MinHeight(60).AlignItems(ui.Stretch).Children(func() { s.tabs(c, b) })
-	grip := ui.Box(c.Key("panel-grip")).Height(7).Shrink(0).Cursor(ui.CursorResizeNS).Children(func() {
-		ui.Box(c).Height(1).FillWidth().Margin(3, 0, 0, 0).Background(t.Border)
-	})
-	if _, dy, held := grip.Dragged(); held {
+	grip := ui.Box(c.Key("panel-grip")).Height(9).Shrink(0).Padding(0, 12).Cursor(ui.CursorResizeNS)
+	_, dy, held := grip.Dragged()
+	line := stroke(t)
+	if held || grip.Hovered() {
+		line = t.Accent.Alpha(0.6)
+	}
+	grip.Children(func() { ui.Box(c).Height(1).FillWidth().Margin(4, 0, 0, 0).Background(line) })
+	if held {
 		s.panelH[b] = max(80, h-dy)
 	}
 	ui.Column(c.Key("panel")).Height(h).Shrink(1).MinHeight(80).AlignItems(ui.Stretch).Children(func() { pn.Panel(c, b) })
@@ -279,12 +349,11 @@ func (s *Shell) tabsAndPanel(c *ui.Context, b *model.Bench, pn Paneler) {
 
 func (s *Shell) benchHeader(c *ui.Context, b *model.Bench) {
 	t := c.Theme()
-	ui.Row(c).Height(32).Shrink(0).Padding(0, 6, 0, 12).Gap(6).Children(func() {
-		ui.Text(c, b.Name).Bold().SingleLine().Grow(1).Shrink(1).MinWidth(0)
-		ui.Text(c, fmt.Sprint(len(b.Tabs))).TextColor(t.TextMuted).FontSize(12)
-		add := ui.Button(c.Key("new-tab"), "").Label("New Tab").Tooltip("New Tab (⌘T)").Size(24, 24).Padding(0).Background(ui.Transparent)
-		add.Children(func() { ui.Icon(c, iconPlus).FontSize(14).TextColor(t.TextMuted) })
-		if add.Clicked() {
+	ui.Row(c).Height(30).Shrink(0).Padding(0, 8, 0, 14).Gap(6).AlignItems(ui.Center).Children(func() {
+		ui.Text(c, strings.ToUpper(b.Name)).FontSize(11).FontWeight(600).TextColor(faint(t)).SingleLine().Shrink(1).MinWidth(0)
+		ui.Text(c, fmt.Sprint(len(b.Tabs))).FontSize(10).FontWeight(600).TextColor(faint(t)).Padding(1, 6).Radius(8).Background(hover(t))
+		ui.Box(c).Grow(1)
+		if iconBtn(c, "new-tab", "New Tab (⌘T)", iconPlus, false).Size(24, 24).Clicked() {
 			s.NewTab()
 		}
 	})
@@ -305,26 +374,31 @@ func (s *Shell) tabs(c *ui.Context, b *model.Bench) {
 	var showTab *model.Tab
 	ui.List(c.Key("tabs"), &s.tabList, len(list), func(i int) {
 		tab := list[i]
-		row := ui.Row(c).Height(rowH).Padding(0, 6, 0, 8).Margin(0, 6).Gap(6).Radius(6)
+		row := ui.Row(c).Height(rowH).Padding(0, 6, 0, 10).Margin(0, 8).Gap(7).Radius(radiusSm).AlignItems(ui.Center).Transition(hoverMotion)
 		hovered := row.Hovered()
 		fg := t.Text
+		iconCol := t.TextMuted
 		switch {
 		case tab == focused:
-			row.Background(t.Accent)
-			fg = t.AccentText
+			row.Background(chosen(t))
+			iconCol = t.Accent
 		case shown[tab]:
-			row.Background(t.SurfacePressed)
+			row.Background(hover(t))
 		case hovered:
-			row.Background(t.SurfaceHover)
+			row.Background(hover(t))
+		}
+		weight := 400
+		if tab == focused {
+			weight = 600
 		}
 		row.Children(func() {
-			ui.Icon(c, TypeIcon(b.Type)).FontSize(13).TextColor(fg)
-			ui.Text(c, tab.DisplayTitle()).TextColor(fg).SingleLine().Shrink(1).MinWidth(0)
+			ui.Icon(c, TypeIcon(b.Type)).FontSize(13).TextColor(iconCol)
+			ui.Text(c, tab.DisplayTitle()).TextColor(fg).FontWeight(weight).SingleLine().Shrink(1).MinWidth(0)
 			sub := ""
 			if st, ok := s.typeOf(b).(Subtitler); ok {
 				sub = st.Subtitle(tab)
 			}
-			ui.Text(c, sub).FontSize(11).TextColor(fg.Alpha(0.6)).SingleLine().Grow(1).Shrink(2).MinWidth(0)
+			ui.Text(c, sub).FontSize(11).TextColor(faint(t)).SingleLine().Grow(1).Shrink(2).MinWidth(0)
 			if tab.Owner != "" { // R-MCP-032: an agent made it
 				ui.Text(c, "✦").FontSize(11).TextColor(t.Accent).Tooltip("Opened by an agent")
 			}
@@ -344,8 +418,11 @@ func (s *Shell) tabs(c *ui.Context, b *model.Bench) {
 				ui.Box(c).Size(6, 6).Radius(3).Background(t.Accent)
 			}
 			if hovered && !tab.Pinned {
-				x := ui.Button(c.Key("close"), "").Label("Close "+tab.DisplayTitle()).Size(18, 18).Padding(0).Background(ui.Transparent)
-				x.Children(func() { ui.Icon(c, iconClose).FontSize(11).TextColor(fg) })
+				x := ui.Button(c.Key("close"), "").Label("Close "+tab.DisplayTitle()).Size(18, 18).Padding(0).Radius(9).Background(ui.Transparent)
+				if x.Hovered() {
+					x.Background(pressed(t))
+				}
+				x.Children(func() { ui.Icon(c, iconClose).FontSize(10).TextColor(t.TextMuted) })
 				if x.Clicked() {
 					closeTab = tab
 				}
@@ -433,7 +510,13 @@ func (s *Shell) layout(c *ui.Context) {
 	if b.Zoomed {
 		root = b.Focus
 	}
-	s.node(c, b, root)
+	if root.IsLeaf() {
+		s.node(c, b, root)
+		return
+	}
+	// Several panes: each a rounded card of its own, a gap between them.
+	ui.Column(c.Key("panes")).Grow(1).Basis(0).MinHeight(0).MinWidth(0).Padding(paneGap).AlignItems(ui.Stretch).
+		Background(chrome(c.Theme()).Alpha(0.55)).Children(func() { s.node(c, b, root) })
 }
 
 func (s *Shell) node(c *ui.Context, b *model.Bench, n *model.Node) {
@@ -471,16 +554,25 @@ func (s *Shell) node(c *ui.Context, b *model.Bench, n *model.Node) {
 		}
 		first.Children(func() { s.node(c, b, n.A) })
 
-		div := ui.Box(c.Key("divider")).Shrink(0).Background(t.Border).Role(ui.RoleSplitter).Label("Divider")
+		div := ui.Box(c.Key("divider")).Shrink(0).Center().Role(ui.RoleSplitter).Label("Divider")
+		var mark ui.Element
 		if row {
-			div.Width(1)
+			div.Width(paneGap)
 		} else {
-			div.Height(1)
+			div.Height(paneGap)
 		}
+		div.Children(func() {
+			mark = ui.Box(c.Key("mark")).Radius(1)
+			if row {
+				mark.Width(2).Height(28)
+			} else {
+				mark.Height(2).Width(28)
+			}
+		})
 		defer func() {
 			// The grip spans 4 pt over each side of the line, above both
 			// panes, placed in the Split's own box (as ui.Split places it).
-			at := total*float32(n.Ratio) - 4
+			at := total*float32(n.Ratio) - 1
 			grip := ui.Box(c.Key("grip")).Absolute()
 			if row {
 				grip.Top(0).Bottom(0).Left(at).Width(9).Cursor(ui.CursorResizeEW)
@@ -497,14 +589,28 @@ func (s *Shell) node(c *ui.Context, b *model.Bench, n *model.Node) {
 				n.SetRatio(max(lo, min(hi, n.Ratio+float64(d/total))))
 				s.St.Changed()
 			}
-			if held || grip.Hovered() {
-				div.Background(t.Accent)
+			switch {
+			case held:
+				mark.Background(t.Accent)
+			case grip.Hovered():
+				mark.Background(t.Text.Alpha(0.35))
 			}
 		}()
 
 		second := ui.Column(c.Key("b")).Grow(1).Basis(0).MinWidth(0).MinHeight(0).AlignItems(ui.Stretch).Clip()
 		second.Children(func() { s.node(c, b, n.B) })
 	})
+}
+
+// paneChrome makes a Leaf one of several rounded panes; the focused one
+// has the accent's outline (R-MODEL-031).
+func paneChrome(c *ui.Context, box ui.Element, focused bool) {
+	t := c.Theme()
+	border := stroke(t)
+	if focused {
+		border = t.Accent.Alpha(0.55)
+	}
+	box.Radius(radiusMd).Clip().Background(card(t)).Border(1, border)
 }
 
 // leaf draws one Leaf: its Tab, or the empty view (R-MODEL-031).
@@ -525,8 +631,8 @@ func (s *Shell) leaf(c *ui.Context, b *model.Bench, n *model.Node, key string) {
 	}
 	if tt := s.typeOf(b); tt != nil && n.Tab != nil {
 		box := ui.Column(c.Key(key)).Grow(1).Basis(0).MinWidth(0).MinHeight(0).AlignItems(ui.Stretch)
-		if focused && many {
-			box.Border(1, t.Accent.Alpha(0.6))
+		if many {
+			paneChrome(c, box, focused)
 		}
 		tab := n.Tab
 		box.Children(func() {
@@ -538,8 +644,8 @@ func (s *Shell) leaf(c *ui.Context, b *model.Bench, n *model.Node, key string) {
 		return
 	}
 	box := ui.Column(c.Key(key)).Grow(1).Basis(0).MinWidth(0).MinHeight(0).Center().Gap(10).Padding(16)
-	if focused && many {
-		box.Border(1, t.Accent.Alpha(0.6))
+	if many {
+		paneChrome(c, box, focused)
 	}
 	if box.Pressed() && !focused {
 		s.St.FocusLeaf(b, n)
@@ -548,9 +654,11 @@ func (s *Shell) leaf(c *ui.Context, b *model.Bench, n *model.Node, key string) {
 		}
 	}
 	box.Children(func() {
-		ui.Icon(c, TypeIcon(b.Type)).FontSize(36).TextColor(t.TextMuted.Alpha(0.6))
+		ui.Box(c).Size(64, 64).Center().Radius(16).Background(hover(t)).Children(func() {
+			ui.Icon(c, TypeIcon(b.Type)).FontSize(30).TextColor(t.TextMuted)
+		})
 		if n.Tab == nil {
-			ui.Text(c, "No Tab").FontSize(15).TextColor(t.TextMuted)
+			ui.Text(c, "No Tab").FontSize(15).FontWeight(600).TextColor(t.TextMuted)
 			if ui.PrimaryButton(c.Key("new"), "New "+b.Type.Title()+" Tab").Tooltip("⌘T").Clicked() {
 				s.NewTab()
 			}
@@ -561,10 +669,12 @@ func (s *Shell) leaf(c *ui.Context, b *model.Bench, n *model.Node, key string) {
 	})
 }
 
-// statusBar draws the status text, the Daemon and the Unread count (R-SHELL-070 … R-SHELL-074).
+// statusBar is the quiet line at the card's foot: the status of the
+// focused Tab, the Daemon and the Unread count (R-SHELL-070 … R-SHELL-074).
 func (s *Shell) statusBar(c *ui.Context) {
 	t := c.Theme()
-	ui.Row(c.Key("status")).Height(statusH).Shrink(0).Padding(0, 10).Gap(12).BorderWidth(1, 0, 0, 0).BorderColor(t.Border).Children(func() {
+	ui.Row(c.Key("status")).Height(statusH).Shrink(0).Padding(0, 12).Gap(10).AlignItems(ui.Center).
+		BorderWidth(1, 0, 0, 0).BorderColor(stroke(t)).Children(func() {
 		text := ""
 		if b := s.bench(); b != nil {
 			text = b.Type.Title()
@@ -575,28 +685,32 @@ func (s *Shell) statusBar(c *ui.Context) {
 				}
 			}
 		}
-		ui.Text(c, text).FontSize(11).TextColor(t.TextMuted).SingleLine().Grow(1).Shrink(1).MinWidth(0)
+		ui.Text(c, text).FontSize(11).TextColor(faint(t)).SingleLine().Grow(1).Shrink(1).MinWidth(0)
+		if s.AgentStatus != nil {
+			s.AgentStatus(c)
+		}
+		if n := s.St.UnreadCount(); n > 0 {
+			u := ui.Text(c, fmt.Sprintf("%d unread", n)).FontSize(11).FontWeight(600).TextColor(t.Accent).Padding(1, 7).Radius(8).
+				Background(t.Accent.Alpha(0.12)).Cursor(ui.CursorPointer)
+			if u.Clicked() {
+				s.GoToUnread()
+			}
+		}
 		ok := s.DaemonOK != nil && s.DaemonOK()
 		dot, label, tip := t.Danger, "daemon off", "The terminal daemon is not connected; click to retry"
 		if ok {
 			dot, label, tip = t.Success, "daemon", "The terminal daemon is connected"
 		}
-		d := ui.Row(c.Key("daemon")).Gap(4).Tooltip(tip).Cursor(ui.CursorPointer)
+		d := ui.Row(c.Key("daemon")).Gap(5).Padding(1, 6).Radius(8).AlignItems(ui.Center).Tooltip(tip).Cursor(ui.CursorPointer).Transition(hoverMotion)
+		if d.Hovered() {
+			d.Background(hover(t))
+		}
 		d.Children(func() {
 			ui.Box(c).Size(6, 6).Radius(3).Background(dot)
-			ui.Text(c, label).FontSize(11).TextColor(t.TextMuted)
+			ui.Text(c, label).FontSize(11).TextColor(faint(t))
 		})
 		if d.Clicked() && !ok && s.RestartDaemon != nil {
 			s.RestartDaemon()
-		}
-		if s.AgentStatus != nil {
-			s.AgentStatus(c)
-		}
-		if n := s.St.UnreadCount(); n > 0 {
-			u := ui.Text(c, fmt.Sprintf("%d unread", n)).FontSize(11).TextColor(t.Accent).Cursor(ui.CursorPointer)
-			if u.Clicked() {
-				s.GoToUnread()
-			}
 		}
 	})
 }

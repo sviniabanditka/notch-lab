@@ -142,11 +142,16 @@ func (s *Shell) switcherView(c *ui.Context) {
 	}
 	t := c.Theme()
 	ui.DialogBase(c, &s.sw.open, func(backdrop, panel ui.Element) {
-		backdrop.Background(ui.RGBA(0, 0, 0, 0.2)).Justify(ui.Start)
-		panel.Width(600).Margin(64, 0, 0, 0).Radius(12).Background(t.Background).Border(1, t.Border).
-			Shadow(0, 12, 40, 0, ui.RGBA(0, 0, 0, 0.35)).Padding(8).Gap(6)
+		backdrop.Background(ui.RGBA(0, 0, 0, 0.12)).Justify(ui.Start)
+		panel.Width(620).Margin(80, 0, 0, 0).Radius(14).Background(card(t)).Border(1, stroke(t)).
+			Shadow(0, 18, 50, 0, ui.RGBA(0, 0, 0, 0.30)).Padding(6).Gap(4)
 		res := s.results()
-		field := ui.TextInput(c.Key("switcher-q"), &s.sw.query).Placeholder("Go to a Lab, Bench or Tab").AutoFocus()
+		var field ui.Element
+		ui.Row(c.Key("switcher-bar")).Height(44).Padding(0, 12).Gap(10).AlignItems(ui.Center).
+			BorderWidth(0, 0, 1, 0).BorderColor(stroke(t)).Margin(0, 0, 2, 0).Children(func() {
+			ui.Icon(c, iconSearch).FontSize(17).TextColor(t.TextMuted)
+			field = ui.TextInputBase(c.Key("switcher-q"), &s.sw.query).Placeholder("Go to a Lab, Bench or Tab").FontSize(17).Grow(1).AutoFocus()
+		})
 		if field.Changed() {
 			s.sw.sel = 0
 			res = s.results()
@@ -168,13 +173,13 @@ func (s *Shell) switcherView(c *ui.Context) {
 		var chosen = -1
 		ui.List(c.Key("switcher-list"), &s.sw.list, len(res), func(i int) {
 			it := res[i]
-			row := ui.Row(c).Height(32).Padding(0, 10).Gap(10).Radius(6)
-			fg, muted := t.Text, t.TextMuted
+			row := ui.Row(c).Height(34).Padding(0, 10).Gap(10).Radius(8).AlignItems(ui.Center)
+			fg, muted := t.Text, faint(t)
 			if i == s.sw.sel {
 				row.Background(t.Accent)
 				fg, muted = t.AccentText, t.AccentText.Alpha(0.75)
 			} else if row.Hovered() {
-				row.Background(t.SurfaceHover)
+				row.Background(hover(t))
 			}
 			row.Children(func() {
 				switch it.kind {
@@ -193,7 +198,7 @@ func (s *Shell) switcherView(c *ui.Context) {
 			if row.Clicked() {
 				chosen = i
 			}
-		}).MaxHeight(32 * switcherRows)
+		}).MaxHeight(34*switcherRows+4).Padding(0, 0, 4, 0)
 		if chosen >= 0 {
 			s.activate(res[chosen], false)
 		}

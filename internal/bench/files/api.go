@@ -892,7 +892,12 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 		ui.Column(c).Padding(6, 8).Gap(2).Children(func() {
 			section := func(name string, list []string, removable bool) {
 				ui.Text(c, name).FontSize(11).Bold().TextColor(th.TextMuted).Padding(6, 4, 2, 4)
+				seen := map[string]bool{} // the Lab's root may be home, or a favorite twice
 				for k, p := range list {
+					if seen[p] {
+						continue
+					}
+					seen[p] = true
 					_, err := os.Stat(p)
 					col := th.Text
 					tip := p

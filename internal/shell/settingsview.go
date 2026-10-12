@@ -38,45 +38,84 @@ func (v *SettingsView) View(c *ui.Context) {
 	t := c.Theme()
 	if c.Vibrancy() {
 		c.Root().Background(ui.Transparent)
+	} else {
+		c.Root().Background(chrome(t))
 	}
 	ui.Row(c).Fill().AlignItems(ui.Stretch).Children(func() {
-		side := ui.Column(c).Width(180).Shrink(0).Gap(2).Padding(titleH, 8, 8, 8)
-		if !c.Vibrancy() {
-			side.Background(t.Surface)
-		}
-		side.Children(func() {
+		ui.Column(c.Key("sections")).Width(200).Shrink(0).Gap(2).Padding(titleH+4, 10, 10, 10).Children(func() {
 			for i, name := range SettingsSections {
-				row := ui.Row(c.Key(name)).Height(28).Padding(0, 10).Radius(6)
-				fg := t.Text
-				if i == v.Section {
-					row.Background(t.Accent)
-					fg = t.AccentText
-				} else if row.Hovered() {
-					row.Background(t.SurfaceHover)
+				i, name := i, name
+				row := ui.Row(c.Key(name)).Height(30).Padding(0, 8).Gap(9).Radius(radiusSm).AlignItems(ui.Center).Transition(hoverMotion)
+				switch {
+				case i == v.Section:
+					row.Background(chosen(t))
+				case row.Hovered():
+					row.Background(hover(t))
 				}
-				row.Children(func() { ui.Text(c, name).TextColor(fg) })
+				row.Children(func() {
+					col := sectionColors[i%len(sectionColors)]
+					ui.Box(c).Size(22, 22).Shrink(0).Center().Radius(6).Gradient(col, col.Alpha(0.78), 135).Children(func() {
+						ui.Icon(c, sectionIcons[i]).FontSize(13).TextColor(ui.RGB(255, 255, 255))
+					})
+					weight := 400
+					if i == v.Section {
+						weight = 600
+					}
+					ui.Text(c, name).FontWeight(weight)
+				})
 				if row.Clicked() {
 					v.Section = i
 				}
 			}
 		})
-		ui.Column(c).Grow(1).Basis(0).Background(t.Background).Children(func() {
-			ui.Row(c).Height(titleH).Shrink(0).DragWindow().Padding(0, 20).Children(func() {
-				ui.Text(c, SettingsSections[v.Section]).Bold()
-			})
-			ui.Scroll(c).Grow(1).Basis(0).Children(func() {
-				ui.Column(c).Padding(8, 24, 24, 24).Gap(14).Children(func() { v.section(c) })
+		ui.Column(c.Key("page")).Grow(1).Basis(0).Padding(cardInset, cardInset, cardInset, 2).AlignItems(ui.Stretch).Children(func() {
+			shadow := ui.RGBA(0, 0, 0, 0.10)
+			if t.Dark {
+				shadow = ui.RGBA(0, 0, 0, 0.35)
+			}
+			ui.Column(c.Key("card")).Grow(1).Basis(0).MinHeight(0).Radius(radiusLg).Background(card(t)).Border(1, stroke(t)).
+				Shadow(0, 1, 10, 0, shadow).Clip().AlignItems(ui.Stretch).Children(func() {
+				ui.Row(c).Height(toolbarH+4).Shrink(0).DragWindow().Padding(0, 22).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, SettingsSections[v.Section]).FontSize(17).FontWeight(700)
+				})
+				ui.Scroll(c).Grow(1).Basis(0).Children(func() {
+					ui.Column(c).Padding(2, 20, 24, 20).AlignItems(ui.Stretch).Children(func() {
+						ui.Column(c.Key("group")).Radius(10).Background(hover(t)).Border(1, stroke(t)).AlignItems(ui.Stretch).
+							Children(func() { v.section(c) })
+					})
+				})
 			})
 		})
 	})
 }
 
+var sectionColors = []ui.Color{
+	ui.Hex("#8e8e93"), ui.Hex("#5e5ce6"), ui.Hex("#636366"), ui.Hex("#3a3a3c"), ui.Hex("#0a84ff"),
+	ui.Hex("#30b0c7"), ui.Hex("#bf5af2"), ui.Hex("#ff6482"), ui.Hex("#636366"),
+}
+
+var sectionIcons = []*ui.SVG{iconGear, iconContrast, iconKeyboard, iconTerminal, iconBrowser, iconPuzzle, iconEditor, iconAgents, iconSettings}
+
 func (v *SettingsView) section(c *ui.Context) {
 	set := &v.S.Set.S
 	t := c.Theme()
-	note := func(s string) { ui.Text(c, s).TextColor(t.TextMuted).FontSize(12) }
+	// Rows sit in rounded groups, a hairline between them, as System
+	// Settings draws them.
+	first := true
+	line := func(key string) ui.Element {
+		r := ui.Row(c.Key(key)).Gap(12).Padding(9, 14).AlignItems(ui.Center)
+		if !first {
+			r.BorderWidth(1, 0, 0, 0).BorderColor(stroke(t))
+		}
+		first = false
+		return r
+	}
+
+	note := func(s string) {
+		line("note:" + s).Children(func() { ui.Text(c, s).TextColor(t.TextMuted).FontSize(12) })
+	}
 	sw := func(label string, val *bool) {
-		ui.Row(c.Key(label)).Gap(12).Children(func() {
+		line(label).Children(func() {
 			ui.Text(c, label).Grow(1)
 			if ui.Switch(c, val).Label(label).Changed() {
 				v.changed()
@@ -84,7 +123,7 @@ func (v *SettingsView) section(c *ui.Context) {
 		})
 	}
 	sel := func(label string, val *string, opts ...string) {
-		ui.Row(c.Key(label)).Gap(12).Children(func() {
+		line(label).Children(func() {
 			ui.Text(c, label).Grow(1)
 			if ui.Select(c, val, opts).Width(180).Changed() {
 				v.changed()
@@ -92,7 +131,7 @@ func (v *SettingsView) section(c *ui.Context) {
 		})
 	}
 	num := func(label string, val *float64, lo, hi, step float64) {
-		ui.Row(c.Key(label)).Gap(12).Children(func() {
+		line(label).Children(func() {
 			ui.Text(c, label).Grow(1)
 			if ui.NumberInput(c, val, lo, hi, step).Width(120).Changed() {
 				v.changed()
@@ -100,7 +139,7 @@ func (v *SettingsView) section(c *ui.Context) {
 		})
 	}
 	text := func(label string, val *string) {
-		ui.Row(c.Key(label)).Gap(12).Children(func() {
+		line(label).Children(func() {
 			ui.Text(c, label).Grow(1)
 			if ui.TextInput(c, val).Width(260).Changed() {
 				v.changed()
@@ -176,11 +215,11 @@ func (v *SettingsView) section(c *ui.Context) {
 		sw("Block popups", &set.Browser.BlockPopups)
 		sw("Allow the Web Inspector", &set.Browser.Inspectable)
 		if v.Browser != nil {
-			v.Browser(c)
+			line("hook").Children(func() { ui.Column(c).Grow(1).Gap(10).AlignItems(ui.Stretch).Children(func() { v.Browser(c) }) })
 		}
 	case "Extensions":
 		if v.Extensions != nil {
-			v.Extensions(c)
+			line("hook").Children(func() { ui.Column(c).Grow(1).Gap(10).AlignItems(ui.Stretch).Children(func() { v.Extensions(c) }) })
 		} else {
 			note("Extensions need macOS 15.4 or later.")
 		}
@@ -195,7 +234,7 @@ func (v *SettingsView) section(c *ui.Context) {
 		sw("Wrap lines", &set.Editor.Wrap)
 	case "Agents/MCP":
 		if v.Agents != nil {
-			v.Agents(c)
+			line("hook").Children(func() { ui.Column(c).Grow(1).Gap(10).AlignItems(ui.Stretch).Children(func() { v.Agents(c) }) })
 		}
 	case "Advanced":
 		ui.Row(c.Key("home")).Gap(12).Children(func() {

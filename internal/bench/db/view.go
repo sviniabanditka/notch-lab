@@ -19,6 +19,9 @@ import (
 // View draws a Query Tab (R-DB-042).
 func (b *Bench) View(c *ui.Context, t *model.Tab, focused bool) bool {
 	x := b.liveTab(c.Theme().Dark, t)
+	if p := b.palette(c.Theme().Dark); x.hl.Pal != p {
+		x.hl.Pal = p
+	}
 	has := false
 	ui.Column(c.Key("db-" + t.ID)).Grow(1).Basis(0).MinHeight(0).MinWidth(0).AlignItems(ui.Stretch).Children(func() {
 		b.toolbar(c, x)

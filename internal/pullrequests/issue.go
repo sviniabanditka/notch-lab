@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 	"github.com/sviniabanditka/notch-lab/internal/platform/theme"
 )
 
@@ -87,7 +88,7 @@ func (v *View) issueHeader(c *ui.Context, d *detail) {
 			})
 		}
 		ui.Row(c).FillWidth().Padding(6, 0, 0, 0).Children(func() {
-			if ui.Button(c, "Open in browser").Clicked() {
+			if kit.TextButton(c, "open", "Open in browser").Clicked() {
 				openURL(d.URL)
 			}
 		})

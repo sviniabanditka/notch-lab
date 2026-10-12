@@ -6,6 +6,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 	"github.com/sviniabanditka/notch-lab/internal/model"
 	"github.com/sviniabanditka/notch-lab/internal/platform/theme"
 )
@@ -322,7 +323,7 @@ func (s *Shell) sidebar(c *ui.Context) {
 		if b == nil {
 			ui.Column(c).Padding(16).Gap(8).Children(func() {
 				ui.Text(c, "No Bench in this Lab").TextColor(t.TextMuted)
-				if ui.Button(c, "New Bench…").Clicked() {
+				if kit.TextButton(c, "new-bench", "New Bench…").Clicked() {
 					s.OpenNewBench()
 				}
 			})
@@ -370,7 +371,7 @@ func (s *Shell) tabsAndPanel(c *ui.Context, b *model.Bench, pn Paneler) {
 
 func (s *Shell) benchHeader(c *ui.Context, b *model.Bench) {
 	t := c.Theme()
-	ui.Row(c).Height(30).Shrink(0).Padding(0, 8, 0, 14).Gap(6).AlignItems(ui.Center).Children(func() {
+	ui.Row(c).Height(30).Shrink(0).Padding(0, 8, 0, 18).Gap(6).AlignItems(ui.Center).Children(func() { // the caption lines up with the rows' text
 		ui.Text(c, strings.ToUpper(b.Name)).FontSize(11).FontWeight(600).TextColor(faint(t)).SingleLine().Shrink(1).MinWidth(0)
 		ui.Text(c, fmt.Sprint(len(b.Tabs))).FontSize(10).FontWeight(600).TextColor(faint(t)).Padding(1, 6).Radius(8).Background(hover(t))
 		ui.Box(c).Grow(1)
@@ -421,15 +422,15 @@ func (s *Shell) tabs(c *ui.Context, b *model.Bench) {
 			}
 			ui.Text(c, sub).FontSize(11).TextColor(faint(t)).SingleLine().Grow(1).Shrink(2).MinWidth(0)
 			if tab.Owner != "" { // R-MCP-032: an agent made it
-				ui.Text(c, "✦").FontSize(11).TextColor(t.Accent).Tooltip("Opened by an agent")
+				ui.Icon(c, kit.Sparkles).FontSize(11).TextColor(t.Accent).Label("Opened by an agent").Tooltip("Opened by an agent")
 			}
 			if tt := s.typeOf(b); tt != nil {
 				if g, alert := tt.Glyph(tab); g != "" {
-					col := fg
+					col := t.TextMuted
 					if alert && tab != focused {
 						col = t.Warning
 					}
-					ui.Text(c, g).FontSize(11).TextColor(col)
+					glyph(c, g, col)
 				}
 			}
 			if tab.Pinned {
@@ -496,9 +497,9 @@ func (s *Shell) tabs(c *ui.Context, b *model.Bench) {
 		})
 	}).Grow(1).Basis(0).MinHeight(0).Padding(2, 0).Children(func() {
 		if len(list) == 0 {
-			ui.Column(c).Padding(12).Gap(8).Children(func() {
+			ui.Column(c).Padding(8, 18).Gap(4).Children(func() {
 				ui.Text(c, "No Tabs").TextColor(t.TextMuted)
-				if ui.Button(c, "New Tab").Clicked() {
+				if kit.TextButton(c, "new-tab-empty", "New Tab").Margin(0, -10).Tooltip("⌘T").Clicked() {
 					s.NewTab()
 				}
 			})
@@ -628,10 +629,10 @@ func (s *Shell) node(c *ui.Context, b *model.Bench, n *model.Node) {
 func paneChrome(c *ui.Context, box ui.Element, focused bool) {
 	t := c.Theme()
 	border := stroke(t)
-	if focused {
-		border = t.Accent.Alpha(0.55)
-	}
 	box.Radius(radiusMd).Clip().Background(card(t)).Border(1, border)
+	if focused { // a soft ring, as macOS draws focus
+		box.Border(1, t.Accent.Alpha(0.6)).Shadow(0, 0, 0, 3, t.Accent.Alpha(0.16))
+	}
 }
 
 // leaf draws one Leaf: its Tab, or the empty view (R-MODEL-031).
@@ -711,7 +712,7 @@ func (s *Shell) statusBar(c *ui.Context) {
 		}
 		if n := s.St.UnreadCount(); n > 0 {
 			u := ui.Text(c, fmt.Sprintf("%d unread", n)).FontSize(11).FontWeight(600).TextColor(t.Accent).Padding(1, 7).Radius(8).
-				Background(t.Accent.Alpha(0.12)).Cursor(ui.CursorPointer)
+				Background(t.Accent.Alpha(0.12)).Cursor(ui.CursorPointer).Role(ui.RoleButton).Label("Go to the next unread Tab")
 			if u.Clicked() {
 				s.GoToUnread()
 			}
@@ -721,7 +722,8 @@ func (s *Shell) statusBar(c *ui.Context) {
 		if ok {
 			dot, label, tip = t.Success, "daemon", "The terminal daemon is connected"
 		}
-		d := ui.Row(c.Key("daemon")).Gap(5).Padding(1, 6).Radius(8).AlignItems(ui.Center).Tooltip(tip).Cursor(ui.CursorPointer).Transition(hoverMotion)
+		d := ui.Row(c.Key("daemon")).Gap(5).Padding(1, 6).Radius(8).AlignItems(ui.Center).Tooltip(tip).Cursor(ui.CursorPointer).Transition(hoverMotion).
+			Role(ui.RoleButton).Label(label)
 		if d.Hovered() {
 			d.Background(hover(t))
 		}
@@ -733,4 +735,15 @@ func (s *Shell) statusBar(c *ui.Context) {
 			s.RestartDaemon()
 		}
 	})
+}
+
+// glyph draws a Tab's status mark as an icon: running, done, blocked; a
+// mark without an icon stays text.
+func glyph(c *ui.Context, g string, col ui.Color) {
+	icons := map[string]*ui.SVG{"✓": kit.Check, "●": kit.Dot, "⚠︎": kit.Warning, "⚠": kit.Warning, "⋯": kit.More}
+	if icon := icons[g]; icon != nil {
+		ui.Icon(c, icon).FontSize(11).TextColor(col)
+		return
+	}
+	ui.Text(c, g).FontSize(11).TextColor(col)
 }

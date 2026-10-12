@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -307,7 +308,8 @@ func mouseDown() bool {
 
 // stripView is the notch panel's top band, as tall as the notch, over
 // the panel's material as the rail and the sidebar: the Lab menu left of
-// the notch, S/M/L and Move to window right of it (R-SHELL-018).
+// the notch; the size, the sidebar, Move to window and Hide right of it
+// (R-SHELL-018).
 func (n *notch) stripView(c *ui.Context) {
 	th := c.Theme()
 	size := n.a.set.S.Notch.Size
@@ -315,41 +317,61 @@ func (n *notch) stripView(c *ui.Context) {
 	if r, ok := mygo.Screen.Notch(); ok && n.win != nil {
 		gap = float32(r.Width + 24)
 	}
-	pill := func(key, label string, on bool) ui.Element {
-		b := ui.Button(c.Key(key), label).Padding(2, 9).Radius(7).Border(1, ui.Transparent).
-			TextColor(th.TextMuted).Background(ui.Transparent)
-		switch {
-		case on:
-			b.TextColor(th.Accent).Background(th.Accent.Alpha(0.18))
-		case b.Hovered():
-			b.TextColor(th.Text).Background(th.Text.Alpha(0.06))
-		}
-		return b
-	}
-	ui.Row(c.Key("nstrip")).Height(float32(max(n.strip, 28))).Shrink(0).Padding(0, 12).AlignItems(ui.Center).Children(func() {
-		ui.Row(c.Key("nleft")).Grow(1).Basis(0).MinWidth(0).Gap(6).AlignItems(ui.Center).Children(func() {
+	ui.Row(c.Key("nstrip")).Height(float32(max(n.strip, 28))).Shrink(0).Padding(0, 8).AlignItems(ui.Center).Children(func() {
+		ui.Row(c.Key("nleft")).Grow(1).Basis(0).MinWidth(0).AlignItems(ui.Center).Children(func() {
 			lab := n.a.st.Window("notch").Lab
-			ui.Box(c).Size(8, 8).Shrink(0).Radius(4).Background(ui.Hex(lab.Color))
-			pill("nlab", lab.Name+" ▾", false).TextColor(th.Text).FontWeight(600).Shrink(1).MinWidth(0).Menu(n.sh.LabMenu)
+			b := ui.Row(c.Key("nlab")).Height(kit.Size).Padding(0, 8).Gap(7).Radius(7).AlignItems(ui.Center).Shrink(1).MinWidth(0).
+				Role(ui.RoleButton).Label("Lab menu").Cursor(ui.CursorPointer).Transition(kit.Motion)
+			if b.Hovered() {
+				b.Background(kit.Hover(th))
+			}
+			b.Children(func() {
+				ui.Box(c).Size(8, 8).Shrink(0).Radius(4).Background(ui.Hex(lab.Color))
+				ui.Text(c, lab.Name).FontWeight(600).SingleLine().Shrink(1).MinWidth(0)
+				ui.Icon(c, kit.Down).FontSize(11).TextColor(kit.Faint(th))
+			}).Menu(n.sh.LabMenu)
 		})
 		if gap > 0 {
 			ui.Box(c).Width(gap).Shrink(0)
 		}
 		ui.Row(c.Key("nright")).Grow(1).Basis(0).MinWidth(0).Gap(2).Justify(ui.End).AlignItems(ui.Center).Children(func() {
-			for _, sz := range []string{"S", "M", "L"} {
-				if pill("size"+sz, sz, sz == size).Tooltip("Panel size").Clicked() && sz != size {
-					n.a.set.S.Notch.Size = sz
-					n.a.set.Changed(nil)
-					if _, w, h := n.place(); n.win != nil {
-						b := n.win.Bounds()
-						b.X += (b.Width - w) / 2
-						b.Width, b.Height = w, h
-						n.win.SetBounds(b)
+			// S, M, L as one segmented group of the icon buttons' height.
+			ui.Row(c.Key("sizes")).Height(kit.Size).Padding(2).Gap(2).Radius(8).Background(kit.Hover(th)).Children(func() {
+				for _, sz := range []string{"S", "M", "L"} {
+					w, h := notchSizes[sz][0], notchSizes[sz][1]
+					seg := ui.Box(c.Key("size" + sz)).Width(26).Center().Radius(6).Role(ui.RoleButton).
+						Label(fmt.Sprintf("Panel size %s", sz)).Tooltip(fmt.Sprintf("Panel size %s · %d × %d", sz, w, h)).
+						Cursor(ui.CursorPointer).Transition(kit.Motion)
+					fg := kit.Faint(th)
+					switch {
+					case sz == size:
+						seg.Background(th.Background).Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.15))
+						fg = th.Text
+					case seg.Hovered():
+						fg = th.Text
+					}
+					seg.Children(func() { ui.Text(c, sz).FontSize(12).FontWeight(600).TextColor(fg) })
+					if seg.Clicked() && sz != size {
+						n.a.set.S.Notch.Size = sz
+						n.a.set.Changed(nil)
+						if _, w, h := n.place(); n.win != nil {
+							b := n.win.Bounds()
+							b.X += (b.Width - w) / 2
+							b.Width, b.Height = w, h
+							n.win.SetBounds(b)
+						}
 					}
 				}
+			})
+			ui.Box(c).Width(4).Shrink(0)
+			if kit.IconButton(c, "nsidebar", "Sidebar (⌘B)", kit.Sidebar, n.a.st.Window("notch").Sidebar).Clicked() {
+				n.sh.ToggleSidebar()
 			}
 			if kit.IconButton(c, "tomain", "Move to window", kit.Window, false).Clicked() {
 				n.moveToWindow()
+			}
+			if kit.IconButton(c, "nhide", "Hide (esc)", kit.Up, false).Clicked() {
+				n.hide()
 			}
 		})
 	})

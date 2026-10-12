@@ -12,6 +12,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/sviniabanditka/notch-lab/internal/extensions"
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 	"github.com/sviniabanditka/notch-lab/internal/webkit"
 )
 
@@ -464,15 +465,20 @@ func (e *Ext) buttons(c *ui.Context, x *tab) {
 		if label == "" {
 			label = en.Name
 		}
-		row := ui.Row(c.Key("ext-"+en.ID)).Height(26).Padding(0, 4).Gap(2).Radius(6).AlignItems(ui.Center).Tooltip(label).Bind(h)
-		if row.Hovered() {
-			row.Background(c.Theme().SurfaceHover)
+		row := ui.Row(c.Key("ext-"+en.ID)).Height(kit.Size).MinWidth(kit.Size).Shrink(0).Padding(0, 6).Gap(2).Radius(6).
+			AlignItems(ui.Center).Justify(ui.Center).Label(label).Tooltip(label).Role(ui.RoleButton).
+			Cursor(ui.CursorPointer).Transition(kit.Motion).Bind(h)
+		switch {
+		case row.Pressed():
+			row.Background(kit.Pressed(c.Theme()))
+		case row.Hovered():
+			row.Background(kit.Hover(c.Theme()))
 		}
 		row.Children(func() {
 			if bmp := e.icons[en.ID]; bmp != nil {
 				ui.Image(c, bmp).Width(16).Height(16)
 			} else {
-				ui.Text(c, "⧉").FontSize(12)
+				ui.Icon(c, kit.Puzzle).FontSize(15).TextColor(c.Theme().TextMuted)
 			}
 			if a.Badge != "" {
 				ui.Text(c, a.Badge).FontSize(9).Padding(0, 3).Radius(4).Background(c.Theme().Accent).TextColor(c.Theme().AccentText)

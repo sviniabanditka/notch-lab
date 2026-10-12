@@ -11,10 +11,14 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 	"github.com/sviniabanditka/notch-lab/internal/model"
 	"github.com/sviniabanditka/notch-lab/internal/platform/lightbox"
 	prs "github.com/sviniabanditka/notch-lab/internal/pullrequests"
 )
+
+// pullRequestIcon is Lucide's git-pull-request.
+var pullRequestIcon = kit.Lucide(`<circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" x2="6" y1="9" y2="21"/>`)
 
 // Bench draws every pull-requests Tab. Main goroutine only.
 type Bench struct {
@@ -154,7 +158,8 @@ func (b *Bench) View(c *ui.Context, t *model.Tab, focused bool) bool {
 	d := readData(t)
 	repo, num, _ := v.Shown()
 	if d.Repo == "" {
-		ui.Column(c.Key("none")).Grow(1).Center().Children(func() {
+		ui.Column(c.Key("none")).Grow(1).Center().Gap(12).Children(func() {
+			kit.Tile(c, pullRequestIcon, th.Accent, 44)
 			ui.Text(c, "Choose a pull request or issue in the Panel").TextColor(th.TextMuted)
 		})
 		return false
@@ -167,7 +172,7 @@ func (b *Bench) View(c *ui.Context, t *model.Tab, focused bool) bool {
 			// One detail shows at a time: another Leaf shows this Bench's other Tab.
 			ui.Column(c.Key("other")).Grow(1).Center().Gap(8).Children(func() {
 				ui.Text(c, fmt.Sprintf("%s #%d", d.Repo, d.Number)).Bold()
-				if ui.Button(c, "Show here").Clicked() {
+				if kit.TextButton(c, "show", "Show here").Clicked() {
 					v.ShowItem(d.Repo, d.Number, d.Issue)
 				}
 			})

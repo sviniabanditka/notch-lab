@@ -219,15 +219,19 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 	lab, global := b.Indexes(bench)
 	c.After(time.Second) // R-NOTES-005: read again while on screen
 	ui.Column(c.Key("notes")).Grow(1).Basis(0).MinHeight(0).Padding(4, 6).Gap(4).AlignItems(ui.Stretch).Children(func() {
-		q := ui.TextInput(c.Key("q"), &b.query).Placeholder("Search notes")
+		// The head of kit.PanelHead, built here: Enter in the field opens the first Note.
+		var q ui.Element
+		ui.Row(c.Key("panelhead")).Shrink(0).Gap(4).Padding(0, 2).AlignItems(ui.Center).Children(func() {
+			q = ui.SearchField(c.Key("q"), &b.query).Label("Search notes").Grow(1).MinWidth(0)
+		})
 		if set.Folder != "" {
 			if _, err := os.Stat(set.Folder); err != nil {
 				ui.Text(c, "Folder not found: "+set.Folder).FontSize(12).TextColor(th.Danger)
 				ui.Row(c.Key("fix")).Gap(6).Children(func() {
-					if ui.Button(c, "Choose folder…").Clicked() {
+					if kit.TextButton(c, "choose", "Choose folder…").Clicked() {
 						b.chooseFolder(bench)
 					}
-					if ui.Button(c, "Use default").Clicked() {
+					if kit.TextButton(c, "default", "Use default").Clicked() {
 						set.Folder = ""
 						writeSettings(bench, set)
 						b.St.Changed()
@@ -253,7 +257,7 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 					}
 				}
 				ui.Row(c.Key("h"+sec.name)).Padding(6, 6, 2, 6).Gap(6).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, sec.name).FontSize(11).Bold().TextColor(th.TextMuted).Grow(1)
+					kit.Caption(c, sec.name).Grow(1)
 					if kit.IconButton(c, "new", "New Note", kit.Plus, false).Clicked() {
 						b.global = sec.glob
 						dir := sec.x.Root
@@ -278,13 +282,10 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 					if g != "" { // R-NOTES-032
 						key := sec.name + "/" + g
 						closed := set.Closed[key] && b.query == ""
-						gr := ui.Row(c.Key("g"+key)).Height(22).Padding(0, 6).Gap(6).Radius(5).AlignItems(ui.Center)
+						gr := kit.Row(c, "g"+key, 0, false)
 						gr.Children(func() {
-							arrow := "▾"
-							if closed {
-								arrow = "▸"
-							}
-							ui.Text(c, arrow+" "+g).FontSize(12).TextColor(th.TextMuted)
+							kit.Chevron(c, !closed)
+							ui.Text(c, g).FontSize(12).TextColor(th.TextMuted).SingleLine()
 						})
 						if gr.Clicked() {
 							if set.Closed == nil {
@@ -338,15 +339,15 @@ func (b *Bench) noteRow(c *ui.Context, bench *model.Bench, h Hit, glob, nested b
 		_ = json.Unmarshal([]byte(t.Data), &d)
 		focused = d.Path
 	}
-	pad := float32(6)
+	pad := float32(8)
 	if nested {
-		pad = 18
+		pad = 26
 	}
-	r := ui.Column(c.Key(h.Path)).Padding(4, 6, 4, pad).Gap(1).Radius(6)
+	r := ui.Column(c.Key(h.Path)).Padding(4, 8, 4, pad).Gap(1).Radius(6).Transition(kit.Motion)
 	if focused == h.Path {
-		r.Background(th.Accent.Alpha(0.15))
+		r.Background(kit.Chosen(th))
 	} else if r.Hovered() {
-		r.Background(th.SurfaceHover)
+		r.Background(kit.Hover(th))
 	}
 	r.Children(func() {
 		ui.Row(c).Gap(6).Children(func() {

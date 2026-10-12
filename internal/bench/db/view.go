@@ -93,7 +93,7 @@ func (b *Bench) toolbar(c *ui.Context, x *tab) {
 	th := c.Theme()
 	d := readData(x.t)
 	conns := b.Connections(x.t.Bench)
-	ui.Row(c.Key("bar")).Height(38).Padding(0, 8).Gap(6).AlignItems(ui.Center).BorderWidth(0, 0, 1, 0).BorderColor(th.Border).Children(func() {
+	kit.Bar(c, "bar", func() {
 		names := []string{}
 		cur := ""
 		var conn *dbconn.Connection
@@ -131,7 +131,7 @@ func (b *Bench) toolbar(c *ui.Context, x *tab) {
 			}
 		}
 		if conn != nil && conn.ReadOnly {
-			ui.Text(c, "read-only").FontSize(11).Padding(1, 6).Radius(4).Background(th.Accent.Alpha(0.15)).TextColor(th.Accent)
+			ui.Text(c, "read-only").FontSize(11).Padding(1, 6).Radius(4).Background(kit.Chosen(th)).TextColor(th.Accent)
 		}
 		ui.Box(c).Grow(1)
 		limit := "off"
@@ -180,11 +180,11 @@ func (b *Bench) results(c *ui.Context, x *tab) {
 		return
 	}
 	if len(x.results) > 0 {
-		ui.Row(c.Key("rtabs")).Padding(4, 8).Gap(6).AlignItems(ui.Center).Children(func() {
+		kit.Bar(c, "rtabs", func() {
 			if len(x.results) > 1 {
 				labels := make([]string, len(x.results))
-				for i := range labels {
-					labels[i] = fmt.Sprint(i + 1)
+				for i, r := range x.results {
+					labels[i] = fmt.Sprintf("%d · %d rows", i+1, len(r.Rows))
 				}
 				ui.Segmented(c.Key("seg"), &x.shown, labels...)
 			}
@@ -206,7 +206,7 @@ func (b *Bench) results(c *ui.Context, x *tab) {
 		})
 	}
 	if len(x.messages) > 0 {
-		ui.Column(c.Key("msgs")).Padding(4, 10).Gap(2).MaxHeight(120).BorderWidth(1, 0, 0, 0).BorderColor(th.Border).Children(func() {
+		ui.Column(c.Key("msgs")).Padding(4, 10).Gap(2).MaxHeight(120).BorderWidth(1, 0, 0, 0).BorderColor(kit.Stroke(th)).Children(func() {
 			for i, m := range x.messages {
 				col := th.TextMuted
 				if strings.HasPrefix(m, "Error") || m == ErrRefused.Error() {
@@ -366,9 +366,9 @@ func (b *Bench) grid(c *ui.Context, x *tab, r *dbconn.Result) {
 		}
 	})
 	if r.Limited {
-		ui.Row(c.Key("more")).Padding(4, 10).Gap(8).AlignItems(ui.Center).Background(th.Surface).Children(func() {
+		ui.Row(c.Key("more")).Padding(4, 10).Gap(8).AlignItems(ui.Center).Background(kit.Hover(th)).Children(func() {
 			ui.Text(c, fmt.Sprintf("%d rows shown", len(r.Rows))).Grow(1)
-			if ui.Button(c, "Load more").Clicked() {
+			if kit.TextButton(c, "loadmore", "Load more").Clicked() {
 				b.loadMore(x, r)
 			}
 		})
@@ -479,10 +479,7 @@ func (b *Bench) historyList(c *ui.Context, x *tab) {
 		}
 		for i, e := range list {
 			e := e
-			row := ui.Row(c.Key(i)).Gap(10).Padding(3, 6).Radius(5).Cursor(ui.CursorPointer)
-			if row.Hovered() {
-				row.Background(th.SurfaceHover)
-			}
+			row := kit.Row(c, fmt.Sprint(i), 0, false).Gap(10).Cursor(ui.CursorPointer)
 			row.Children(func() {
 				ui.Text(c, e.At.Format("01-02 15:04")).TextColor(th.TextMuted).FontSize(12)
 				ui.Text(c, strings.Join(strings.Fields(e.SQL), " ")).SingleLine().Grow(1).Shrink(1).MinWidth(0).FontSize(12)

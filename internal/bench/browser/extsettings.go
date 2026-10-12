@@ -43,7 +43,7 @@ func (b *Bench) ExtensionSettings(c *ui.Context, parent *mygo.Window) {
 		if e.busy != "" {
 			ui.Spinner(c).Size(14, 14)
 		}
-		if ui.Button(c, "Add").Disabled(strings.TrimSpace(e.link) == "" || e.busy != "").Clicked() {
+		if kit.Off(kit.PrimaryIcon(c, "add", "Add", kit.Plus, "Add"), strings.TrimSpace(e.link) == "" || e.busy != "").Clicked() {
 			e.Install(strings.TrimSpace(e.link))
 			e.link = ""
 		}
@@ -67,7 +67,7 @@ func (b *Bench) ExtensionSettings(c *ui.Context, parent *mygo.Window) {
 	for _, en := range e.M.List {
 		en := en
 		cx := e.ctl.Contexts[en.ID]
-		ui.Column(c.Key("x"+en.ID)).Gap(4).Padding(8, 10).Radius(8).Background(th.Surface).Children(func() {
+		ui.Column(c.Key("x"+en.ID)).Gap(4).Padding(8, 10).Radius(10).Background(kit.Hover(th)).Children(func() {
 			ui.Row(c.Key("head")).Gap(4).AlignItems(ui.Center).Children(func() {
 				if bmp := e.icons[en.ID]; bmp != nil {
 					ui.Image(c, bmp).Width(20).Height(20)
@@ -111,11 +111,16 @@ func (b *Bench) ExtensionSettings(c *ui.Context, parent *mygo.Window) {
 			}
 		})
 	}
-	more := "What does not work ▸"
-	if e.limits {
-		more = "What does not work ▾"
+	more := ui.Row(c.Key("limits")).Height(kit.Size).Padding(0, 8).Gap(6).Radius(6).AlignItems(ui.Center).
+		Role(ui.RoleButton).Label("What does not work").Cursor(ui.CursorPointer).Transition(kit.Motion)
+	if more.Hovered() {
+		more.Background(kit.Hover(th))
 	}
-	if ui.Text(c.Key("limits"), more).FontSize(12).TextColor(th.TextMuted).Cursor(ui.CursorPointer).Clicked() {
+	more.Children(func() {
+		kit.Chevron(c, e.limits)
+		ui.Text(c, "What does not work").FontSize(12).TextColor(th.TextMuted)
+	})
+	if more.Clicked() {
 		e.limits = !e.limits
 	}
 	for _, l := range limits {

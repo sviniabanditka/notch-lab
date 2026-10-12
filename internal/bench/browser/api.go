@@ -607,7 +607,7 @@ func (b *Bench) addressBar(c *ui.Context, x *tab, focused bool) bool {
 	d := readData(x.t)
 	has := false
 	ui.Column(c.Key("bar")).Shrink(0).Children(func() {
-		ui.Row(c.Key("row")).Height(36).Padding(0, 6).Gap(4).BorderWidth(0, 0, 1, 0).BorderColor(th.Border).Children(func() {
+		kit.Bar(c, "row", func() {
 			page := (*mygo.Page)(nil)
 			if x.wv != nil {
 				page = x.wv.Page()
@@ -665,7 +665,7 @@ func (b *Bench) addressBar(c *ui.Context, x *tab, focused bool) bool {
 			}
 			if page != nil {
 				if z := page.ZoomFactor(); z > 0 && (z < 0.99 || z > 1.01) {
-					zb := ui.Button(c.Key("zoom"), fmt.Sprintf("%d%%", int(z*100+0.5))).Padding(0, 6).Tooltip("Reset zoom")
+					zb := kit.Chip(c, "zoom", fmt.Sprintf("%d%%", int(z*100+0.5)), false).Tooltip("Reset zoom")
 					if zb.Clicked() {
 						b.Zoom(x.t.Bench, 0)
 					}
@@ -691,15 +691,15 @@ func (b *Bench) addressBar(c *ui.Context, x *tab, focused bool) bool {
 			})
 		}
 		if has && len(x.sugg) > 0 {
-			ui.Column(c.Key("sugg")).Padding(4, 6).Gap(1).Background(th.Surface).BorderWidth(0, 0, 1, 0).BorderColor(th.Border).Children(func() {
+			ui.Column(c.Key("sugg")).Padding(4, 6).Gap(1).BorderWidth(0, 0, 1, 0).BorderColor(kit.Stroke(th)).Children(func() {
 				for i, s := range x.sugg {
-					row := ui.Row(c.Key(s.url)).Height(26).Padding(0, 8).Gap(8).Radius(6)
+					row := ui.Row(c.Key(s.url)).Height(kit.RowH).Padding(0, 8).Gap(8).Radius(6).Transition(kit.Motion)
 					fg := th.Text
 					if i == x.sel {
 						row.Background(th.Accent)
 						fg = th.AccentText
 					} else if row.Hovered() {
-						row.Background(th.SurfaceHover)
+						row.Background(kit.Hover(th))
 					}
 					row.Children(func() {
 						ui.Text(c, s.title).TextColor(fg).SingleLine().Shrink(1).MinWidth(0)
@@ -726,9 +726,10 @@ func (b *Bench) newTabPage(c *ui.Context, x *tab) {
 		}
 		ui.Row(c).Wrap().Gap(10).Justify(ui.Center).MaxWidth(720).Children(func() {
 			for _, v := range top {
-				card := ui.Column(c.Key(v.URL)).Width(160).Padding(10).Gap(4).Radius(10).Background(th.Surface)
+				card := ui.Column(c.Key(v.URL)).Width(160).Padding(10).Gap(4).Radius(10).Background(kit.Hover(th)).
+					Border(1, kit.Stroke(th)).Cursor(ui.CursorPointer).Transition(kit.Motion)
 				if card.Hovered() {
-					card.Background(th.SurfaceHover)
+					card.Background(kit.Pressed(th))
 				}
 				card.Children(func() {
 					ui.Text(c, Host(v.URL)).Bold().SingleLine()
@@ -742,7 +743,7 @@ func (b *Bench) newTabPage(c *ui.Context, x *tab) {
 		if bar := b.Marks.Folders(); len(bar) > 1 && len(bar[1].Children) > 0 {
 			ui.Row(c).Gap(6).Wrap().Justify(ui.Center).MaxWidth(720).Children(func() {
 				for _, m := range bar[1].Children {
-					if !m.Folder && ui.Button(c.Key("bm"+m.ID), m.Title).Clicked() {
+					if !m.Folder && kit.Chip(c, "bm"+m.ID, m.Title, false).Clicked() {
 						b.load(x, m.URL)
 					}
 				}
@@ -753,7 +754,7 @@ func (b *Bench) newTabPage(c *ui.Context, x *tab) {
 
 func (b *Bench) findBar(c *ui.Context, x *tab) {
 	th := c.Theme()
-	ui.Row(c.Key("find")).Height(32).Padding(0, 8).Gap(6).Background(th.Surface).BorderWidth(0, 0, 1, 0).BorderColor(th.Border).Children(func() {
+	kit.Bar(c, "find", func() {
 		in := ui.TextInput(c.Key("q"), &x.find.q).Placeholder("Find in page").Width(240).Bind(&x.find.h)
 		run := func(backward, next bool) {
 			if x.wv == nil || x.find.q == "" {
@@ -803,7 +804,7 @@ func (b *Bench) consoleView(c *ui.Context, x *tab) {
 		x.console.height = max(120, x.console.height-dy)
 	}
 	ui.Column(c.Key("console")).Height(x.console.height).Shrink(0).Background(th.Background).Children(func() {
-		ui.Row(c).Height(28).Padding(0, 8).Gap(8).Children(func() {
+		kit.Bar(c, "head", func() {
 			tab := 0
 			if x.console.network {
 				tab = 1
@@ -811,12 +812,12 @@ func (b *Bench) consoleView(c *ui.Context, x *tab) {
 			if ui.Segmented(c.Key("seg"), &tab, "Console", "Network").Changed() {
 				x.console.network = tab == 1
 			}
-			ui.TextInput(c.Key("filter"), &x.console.filter).Placeholder("Filter").Width(200)
+			ui.SearchField(c.Key("filter"), &x.console.filter).Label("Filter").Width(200)
 			if !x.console.network {
 				ui.Segmented(c.Key("lvl"), &x.console.level, "All", "Warnings", "Errors")
 			}
 			ui.Spacer(c)
-			if ui.Button(c, "Clear").Clicked() {
+			if kit.IconButton(c, "clear", "Clear", kit.Trash, false).Clicked() {
 				x.log.Clear()
 			}
 			if kit.IconButton(c, "close", "Close", kit.Close, false).Clicked() {
@@ -1102,7 +1103,7 @@ func (b *Bench) librarySection(c *ui.Context, bench *model.Bench, open func(u st
 					m := m
 					row := ui.Row(c.Key("b"+m.ID)).Height(30).Padding(0, 8, 0, 8+float32(depth)*16).Gap(8).Radius(7).AlignItems(ui.Center).Tooltip(m.URL)
 					if row.Hovered() {
-						row.Background(th.Text.Alpha(0.06))
+						row.Background(kit.Hover(th))
 					}
 					row.Children(func() {
 						icon, col := kit.Globe, th.TextMuted
@@ -1145,7 +1146,7 @@ func (b *Bench) librarySection(c *ui.Context, bench *model.Bench, open func(u st
 					}
 					row := ui.Row(c.Key("h"+v.URL)).Height(30).Padding(0, 8).Gap(8).Radius(7).AlignItems(ui.Center).Tooltip(v.URL)
 					if row.Hovered() {
-						row.Background(th.Text.Alpha(0.06))
+						row.Background(kit.Hover(th))
 					}
 					row.Children(func() {
 						title := v.Title
@@ -1175,7 +1176,7 @@ func (b *Bench) librarySection(c *ui.Context, bench *model.Bench, open func(u st
 			})
 		case 2:
 			ui.Row(c).Justify(ui.End).Children(func() {
-				if ui.Button(c, "Clear").Clicked() {
+				if kit.TextButton(c, "clear", "Clear").Clicked() {
 					kept := b.Loads.Items[:0]
 					for _, it := range b.Loads.Items {
 						if it.State != "done" {

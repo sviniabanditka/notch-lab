@@ -108,8 +108,7 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 		b.Hosts.Reload()
 	}
 	ui.Column(c.Key("sshpanel")).Grow(1).Basis(0).MinHeight(0).Padding(4, 6).Gap(4).AlignItems(ui.Stretch).Children(func() {
-		ui.Row(c.Key("head")).Gap(4).AlignItems(ui.Center).Children(func() {
-			ui.TextInput(c.Key("q"), &b.query).Placeholder("Search hosts").Grow(1)
+		kit.PanelHead(c, &b.query, "Search hosts", func() {
 			if kit.IconButton(c, "new", "New Host", kit.Plus, false).Clicked() {
 				b.EditHost(nil)
 			}
@@ -147,13 +146,13 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 				ui.Text(c, "No Hosts. + adds one; ~/.ssh/config Hosts show here.").FontSize(12).TextColor(th.TextMuted)
 			}
 			for _, tag := range tags {
-				ui.Text(c.Key("g"+tag), tag).FontSize(11).Bold().TextColor(th.TextMuted).Padding(6, 6, 2, 6)
+				kit.Caption(c, tag).Padding(6, 6, 2, 6)
 				for _, h := range groups[tag] {
 					b.hostRow(c, bench, tag, h)
 				}
 			}
 			if len(imported) > 0 {
-				ui.Text(c.Key("gconfig"), "ssh config").FontSize(11).Bold().TextColor(th.TextMuted).Padding(6, 6, 2, 6)
+				kit.Caption(c, "ssh config").Padding(6, 6, 2, 6)
 				for _, h := range imported {
 					b.hostRow(c, bench, "config", h)
 				}
@@ -169,12 +168,7 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 
 func (b *Bench) hostRow(c *ui.Context, bench *model.Bench, group string, h *sshhosts.Host) {
 	th := c.Theme()
-	r := ui.Row(c.Key(group+"/"+h.ID)).Height(26).Padding(0, 6).Gap(6).Radius(5).AlignItems(ui.Center)
-	if b.sel == h.ID {
-		r.Background(th.Accent.Alpha(0.15))
-	} else if r.Hovered() {
-		r.Background(th.SurfaceHover)
-	}
+	r := kit.Row(c, group+"/"+h.ID, 0, b.sel == h.ID)
 	r.Children(func() {
 		col := th.TextMuted
 		if h.Color != "" {

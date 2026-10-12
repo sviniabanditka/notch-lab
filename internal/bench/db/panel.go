@@ -16,7 +16,20 @@ import (
 	"github.com/sviniabanditka/notch-lab/internal/model"
 )
 
-var stateColor = map[string]string{"connected": "#2e9e58", "connecting": "#c9a227", "error": "#d64545"}
+// stateColor is the color of a Connection's state: brighter in dark.
+func stateColor(th *ui.Theme, state string) ui.Color {
+	light := map[string]string{"connected": "#2e9e58", "connecting": "#c9a227", "error": "#d64545"}
+	dark := map[string]string{"connected": "#4cc27a", "connecting": "#e0bd45", "error": "#f06a6a"}
+	m := light
+	if th.Dark {
+		m = dark
+	}
+	h, ok := m[state]
+	if !ok {
+		return th.TextMuted
+	}
+	return ui.Hex(h)
+}
 
 // Panel lists the Connections with their schema trees and the saved
 // Queries (R-DB-030 … R-DB-037, R-DB-055).
@@ -28,8 +41,7 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 		b.panel[bench] = p
 	}
 	ui.Column(c.Key("dbpanel")).Grow(1).Basis(0).MinHeight(0).Padding(4, 6).Gap(4).AlignItems(ui.Stretch).Children(func() {
-		ui.Row(c.Key("head")).Gap(4).AlignItems(ui.Center).Children(func() {
-			ui.TextInput(c.Key("q"), &p.query).Placeholder("Search tables").Grow(1)
+		kit.PanelHead(c, &p.query, "Search tables", func() {
 			if kit.IconButton(c, "new", "New Connection", kit.Plus, false).Clicked() {
 				b.EditConnection(bench, nil)
 			}
@@ -50,40 +62,17 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 	}
 }
 
-func row(c *ui.Context, key string, depth int, selected bool) ui.Element {
-	th := c.Theme()
-	r := ui.Row(c.Key(key)).Height(22).Padding(0, 6, 0, float32(6+depth*14)).Gap(6).Radius(5).AlignItems(ui.Center)
-	if selected {
-		r.Background(th.Accent.Alpha(0.15))
-	} else if r.Hovered() {
-		r.Background(th.SurfaceHover)
-	}
-	return r
-}
-
-func arrow(c *ui.Context, open bool) {
-	a := "▸"
-	if open {
-		a = "▾"
-	}
-	ui.Text(c, a).FontSize(10).TextColor(c.Theme().TextMuted).Width(10)
-}
-
 func (b *Bench) connRow(c *ui.Context, bench *model.Bench, p *panelState, cn *dbconn.Connection) {
 	th := c.Theme()
 	l := b.liveOf(cn)
 	open := l.open[""]
-	r := row(c, "c"+cn.ID, 0, p.sel == cn.ID)
+	r := kit.Row(c, "c"+cn.ID, 0, p.sel == cn.ID)
 	r.Children(func() {
-		arrow(c, open)
+		kit.Chevron(c, open)
 		ui.Box(c).Size(8, 8).Radius(4).Background(dotColor(th, cn.Color))
 		ui.Text(c, cn.Name).Bold().SingleLine().Grow(1).Shrink(1).MinWidth(0)
-		col := th.TextMuted
-		if sc, ok := stateColor[l.state]; ok {
-			col = ui.Hex(sc)
-		}
 		if l.state != "idle" {
-			ui.Text(c, l.state).FontSize(10).TextColor(col)
+			ui.Text(c, l.state).FontSize(10).TextColor(stateColor(th, l.state))
 		}
 	})
 	if r.Clicked() {
@@ -167,9 +156,9 @@ func (b *Bench) connRow(c *ui.Context, bench *model.Bench, p *panelState, cn *db
 			continue // R-DB-033
 		}
 		if len(l.schemas) > 1 {
-			sr := row(c, cn.ID+"/"+sc, 1, false)
+			sr := kit.Row(c, cn.ID+"/"+sc, 1, false)
 			sr.Children(func() {
-				arrow(c, sOpen)
+				kit.Chevron(c, sOpen)
 				ui.Text(c, sc).SingleLine().Grow(1)
 				if l.loading["o"+sc] {
 					ui.Spinner(c).Size(10, 10)
@@ -202,9 +191,9 @@ func (b *Bench) connRow(c *ui.Context, bench *model.Bench, p *panelState, cn *db
 			if cn.Engine == dbconn.MySQL && group == "function" {
 				names[group] = "Routines"
 			}
-			gr := row(c, cn.ID+"/"+gkey, depth, false)
+			gr := kit.Row(c, cn.ID+"/"+gkey, depth, false)
 			gr.Children(func() {
-				arrow(c, gOpen)
+				kit.Chevron(c, gOpen)
 				ui.Text(c, names[group]).SingleLine().Grow(1).TextColor(th.TextMuted)
 				ui.Text(c, fmt.Sprint(len(list))).FontSize(11).TextColor(th.TextMuted)
 			})
@@ -228,12 +217,12 @@ func (b *Bench) objectRow(c *ui.Context, bench *model.Bench, l *live, cn *dbconn
 	th := c.Theme()
 	key := sc + "." + o.Name
 	open := l.open[key]
-	r := row(c, cn.ID+"/"+key, depth, false)
+	r := kit.Row(c, cn.ID+"/"+key, depth, false)
 	r.Children(func() {
 		if o.Kind == "function" {
-			ui.Text(c, "ƒ").FontSize(11).TextColor(th.TextMuted).Width(10)
+			ui.Text(c, "ƒ").FontSize(11).TextColor(kit.Faint(th)).Width(12).Shrink(0)
 		} else {
-			arrow(c, open)
+			kit.Chevron(c, open)
 		}
 		ui.Text(c, o.Name).SingleLine().Grow(1).Shrink(1).MinWidth(0)
 	})
@@ -281,7 +270,7 @@ func (b *Bench) objectRow(c *ui.Context, bench *model.Bench, l *live, cn *dbconn
 	}
 	for _, col := range cols {
 		col := col
-		cr := row(c, cn.ID+"/"+key+"/"+col.Name, depth+1, false)
+		cr := kit.Row(c, cn.ID+"/"+key+"/"+col.Name, depth+1, false)
 		cr.Children(func() {
 			mark := ""
 			if col.PK {
@@ -309,7 +298,7 @@ func (b *Bench) objectRow(c *ui.Context, bench *model.Bench, l *live, cn *dbconn
 		if ix.Unique {
 			u = " unique"
 		}
-		row(c, cn.ID+"/"+key+"/ix/"+ix.Name, depth+1, false).Children(func() {
+		kit.Row(c, cn.ID+"/"+key+"/ix/"+ix.Name, depth+1, false).Children(func() {
 			ui.Text(c, "ix").FontSize(9).TextColor(th.TextMuted).Width(16)
 			ui.Text(c, ix.Name+" ("+ix.Columns+")"+u).FontSize(11).TextColor(th.TextMuted).SingleLine()
 		})
@@ -378,7 +367,6 @@ func (b *Bench) showDDL(bench *model.Bench, cn *dbconn.Connection, sc, table str
 
 // saved lists the Bench folder's .sql files (R-DB-055).
 func (b *Bench) saved(c *ui.Context, bench *model.Bench, p *panelState) {
-	th := c.Theme()
 	entries, _ := os.ReadDir(b.Folder(bench))
 	var files []string
 	for _, e := range entries {
@@ -389,10 +377,10 @@ func (b *Bench) saved(c *ui.Context, bench *model.Bench, p *panelState) {
 	if len(files) == 0 {
 		return
 	}
-	ui.Text(c.Key("savedh"), "Saved").FontSize(11).Bold().TextColor(th.TextMuted).Padding(8, 6, 2, 6)
+	kit.Caption(c, "Saved").Padding(8, 8, 2, 8)
 	for _, f := range files {
 		path := filepath.Join(b.Folder(bench), f)
-		r := row(c, "s"+f, 0, false)
+		r := kit.Row(c, "s"+f, 0, false)
 		r.Children(func() { ui.Text(c, f).SingleLine() })
 		if r.Clicked() {
 			for _, t := range bench.Tabs {

@@ -46,6 +46,7 @@ var (
 	Trash        = Lucide(`<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>`)
 	Star         = Lucide(`<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>`)
 	Globe        = Lucide(`<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>`)
+	Sidebar      = Lucide(`<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>`)
 	ArrowUp      = Lucide(`<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>`)
 	ArrowDown    = Lucide(`<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>`)
 	Check        = Lucide(`<path d="M20 6 9 17l-5-5"/>`)
@@ -343,4 +344,27 @@ func Chip(c *ui.Context, key, label string, on bool) ui.Element {
 	}
 	b.Children(func() { ui.Text(c, label).TextColor(fg).SingleLine() })
 	return b
+}
+
+// Group is a rounded group of rows, as System Settings draws them, with an
+// optional caption above. fn draws the rows: line makes each one, with a
+// hairline between rows.
+func Group(c *ui.Context, key, title string, fn func(line func(key string) ui.Element)) {
+	t := c.Theme()
+	ui.Column(c.Key(key)).Gap(6).AlignItems(ui.Stretch).Children(func() {
+		if title != "" {
+			Caption(c, title).Padding(0, 4)
+		}
+		ui.Column(c.Key("rows")).Radius(10).Background(Hover(t)).Border(1, Stroke(t)).AlignItems(ui.Stretch).Children(func() {
+			first := true
+			fn(func(k string) ui.Element {
+				r := ui.Row(c.Key(k)).Gap(12).Padding(10, 14).AlignItems(ui.Center)
+				if !first {
+					r.BorderWidth(1, 0, 0, 0).BorderColor(Stroke(t))
+				}
+				first = false
+				return r
+			})
+		})
+	})
 }

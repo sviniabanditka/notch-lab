@@ -17,6 +17,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/sviniabanditka/notch-lab/internal/daemon"
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 	"github.com/sviniabanditka/notch-lab/internal/model"
 	"github.com/sviniabanditka/notch-lab/internal/settings"
 )
@@ -404,12 +405,16 @@ func (b *Bench) drop(x *tab) {
 	delete(b.tabs, x.t)
 }
 
+// iconTerminal is Lucide's terminal.
+var iconTerminal = kit.Lucide(`<polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/>`)
+
 // View draws a terminal Tab and reports whether it has the keyboard focus.
 func (b *Bench) View(c *ui.Context, t *model.Tab, focused bool) bool {
 	th := c.Theme()
 	x := b.live(t)
 	if x == nil {
 		ui.Column(c.Key("off")).Grow(1).Center().Gap(8).Children(func() {
+			kit.Tile(c, iconTerminal, th.TextMuted, 44)
 			ui.Text(c, "The terminal daemon is not connected").TextColor(th.TextMuted)
 			ui.Text(c, "Click “daemon off” in the status bar to retry.").FontSize(12).TextColor(th.TextMuted)
 		})

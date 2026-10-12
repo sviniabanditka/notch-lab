@@ -20,6 +20,7 @@ import (
 
 	"github.com/sviniabanditka/notch-lab/internal/bench/terminal"
 	"github.com/sviniabanditka/notch-lab/internal/chat"
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 	"github.com/sviniabanditka/notch-lab/internal/model"
 	"github.com/sviniabanditka/notch-lab/internal/session"
 	"github.com/sviniabanditka/notch-lab/internal/tasks"
@@ -348,6 +349,24 @@ func (b *Bench) sorted() []terminal.AgentTab {
 
 var glyphs = map[string]string{"blocked": "⚠︎", "working": "⋯", "done": "✓", "idle": "·"}
 
+// statusIcon draws an Agent's status as an icon: the Glyph of R-AGENT-015.
+func statusIcon(c *ui.Context, status string) {
+	th := c.Theme()
+	icon, col := kit.Dot, th.TextMuted
+	switch status {
+	case "blocked":
+		icon, col = kit.Warning, th.Warning
+	case "working":
+		icon, col = kit.Loader, th.Accent
+	case "done":
+		icon, col = kit.Check, th.Success
+	}
+	i := ui.Icon(c, icon).FontSize(12).TextColor(col).Width(14).Shrink(0)
+	if status == "working" {
+		i.Rotate(i.Loop("spin", time.Second, ui.Linear) * 360)
+	}
+}
+
 // Panel lists every Agent across Labs (R-AGENT-030, R-AGENT-031).
 func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 	th := c.Theme()
@@ -359,24 +378,15 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 		}
 		for _, a := range list {
 			a := a
-			r := ui.Column(c.Key(a.Tab.ID)).Padding(5, 6).Gap(1).Radius(6)
+			r := ui.Column(c.Key(a.Tab.ID)).Padding(5, 8).Gap(1).Radius(6).Transition(kit.Motion)
 			if f := bench.FocusedTab(); f != nil && readData(f).Session == a.Tab.ID {
-				r.Background(th.Accent.Alpha(0.15))
+				r.Background(kit.Chosen(th))
 			} else if r.Hovered() {
-				r.Background(th.SurfaceHover)
+				r.Background(kit.Hover(th))
 			}
 			r.Children(func() {
 				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-					col := th.TextMuted
-					switch a.Agent.Status {
-					case "blocked":
-						col = th.Warning
-					case "working":
-						col = th.Accent
-					case "done":
-						col = th.Success
-					}
-					ui.Text(c, glyphs[a.Agent.Status]).TextColor(col).Width(14)
+					statusIcon(c, a.Agent.Status)
 					ui.Text(c, a.Agent.Kind).FontSize(11).TextColor(th.TextMuted)
 					ui.Text(c, a.Tab.DisplayTitle()).Bold().SingleLine().Grow(1).Shrink(1).MinWidth(0)
 					if a.Tab.Unread {

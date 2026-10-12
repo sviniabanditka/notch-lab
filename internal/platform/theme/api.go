@@ -87,7 +87,7 @@ const (
 	MonoFamily = "JetBrainsMono Nerd Font, SF Mono, Menlo, monospace"
 	MonoSize   = 13
 
-	RadiusSm = 4
+	RadiusSm = 6
 	RadiusMd = 6
 	RadiusLg = 8
 

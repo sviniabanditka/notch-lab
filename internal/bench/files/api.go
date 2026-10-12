@@ -357,7 +357,7 @@ func (b *Bench) View(c *ui.Context, t *model.Tab, focused bool) bool {
 		if len(x.entries) > shown {
 			ui.Row(c.Key("more")).Padding(4, 10).Gap(8).Children(func() {
 				ui.Text(c, fmt.Sprintf("%d more entries not shown", len(x.entries)-shown)).TextColor(th.TextMuted)
-				if ui.Button(c, "Show all").Clicked() {
+				if kit.TextButton(c, "all", "Show all").Clicked() {
 					x.all = true
 				}
 			})
@@ -375,13 +375,18 @@ func (b *Bench) View(c *ui.Context, t *model.Tab, focused bool) bool {
 func (b *Bench) header(c *ui.Context, x *tab) {
 	th := c.Theme()
 	d := readData(x.t)
-	ui.Row(c.Key("head")).Height(24).Padding(0, 10).Gap(8).BorderWidth(0, 0, 1, 0).BorderColor(th.Border).Children(func() {
+	ui.Row(c.Key("head")).Height(24).Padding(0, 10).Gap(8).BorderWidth(0, 0, 1, 0).BorderColor(kit.Stroke(th)).Children(func() {
 		col := func(key, label string, w float32) {
-			text := label
-			if d.Sort.Column == key {
-				text += map[bool]string{false: " ▲", true: " ▼"}[d.Sort.Desc]
-			}
-			el := ui.Text(c, text).FontSize(11).Bold().TextColor(th.TextMuted).Cursor(ui.CursorPointer)
+			el := ui.Row(c.Key("col" + key)).Gap(3).AlignItems(ui.Center).Cursor(ui.CursorPointer).Children(func() {
+				ui.Text(c, label).FontSize(11).Bold().TextColor(th.TextMuted).SingleLine()
+				if d.Sort.Column == key {
+					arrow := kit.ArrowUp
+					if d.Sort.Desc {
+						arrow = kit.ArrowDown
+					}
+					ui.Icon(c, arrow).FontSize(10).TextColor(th.TextMuted)
+				}
+			})
 			if w > 0 {
 				el.Width(w)
 			} else {
@@ -410,7 +415,7 @@ func (b *Bench) header(c *ui.Context, x *tab) {
 func (b *Bench) pathBar(c *ui.Context, x *tab) {
 	th := c.Theme()
 	dir := b.path(x)
-	ui.Row(c.Key("pathbar")).Height(30).Padding(0, 8).Gap(2).BorderWidth(0, 0, 1, 0).BorderColor(th.Border).Children(func() {
+	kit.Bar(c, "pathbar", func() {
 		back := kit.IconButton(c, "back", "Back", kit.Back, false).Disabled(len(x.back) == 0)
 		if back.Clicked() {
 			b.Command(x.t.Bench, x.t, "back")
@@ -435,11 +440,23 @@ func (b *Bench) pathBar(c *ui.Context, x *tab) {
 			}
 			return
 		}
+		sep := func() { ui.Icon(c, kit.Forward).FontSize(11).TextColor(kit.Faint(th)).Shrink(0) }
 		parts := strings.Split(strings.Trim(dir, "/"), "/")
 		start := 0
 		if len(parts) > 3 {
 			start = len(parts) - 3
-			ui.Text(c, "…").TextColor(th.TextMuted)
+			kit.Chip(c, "hidden", "…", false).Menu(func(m *ui.Menu) {
+				for i := start - 1; i >= 0; i-- {
+					to, label := "/"+strings.Join(parts[:i+1], "/"), parts[i]
+					if to == b.Home {
+						label = "Home"
+					}
+					if m.Item(label).Chosen() {
+						b.goTo(x, to, true)
+					}
+				}
+			})
+			sep()
 		}
 		for i := start; i < len(parts); i++ {
 			to := "/" + strings.Join(parts[:i+1], "/")
@@ -450,16 +467,15 @@ func (b *Bench) pathBar(c *ui.Context, x *tab) {
 			if dir == "/" {
 				label, to = "Macintosh HD", "/"
 			}
-			seg := ui.Button(c.Key("seg"+to), label).Padding(0, 6).Background(ui.Transparent)
-			if seg.Clicked() {
+			if kit.Chip(c, "seg"+to, label, false).Clicked() {
 				b.goTo(x, to, true)
 			}
 			if i < len(parts)-1 {
-				ui.Text(c, "›").TextColor(th.TextMuted)
+				sep()
 			}
 		}
 		ui.Spacer(c)
-		edit := kit.IconButton(c, "edit", "Go to folder (⇧⌘G)", kit.Edit, false)
+		edit := kit.IconButton(c, "edit", "Go to folder (⇧⌘G)", kit.FolderSearch, false)
 		if edit.Clicked() {
 			x.editing, x.typed = true, dir
 		}
@@ -894,7 +910,7 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 	ui.Scroll(c.Key("files-panel")).Grow(1).Basis(0).MinHeight(0).Children(func() {
 		ui.Column(c).Padding(6, 8).Gap(2).Children(func() {
 			section := func(name string, list []string, removable bool) {
-				ui.Text(c, name).FontSize(11).Bold().TextColor(th.TextMuted).Padding(6, 4, 2, 4)
+				kit.Caption(c, name).Padding(6, 4, 2, 4)
 				seen := map[string]bool{} // the Lab's root may be home, or a favorite twice
 				for k, p := range list {
 					if seen[p] {
@@ -907,10 +923,7 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 					if err != nil {
 						col, tip = th.TextMuted.Alpha(0.6), "Folder not found"
 					}
-					row := ui.Row(c.Key(name+p)).Height(24).Padding(0, 6).Gap(6).Radius(6).Tooltip(tip)
-					if row.Hovered() {
-						row.Background(th.SurfaceHover)
-					}
+					row := kit.Row(c, name+p, 0, false).Tooltip(tip)
 					row.Children(func() {
 						ui.Icon(c, iconFolder).FontSize(13).TextColor(th.TextMuted)
 						ui.Text(c, title(p, b.Home)).TextColor(col).SingleLine().Shrink(1).MinWidth(0)

@@ -10,6 +10,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 	"github.com/sviniabanditka/notch-lab/internal/mcp"
 )
 
@@ -95,160 +96,174 @@ func (a *app) setLevel(v string, apply func()) {
 func (a *app) agentsSettings(c *ui.Context) {
 	th := c.Theme()
 	m := &a.set.S.MCP
-	muted := func(s string) { ui.Text(c, s).FontSize(12).TextColor(th.TextMuted) }
-	row := func(key, label string, body func()) {
-		ui.Row(c.Key(key)).Gap(12).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, label).Grow(1)
-			body()
-		})
-	}
+	muted := func(s string) ui.Element { return ui.Text(c, s).FontSize(12).TextColor(kit.Faint(th)) }
 	levels := []string{"off", "read", "full"}
-	row("access", "Access for agents", func() {
-		v := m.Access
-		if ui.Select(c.Key("acc"), &v, levels).Width(160).Changed() {
-			a.setLevel(v, func() { m.Access = v })
-		}
-	})
-	for _, d := range mcpDomains {
-		d := d
-		row("dom"+d, "  "+d, func() {
-			v := m.Domains[d]
-			if v == "" {
-				v = "inherit"
-			}
-			if ui.Select(c.Key("d"+d), &v, append([]string{"inherit"}, levels...)).Width(160).Changed() {
-				a.setLevel(v, func() {
-					if v == "inherit" {
-						delete(m.Domains, d)
-					} else {
-						m.Domains[d] = v
-					}
-				})
+	kit.Group(c, "access", "Access", func(line func(string) ui.Element) {
+		line("access").Children(func() {
+			ui.Text(c, "Access for agents").Grow(1)
+			v := m.Access
+			if ui.Select(c.Key("acc"), &v, levels).Width(160).Changed() {
+				a.setLevel(v, func() { m.Access = v })
 			}
 		})
-	}
-	row("toast", "Toast on every change an agent makes", func() {
-		if ui.Switch(c.Key("t"), &m.ToastOnWrite).Changed() {
-			a.set.Changed(nil)
+		for _, d := range mcpDomains {
+			line("dom" + d).Children(func() {
+				ui.Text(c, d).Grow(1).Padding(0, 0, 0, 14).TextColor(th.TextMuted)
+				v := m.Domains[d]
+				if v == "" {
+					v = "inherit"
+				}
+				if ui.Select(c.Key("d"+d), &v, append([]string{"inherit"}, levels...)).Width(160).Changed() {
+					a.setLevel(v, func() {
+						if v == "inherit" {
+							delete(m.Domains, d)
+						} else {
+							m.Domains[d] = v
+						}
+					})
+				}
+			})
 		}
-	})
-	row("own", "Close an agent's own Tabs when it disconnects", func() {
-		if ui.Switch(c.Key("o"), &m.CloseOwnTabs).Changed() {
-			a.set.Changed(nil)
-		}
+		line("toast").Children(func() {
+			ui.Text(c, "Toast on every change an agent makes").Grow(1)
+			if ui.Switch(c.Key("t"), &m.ToastOnWrite).Changed() {
+				a.set.Changed(nil)
+			}
+		})
+		line("own").Children(func() {
+			ui.Text(c, "Close an agent's own Tabs when it disconnects").Grow(1)
+			if ui.Switch(c.Key("o"), &m.CloseOwnTabs).Changed() {
+				a.set.Changed(nil)
+			}
+		})
 	})
 	if a.mcp == nil {
 		muted("The MCP server did not start; see app.log.")
 		return
 	}
 
-	ui.Text(c, "Agents connected").Bold()
-	ui.Row(c.Key("ctl")).Gap(8).Children(func() {
-		paused := a.mcp.Paused.Load()
-		label := "Pause agents"
-		if paused {
-			label = "Resume agents"
-		}
-		if ui.Button(c.Key("pause"), label).Clicked() {
-			a.mcp.Paused.Store(!paused)
-		}
-		if a.mcp.Stopped.Load() {
-			if ui.Button(c.Key("start"), "Allow agents again").Clicked() {
-				a.mcp.Stopped.Store(false)
+	kit.Group(c, "clients", "Agents connected", func(line func(string) ui.Element) {
+		line("ctl").Children(func() {
+			paused := a.mcp.Paused.Load()
+			state := "Agents can act"
+			switch {
+			case a.mcp.Stopped.Load():
+				state = "Agents are stopped"
+			case paused:
+				state = "Agents are paused"
 			}
-		} else if ui.Button(c.Key("stop"), "Stop agents").Clicked() {
-			a.mcp.Stop()
+			ui.Text(c, state).Grow(1)
+			label := "Pause agents"
+			if paused {
+				label = "Resume agents"
+			}
+			if kit.TextButton(c, "pause", label).Clicked() {
+				a.mcp.Paused.Store(!paused)
+			}
+			if a.mcp.Stopped.Load() {
+				if kit.TextButton(c, "start", "Allow agents again").Clicked() {
+					a.mcp.Stopped.Store(false)
+				}
+			} else if kit.TextButton(c, "stop", "Stop agents").Clicked() {
+				a.mcp.Stop()
+			}
+		})
+		clients := a.mcp.List()
+		if len(clients) == 0 {
+			line("none").Children(func() { muted("None.") })
 		}
-	})
-	clients := a.mcp.List()
-	if len(clients) == 0 {
-		muted("None.")
-	}
-	for _, cl := range clients {
-		cl := cl
-		own := 0
-		for _, l := range a.st.Labs {
-			for _, b := range l.Benches {
-				for _, t := range b.Tabs {
-					if t.Owner == cl.ID {
-						own++
+		for _, cl := range clients {
+			own := 0
+			for _, l := range a.st.Labs {
+				for _, b := range l.Benches {
+					for _, t := range b.Tabs {
+						if t.Owner == cl.ID {
+							own++
+						}
 					}
 				}
 			}
-		}
-		ui.Row(c.Key("cl" + cl.ID)).Gap(12).AlignItems(ui.Center).Children(func() {
-			ui.Column(c).Grow(1).MinWidth(0).Children(func() {
-				ui.Text(c, cl.Name).Bold().SingleLine()
-				muted(fmt.Sprintf("%s · since %s · %d calls · %d own Tabs", cl.ID[:8], cl.Since.Format("15:04"), cl.Calls.Load(), own))
+			line("cl" + cl.ID).Children(func() {
+				ui.Column(c).Grow(1).MinWidth(0).Children(func() {
+					ui.Text(c, cl.Name).FontWeight(600).SingleLine()
+					muted(fmt.Sprintf("%s · since %s · %d calls · %d own Tabs", cl.ID[:8], cl.Since.Format("15:04"), cl.Calls.Load(), own))
+				})
+				if kit.TextButton(c, "dc", "Disconnect").Clicked() {
+					a.mcp.Disconnect(cl.ID, "disconnected in notch-lab")
+				}
 			})
-			if ui.Button(c.Key("dc"), "Disconnect").Clicked() {
-				a.mcp.Disconnect(cl.ID, "disconnected in notch-lab")
-			}
-		})
-	}
+		}
+	})
 
-	ui.Text(c, "Connect").Bold()
 	a.checkClaude()
 	cmd := fmt.Sprintf(`claude mcp add --scope user notch-lab -- "%s" --mcp`, exePath())
-	ui.Row(c.Key("claude")).Gap(8).AlignItems(ui.Center).Children(func() {
-		switch a.agentsUI.claude {
-		case "connected":
-			ui.Text(c, "Claude Code: connected").Grow(1)
-			if ui.Button(c.Key("rm"), "Remove").Disabled(a.agentsUI.busy).Clicked() {
-				a.runClaude("remove --scope user notch-lab")
+	kit.Group(c, "connect", "Connect", func(line func(string) ui.Element) {
+		line("claude").Children(func() {
+			switch a.agentsUI.claude {
+			case "connected":
+				ui.Text(c, "Claude Code: connected").Grow(1)
+				if kit.Off(kit.TextButton(c, "rm", "Remove"), a.agentsUI.busy).Clicked() {
+					a.runClaude("remove --scope user notch-lab")
+				}
+			case "other path":
+				ui.Text(c, "Claude Code: connected to another notch-lab").Grow(1)
+				if kit.Off(kit.TextButton(c, "up", "Update"), a.agentsUI.busy).Clicked() {
+					a.runClaude(fmt.Sprintf(`remove --scope user notch-lab; claude mcp add --scope user notch-lab -- "%s" --mcp`, exePath()))
+				}
+			default:
+				ui.Text(c, "Claude Code").Grow(1)
+				if ui.PrimaryButton(c.Key("add"), "Connect to Claude Code").Disabled(a.agentsUI.busy || a.agentsUI.claude == "checking").Clicked() {
+					a.runClaude(strings.TrimPrefix(cmd, "claude mcp "))
+				}
 			}
-		case "other path":
-			ui.Text(c, "Claude Code: connected to another notch-lab").Grow(1)
-			if ui.Button(c.Key("up"), "Update").Disabled(a.agentsUI.busy).Clicked() {
-				a.runClaude(fmt.Sprintf(`remove --scope user notch-lab; claude mcp add --scope user notch-lab -- "%s" --mcp`, exePath()))
+		})
+		line("cmd").Children(func() {
+			ui.Text(c, cmd).Font("SF Mono, Menlo").FontSize(11).TextColor(th.TextMuted).Selectable().Grow(1).Shrink(1).MinWidth(0)
+			if kit.IconButton(c, "copy", "Copy", kit.Copy, false).Clicked() {
+				mygo.Clipboard.WriteText(cmd)
 			}
-		default:
-			ui.Text(c, "Claude Code").Grow(1)
-			if ui.PrimaryButton(c.Key("add"), "Connect to Claude Code").Disabled(a.agentsUI.busy || a.agentsUI.claude == "checking").Clicked() {
-				a.runClaude(strings.TrimPrefix(cmd, "claude mcp "))
+		})
+		line("others").Children(func() {
+			ui.Text(c, "Other agents").Grow(1)
+			if kit.TextButton(c, "codex", "Copy for Codex").Clicked() { // R-MCP-101
+				mygo.Clipboard.WriteText(fmt.Sprintf("[mcp_servers.notch-lab]\ncommand = %q\nargs = [\"--mcp\"]\n", exePath()))
 			}
-		}
+			if kit.TextButton(c, "cursor", "Copy for Cursor").Clicked() { // R-MCP-102
+				mygo.Clipboard.WriteText(fmt.Sprintf(`{ "mcpServers": { "notch-lab": { "command": %q, "args": ["--mcp"] } } }`, exePath()))
+			}
+		})
 	})
-	ui.Row(c.Key("cmd")).Gap(8).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, cmd).FontSize(11).TextColor(th.TextMuted).Selectable().Grow(1).Shrink(1).MinWidth(0)
-		if ui.Button(c.Key("copy"), "Copy").Clicked() {
-			mygo.Clipboard.WriteText(cmd)
-		}
-	})
-	ui.Row(c.Key("others")).Gap(8).Children(func() {
-		if ui.Button(c.Key("codex"), "Copy for Codex").Clicked() { // R-MCP-101
-			mygo.Clipboard.WriteText(fmt.Sprintf("[mcp_servers.notch-lab]\ncommand = %q\nargs = [\"--mcp\"]\n", exePath()))
-		}
-		if ui.Button(c.Key("cursor"), "Copy for Cursor").Clicked() { // R-MCP-102
-			mygo.Clipboard.WriteText(fmt.Sprintf(`{ "mcpServers": { "notch-lab": { "command": %q, "args": ["--mcp"] } } }`, exePath()))
-		}
-	})
-	muted("A test home: add NOTCH_LAB_HOME=/tmp/notch-lab-dev to the server's env.")
+	muted("A test home: add NOTCH_LAB_HOME=/tmp/notch-lab-dev to the server's env.").Padding(0, 4)
 
-	ui.Text(c, "Audit log").Bold()
-	ui.Row(c.Key("af")).Gap(8).Children(func() {
-		ui.TextInput(c.Key("filter"), &a.agentsUI.filter).Placeholder("Filter by agent or tool").Grow(1)
-		if ui.Button(c.Key("clear"), "Clear").Clicked() {
-			a.sv.Q.Yes("Clear the Audit log?", "Clear", func() {
-				_, _ = a.store.DB().Exec(`DELETE FROM audit`)
-				a.agentsUI.auditKey = ""
-			})
-		}
-	})
 	key := fmt.Sprintf("%s|%d", a.agentsUI.filter, time.Now().Unix()/2)
 	if key != a.agentsUI.auditKey {
 		a.agentsUI.auditKey, a.agentsUI.rows = key, mcp.AuditRows(a.store.DB(), a.agentsUI.filter, 100)
 	}
-	if len(a.agentsUI.rows) == 0 {
-		muted("No calls yet.")
-	}
-	for i, r := range a.agentsUI.rows {
-		line := fmt.Sprintf("%s  %s  %s  %d ms", r.Time.Format("01-02 15:04:05"), r.ClientName, r.Tool, r.DurationMs)
-		if r.Error != "" {
-			line += "  ✕ " + r.Error
+	kit.Group(c, "audit", "Audit log", func(line func(string) ui.Element) {
+		line("af").Children(func() {
+			ui.SearchField(c.Key("filter"), &a.agentsUI.filter).Label("Filter by agent or tool").Grow(1)
+			if kit.IconButton(c, "clear", "Clear the Audit log", kit.Trash, false).Clicked() {
+				a.sv.Q.Yes("Clear the Audit log?", "Clear", func() {
+					_, _ = a.store.DB().Exec(`DELETE FROM audit`)
+					a.agentsUI.auditKey = ""
+				})
+			}
+		})
+		if len(a.agentsUI.rows) == 0 {
+			line("none").Children(func() { muted("No calls yet.") })
 		}
-		ui.Text(c.Key(i), line).FontSize(11).SingleLine().Tooltip(r.Params)
-	}
+		for i, r := range a.agentsUI.rows {
+			line(fmt.Sprint("r", i)).Children(func() {
+				ui.Text(c, r.Time.Format("01-02 15:04:05")).FontSize(11).TextColor(th.TextMuted)
+				ui.Text(c, r.ClientName).FontSize(11).FontWeight(600)
+				ui.Text(c, r.Tool).FontSize(11).Grow(1).SingleLine().Tooltip(r.Params)
+				if r.Error != "" {
+					ui.Icon(c, kit.Warning).FontSize(11).TextColor(th.Danger).Tooltip(r.Error)
+				}
+				ui.Text(c, fmt.Sprintf("%d ms", r.DurationMs)).FontSize(11).TextColor(th.TextMuted)
+			})
+		}
+	})
 }
 
 // agentStatus is the agents' mark in the status bar with its menu.

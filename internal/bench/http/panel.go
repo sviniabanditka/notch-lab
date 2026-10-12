@@ -24,7 +24,7 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 	s := b.store(bench)
 	set := readSettings(bench)
 	ui.Column(c.Key("hpanel")).Grow(1).Basis(0).MinHeight(0).Padding(4, 6).Gap(4).AlignItems(ui.Stretch).Children(func() {
-		ui.Row(c.Key("head")).Gap(4).AlignItems(ui.Center).Children(func() {
+		ui.Row(c.Key("envrow")).Shrink(0).Gap(4).Padding(0, 2).AlignItems(ui.Center).Children(func() {
 			env := set.Environment
 			if env == "" {
 				env = "No environment"
@@ -39,6 +39,11 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 			if kit.IconButton(c, "gear", "Environments", kit.Gear, false).Clicked() {
 				b.env.open, b.env.win, b.env.bench = true, b.Win, bench
 			}
+		})
+		if s.envErr != "" {
+			ui.Text(c, s.envErr).FontSize(11).TextColor(th.Danger)
+		}
+		kit.PanelHead(c, &s.query, "Search requests", func() {
 			kit.IconButton(c, "more", "New", kit.Plus, false).Menu(func(m *ui.Menu) {
 				if m.Item("New Collection…").Chosen() {
 					b.AskText("New Collection", "", func(name string) string {
@@ -72,10 +77,6 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 				}
 			})
 		})
-		if s.envErr != "" {
-			ui.Text(c, s.envErr).FontSize(11).TextColor(th.Danger)
-		}
-		ui.TextInput(c.Key("q"), &s.query).Placeholder("Search requests")
 		ui.Scroll(c.Key("tree")).Grow(1).Basis(0).MinHeight(0).Children(func() {
 			if len(s.files) == 0 {
 				ui.Text(c, "No Collections. + makes one; ⌘T makes a Request.").FontSize(12).TextColor(th.TextMuted)
@@ -97,20 +98,11 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 					continue // R-HTTP-042
 				}
 				open := !s.open[f.Path+"/closed"] || q != ""
-				row := ui.Row(c.Key(f.Path)).Height(24).Padding(0, 6).Gap(6).Radius(5).AlignItems(ui.Center)
-				if s.sel == f.Path {
-					row.Background(th.Accent.Alpha(0.15))
-				} else if row.Hovered() {
-					row.Background(th.SurfaceHover)
-				}
+				row := kit.Row(c, f.Path, 0, s.sel == f.Path)
 				row.Children(func() {
-					arrow := "▸"
-					if open {
-						arrow = "▾"
-					}
-					ui.Text(c, arrow).FontSize(10).TextColor(th.TextMuted)
+					kit.Chevron(c, open)
 					ui.Text(c, f.Name()).Bold().SingleLine().Grow(1)
-					ui.Text(c, itoa(len(hits))).FontSize(11).TextColor(th.TextMuted)
+					ui.Text(c, itoa(len(hits))).FontSize(11).TextColor(kit.Faint(th))
 				})
 				if row.Clicked() {
 					s.sel = f.Path
@@ -157,12 +149,8 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 				for _, i := range hits {
 					i := i
 					r := f.Blocks[i].Req
-					rr := ui.Row(c.Key(f.Path+"#"+itoa(i))).Height(24).Padding(0, 6, 0, 20).Gap(6).Radius(5).AlignItems(ui.Center)
-					if t := bench.FocusedTab(); t != nil && readData(t).File == f.Path && readData(t).Index == i {
-						rr.Background(th.Accent.Alpha(0.15))
-					} else if rr.Hovered() {
-						rr.Background(th.SurfaceHover)
-					}
+					t := bench.FocusedTab()
+					rr := kit.Row(c, f.Path+"#"+itoa(i), 1, t != nil && readData(t).File == f.Path && readData(t).Index == i)
 					rr.Children(func() {
 						ui.Text(c, r.Method).FontSize(10).Bold().TextColor(methodColor(th, r.Method)).Width(46)
 						ui.Text(c, r.Title()).SingleLine().Grow(1).Shrink(1).MinWidth(0)
@@ -316,7 +304,7 @@ func (b *Bench) envEditor(c *ui.Context, bench *model.Bench, s *store, active st
 					ui.Text(c, k).Width(110).SingleLine().FontSize(12)
 					if httpfile.IsSecret(k) {
 						ui.Text(c, httpfile.Mask).Grow(1).TextColor(th.TextMuted)
-						if ui.Button(c.Key("set"), "Set").Padding(0, 6).Clicked() {
+						if kit.TextButton(c, "set", "Set").Clicked() {
 							b.AskText("Value of "+k, "", func(v string) string {
 								if err := keychain.Set(secretAccount(name, k), v); err != nil {
 									return err.Error()
@@ -333,7 +321,7 @@ func (b *Bench) envEditor(c *ui.Context, bench *model.Bench, s *store, active st
 					}
 				})
 			}
-			if ui.Button(c.Key("add"+name), "+ Variable").Background(ui.Transparent).Clicked() {
+			if kit.TextButton(c, "add"+name, "+ Variable").Clicked() {
 				b.AskText("New variable in "+name+" (secret.* goes to the Keychain)", "", func(k string) string {
 					k = strings.TrimSpace(k)
 					if k == "" || strings.ContainsAny(k, " {}") {
@@ -350,7 +338,7 @@ func (b *Bench) envEditor(c *ui.Context, bench *model.Bench, s *store, active st
 				})
 			}
 		}
-		if ui.Button(c.Key("newenv"), "+ Environment").Background(ui.Transparent).Clicked() {
+		if kit.TextButton(c, "newenv", "+ Environment").Clicked() {
 			b.AskText("New Environment", "", func(n string) string {
 				n = strings.TrimSpace(n)
 				if n == "" || n == "$shared" {

@@ -80,12 +80,18 @@ func use(p Palette, accent ui.Color, canvasClear bool) {
 	}
 	current = p
 	revision++
-	Background, Text, TextMuted, TextFaint = p.Background, p.Text, p.TextMuted, p.Text.Alpha(0.4)
+	// The overlays are the Shell's look (internal/kit): Faint, Stroke,
+	// Hover, Pressed and Chosen.
+	Background, Text, TextMuted, TextFaint = p.Background, p.Text, p.TextMuted, p.Text.Alpha(0.55)
 	Accent, AccentText = p.Accent, p.AccentText
 	Attention, Success, Danger = p.Attention, p.Success, p.Danger
 	DiffAdd, DiffDel, CodeStyle, Term = p.DiffAdd, p.DiffDel, p.CodeStyle, p.Terminal
-	Stroke, HoverSubtle, Hover, HoverStrong, Selection =
-		p.Text.Alpha(0.07), p.Text.Alpha(0.05), p.Text.Alpha(0.10), p.Text.Alpha(0.15), p.Text.Alpha(0.18)
+	Stroke, HoverSubtle, Hover, HoverStrong =
+		p.Text.Alpha(0.09), p.Text.Alpha(0.06), p.Text.Alpha(0.10), p.Text.Alpha(0.15)
+	Selection = p.Accent.Alpha(0.16)
+	if p.Dark {
+		Selection = p.Accent.Alpha(0.30)
+	}
 	Sidebar, Panel, Raised = p.Sidebar, p.Panel, p.Raised
 	PanelOverMaterial = p.Sidebar.Alpha(0.85)
 	Canvas = p.Background

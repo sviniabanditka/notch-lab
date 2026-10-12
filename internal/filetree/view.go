@@ -8,14 +8,12 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 	"github.com/sviniabanditka/notch-lab/internal/platform/icon"
 	"github.com/sviniabanditka/notch-lab/internal/platform/theme"
 )
 
-const (
-	rowHeight = 22
-	indent    = 12
-)
+const rowHeight = kit.RowH
 
 func (v *View) build(c *ui.Context) {
 	if v.dirty {
@@ -46,13 +44,15 @@ func note(c *ui.Context, text string) {
 }
 
 func (v *View) header(c *ui.Context) {
-	ui.Row(c).FillWidth().Height(26).Padding(0, 6, 0, 14).Gap(4).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, abbreviate(v.root, v.home)).SingleLine().Grow(1).Shrink(1).MinWidth(0).
-			FontSize(theme.BadgeSize + 1).FontWeight(500).TextColor(theme.TextFaint).Tooltip(v.root)
-		b := ui.Box(c).Size(22, 22).Center().Radius(theme.RadiusMd).Label("Collapse Folders").Tooltip("Collapse Folders").
-			Transition(theme.MotionHover.Transition())
-		if b.Hovered() {
-			b.Background(theme.Hover)
+	ui.Row(c).FillWidth().Height(kit.Size).Padding(0, 6, 0, 14).Gap(4).AlignItems(ui.Center).Children(func() {
+		kit.Caption(c, abbreviate(v.root, v.home)).Grow(1).Shrink(1).MinWidth(0).Tooltip(v.root)
+		b := ui.Box(c).Size(kit.Size, kit.Size).Shrink(0).Center().Radius(6).Label("Collapse Folders").Tooltip("Collapse Folders").
+			Role(ui.RoleButton).Cursor(ui.CursorPointer).Transition(kit.Motion)
+		switch {
+		case b.Pressed():
+			b.Background(kit.Pressed(c.Theme()))
+		case b.Hovered():
+			b.Background(kit.Hover(c.Theme()))
 		}
 		if b.Clicked() {
 			v.collapseAll()
@@ -230,14 +230,10 @@ func (v *View) row(c *ui.Context, i int, selected, listFocused bool) {
 	r := &v.rows[i]
 	if r.kind == rowNote {
 		ui.Text(c, r.name).SingleLine().FontSize(theme.BadgeSize+1).TextColor(theme.TextFaint).
-			Height(rowHeight).Padding(4, 8, 0, 8+float32(r.depth)*indent+16)
+			Height(rowHeight).Padding(5, 8, 0, 8+float32(r.depth)*14+18)
 		return
 	}
-	el := ui.Row(c).FillWidth().Height(rowHeight).Padding(0, 8, 0, 4+float32(r.depth)*indent).Gap(4).
-		AlignItems(ui.Center).Radius(theme.RadiusSm)
-	if !selected && el.Hovered() {
-		el.Background(theme.HoverSubtle)
-	}
+	el := kit.Row(c, "row", r.depth, false).FillWidth()
 	if el.DoubleClicked() && !r.isDir && v.Open != nil {
 		v.Open(r.path)
 	} else if el.Clicked() {

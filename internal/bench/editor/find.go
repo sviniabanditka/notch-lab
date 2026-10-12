@@ -191,8 +191,8 @@ func (b *Bench) findBar(c *ui.Context, x *tab) {
 	t := c.Theme()
 	f := &x.find
 	b.runSearch(c, x)
-	ui.Column(c.Key("find")).Padding(6, 10).Gap(6).Background(t.Surface).BorderWidth(0, 0, 1, 0).BorderColor(t.Border).Children(func() {
-		ui.Row(c).Gap(6).Children(func() {
+	ui.Column(c.Key("find")).Padding(4, 8).Gap(4).BorderWidth(0, 0, 1, 0).BorderColor(kit.Stroke(t)).Children(func() {
+		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 			q := ui.TextInput(c.Key("q"), &f.query).Placeholder("Find").Grow(1).Bind(&f.q)
 			if q.Submitted() {
 				b.step(x, 1)
@@ -205,11 +205,7 @@ func (b *Bench) findBar(c *ui.Context, x *tab) {
 				x.view.Focus()
 			}
 			toggle := func(label, tip string, on *bool) {
-				btn := ui.Button(c.Key(label), label).Tooltip(tip).Padding(2, 6)
-				if *on {
-					btn.Background(t.Accent).TextColor(t.AccentText)
-				}
-				if btn.Clicked() {
+				if kit.Chip(c, label, label, *on).Tooltip(tip).Clicked() {
 					*on = !*on
 					if on == &f.inSel {
 						cur := x.doc.Cursors[0]
@@ -250,7 +246,7 @@ func (b *Bench) findBar(c *ui.Context, x *tab) {
 			ui.Text(c, f.err).FontSize(11).TextColor(t.Danger)
 		}
 		if f.replace {
-			ui.Row(c.Key("rep")).Gap(6).Children(func() {
+			ui.Row(c.Key("rep")).Gap(6).AlignItems(ui.Center).Children(func() {
 				w := ui.TextInput(c.Key("with"), &f.with).Placeholder("Replace").Grow(1)
 				if w.Submitted() {
 					b.replaceOne(x)
@@ -271,8 +267,7 @@ func (b *Bench) findBar(c *ui.Context, x *tab) {
 
 // gotoBar is the Go to line field (R-EDIT-100): "<line>" or "<line>:<col>".
 func (b *Bench) gotoBar(c *ui.Context, x *tab) {
-	t := c.Theme()
-	ui.Row(c.Key("goto")).Padding(6, 10).Gap(8).Background(t.Surface).Children(func() {
+	kit.Bar(c, "goto", func() {
 		ui.Text(c, "Go to line")
 		in := ui.TextInput(c.Key("gq"), &x.gotoQ).Placeholder("line or line:col").Width(160).AutoFocus()
 		if in.Submitted() {

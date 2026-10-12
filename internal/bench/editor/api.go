@@ -21,6 +21,7 @@ import (
 	"github.com/sviniabanditka/notch-lab/internal/filepreview"
 	"github.com/sviniabanditka/notch-lab/internal/filesearch"
 	"github.com/sviniabanditka/notch-lab/internal/filetree"
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 	"github.com/sviniabanditka/notch-lab/internal/model"
 	"github.com/sviniabanditka/notch-lab/internal/platform/lightbox"
 	"github.com/sviniabanditka/notch-lab/internal/platform/syntax"
@@ -382,7 +383,7 @@ func (b *Bench) View(c *ui.Context, t *model.Tab, focused bool) bool {
 		case missing, failed:
 			ui.Column(c).Grow(1).Center().Gap(10).Children(func() {
 				ui.Text(c, x.err).TextColor(th.TextMuted)
-				if ui.Button(c, "Close").Clicked() {
+				if kit.TextButton(c, "close", "Close").Clicked() {
 					b.St.CloseTab(t)
 					b.Closed(t)
 				}
@@ -502,12 +503,12 @@ func (b *Bench) reload(x *tab) {
 
 func (b *Bench) diskBar(c *ui.Context, x *tab) {
 	t := c.Theme()
-	ui.Row(c.Key("disk")).Padding(6, 10).Gap(8).Background(t.Warning.Alpha(0.15)).Children(func() {
+	ui.Row(c.Key("disk")).Padding(4, 10).Gap(4).AlignItems(ui.Center).Background(t.Warning.Alpha(0.15)).Children(func() {
 		ui.Text(c, "File changed on disk").Grow(1)
-		if ui.Button(c, "Reload").Clicked() {
+		if kit.TextButton(c, "reload", "Reload").Clicked() {
 			b.reload(x)
 		}
-		if ui.Button(c, "Keep mine").Clicked() {
+		if kit.TextButton(c, "keep", "Keep mine").Clicked() {
 			x.onDisk = false
 			x.file.ModTime = time.Time{} // the next Save asks
 			if st, err := os.Stat(x.file.Path); err == nil {

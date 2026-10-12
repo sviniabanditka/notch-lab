@@ -96,9 +96,12 @@ func (s *Shell) dialogView(c *ui.Context) {
 				s.rootRow(c, d, "No root folder")
 				ui.Row(c).Gap(6).Children(func() {
 					for _, col := range model.LabColors {
-						sw := ui.Button(c.Key(col), "").Label("Color "+col).Size(22, 22).Padding(0).Radius(11).Background(ui.Hex(col))
+						sw := ui.Box(c.Key(col)).Size(24, 24).Center().Radius(12).Background(ui.Hex(col)).Role(ui.RoleButton).
+							Label("Color " + col).Cursor(ui.CursorPointer)
 						if d.lab.Color == col {
-							sw.Border(2, t.Text)
+							sw.Shadow(0, 0, 0, 2, t.Background).Children(func() {
+								ui.Icon(c, kit.Check).FontSize(13).TextColor(ui.RGB(255, 255, 255))
+							})
 						}
 						if sw.Clicked() {
 							d.lab.Color = col
@@ -222,19 +225,21 @@ func (s *Shell) newBenchSheet(c *ui.Context, d *dialog) {
 // rootRow shows the chosen root folder with Choose and Clear.
 func (s *Shell) rootRow(c *ui.Context, d *dialog, none string) {
 	t := c.Theme()
-	ui.Row(c.Key("root")).Gap(8).Children(func() {
+	// A field-like row: the folder, then Clear and Choose.
+	ui.Row(c.Key("root")).Height(32).Padding(0, 4, 0, 10).Gap(6).Radius(radiusMd).Border(1, stroke(t)).AlignItems(ui.Center).Children(func() {
+		ui.Icon(c, kit.Folder).FontSize(14).TextColor(faint(t))
 		label, col := d.root, t.Text
 		if label == "" {
 			label, col = none, t.TextMuted
 		}
 		ui.Text(c, label).TextColor(col).SingleLine().Grow(1).Shrink(1).MinWidth(0)
-		if ui.Button(c.Key("choose"), "Choose…").Clicked() {
+		if d.root != "" && kit.IconButton(c, "clear", "Clear", kit.Close, false).Clicked() {
+			d.root = ""
+		}
+		if kit.TextButton(c, "choose", "Choose…").Clicked() {
 			if p := s.chooseFolder(d.root); p != "" {
 				d.root = p
 			}
-		}
-		if d.root != "" && ui.Button(c.Key("clear"), "Clear").Clicked() {
-			d.root = ""
 		}
 	})
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/sviniabanditka/notch-lab/internal/bench/terminal"
 	"github.com/sviniabanditka/notch-lab/internal/daemon"
 	"github.com/sviniabanditka/notch-lab/internal/home"
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 	"github.com/sviniabanditka/notch-lab/internal/mcp"
 	"github.com/sviniabanditka/notch-lab/internal/model"
 	"github.com/sviniabanditka/notch-lab/internal/settings"
@@ -441,56 +442,59 @@ func (a *app) browserSettings(c *ui.Context) {
 	if exe, err := os.Executable(); err == nil {
 		bundle = filepath.Dir(filepath.Dir(filepath.Dir(exe)))
 	}
-	ui.Row(c.Key("default")).Gap(12).Children(func() {
-		if webkit.IsDefaultBrowser(bundle) {
-			ui.Text(c, "notch-lab is the default browser").Grow(1)
-			return
-		}
-		ui.Text(c, "Default browser").Grow(1)
-		if ui.Button(c, "Make notch-lab the Default Browser").Disabled(!strings.HasSuffix(bundle, ".app")).Clicked() {
-			webkit.SetDefaultBrowser(bundle, func(err error) {
-				if err != nil {
-					a.main.Update(func() { a.sh.Toast(err.Error()) })
+	kit.Group(c, "data", "Browser data", func(line func(string) ui.Element) {
+		line("default").Children(func() {
+			if webkit.IsDefaultBrowser(bundle) {
+				ui.Text(c, "notch-lab is the default browser").Grow(1)
+				ui.Icon(c, kit.Check).FontSize(14).TextColor(t.Success)
+				return
+			}
+			ui.Text(c, "Default browser").Grow(1)
+			if kit.Off(kit.TextButton(c, "make-default", "Make notch-lab the Default Browser"), !strings.HasSuffix(bundle, ".app")).Clicked() {
+				webkit.SetDefaultBrowser(bundle, func(err error) {
+					if err != nil {
+						a.main.Update(func() { a.sh.Toast(err.Error()) })
+					}
+				})
+			}
+		})
+		line("history").Children(func() {
+			ui.Text(c, "Clear history").Grow(1)
+			for _, opt := range []struct {
+				label string
+				since time.Duration
+			}{{"Last Hour", time.Hour}, {"Today", 24 * time.Hour}, {"All", 0}} {
+				if kit.TextButton(c, opt.label, opt.label).Clicked() {
+					since := time.Time{}
+					if opt.since > 0 {
+						since = time.Now().Add(-opt.since)
+					}
+					a.web.History.Clear(since)
+					a.sh.Toast("History cleared")
+				}
+			}
+		})
+	})
+	perms := a.set.S.Browser.Permissions
+	if len(perms) == 0 {
+		return
+	}
+	kit.Group(c, "perms", "Site permissions", func(line func(string) ui.Element) {
+		for origin, kinds := range perms {
+			line("p" + origin).Children(func() {
+				var parts []string
+				for k, v := range kinds {
+					parts = append(parts, k+": "+v)
+				}
+				ui.Text(c, origin).Grow(1).SingleLine()
+				ui.Text(c, strings.Join(parts, ", ")).FontSize(12).TextColor(t.TextMuted)
+				if kit.IconButton(c, "rm", "Remove", kit.Trash, false).Clicked() {
+					delete(a.set.S.Browser.Permissions, origin)
+					a.set.Changed(nil)
 				}
 			})
 		}
 	})
-	ui.Row(c.Key("history")).Gap(8).Children(func() {
-		ui.Text(c, "Clear history").Grow(1)
-		for _, opt := range []struct {
-			label string
-			since time.Duration
-		}{{"Last Hour", time.Hour}, {"Today", 24 * time.Hour}, {"All", 0}} {
-			opt := opt
-			if ui.Button(c.Key(opt.label), opt.label).Clicked() {
-				since := time.Time{}
-				if opt.since > 0 {
-					since = time.Now().Add(-opt.since)
-				}
-				a.web.History.Clear(since)
-				a.sh.Toast("History cleared")
-			}
-		}
-	})
-	perms := a.set.S.Browser.Permissions
-	if len(perms) > 0 {
-		ui.Text(c, "Site permissions").Bold()
-	}
-	for origin, kinds := range perms {
-		origin := origin
-		ui.Row(c.Key("p" + origin)).Gap(8).Children(func() {
-			var parts []string
-			for k, v := range kinds {
-				parts = append(parts, k+": "+v)
-			}
-			ui.Text(c, origin).Grow(1).SingleLine()
-			ui.Text(c, strings.Join(parts, ", ")).FontSize(12).TextColor(t.TextMuted)
-			if ui.Button(c, "Remove").Clicked() {
-				delete(a.set.S.Browser.Permissions, origin)
-				a.set.Changed(nil)
-			}
-		})
-	}
 }
 
 // resetState deletes state.db and relaunches the app (Settings › Advanced).

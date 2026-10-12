@@ -58,10 +58,17 @@ func (b *Bench) toast(s string) {
 	}
 }
 
-var methodColors = map[string]string{"GET": "#2e9e58", "POST": "#2f6fdb", "PUT": "#d9822b", "PATCH": "#c9a227", "DELETE": "#d64545"}
+var (
+	methodColors     = map[string]string{"GET": "#2e9e58", "POST": "#2f6fdb", "PUT": "#d9822b", "PATCH": "#c9a227", "DELETE": "#d64545"}
+	methodColorsDark = map[string]string{"GET": "#4cc27a", "POST": "#5c95f0", "PUT": "#f0a050", "PATCH": "#e0bd45", "DELETE": "#f06a6a"}
+)
 
 func methodColor(th *ui.Theme, m string) ui.Color {
-	if c, ok := methodColors[m]; ok {
+	colors := methodColors
+	if th.Dark {
+		colors = methodColorsDark
+	}
+	if c, ok := colors[m]; ok {
 		return ui.Hex(c)
 	}
 	return th.TextMuted // R-HTTP-041
@@ -75,7 +82,7 @@ func (b *Bench) View(c *ui.Context, t *model.Tab, focused bool) bool {
 	if x.req == nil {
 		ui.Column(c.Key("missing")).Grow(1).Center().Gap(8).Children(func() {
 			ui.Text(c, "Request not found").FontSize(15)
-			if ui.Button(c, "Close").Clicked() && b.Show != nil {
+			if kit.TextButton(c, "close", "Close").Clicked() && b.Show != nil {
 				b.St.CloseTab(t)
 				b.Closed(t)
 			}
@@ -86,10 +93,10 @@ func (b *Bench) View(c *ui.Context, t *model.Tab, focused bool) bool {
 		if x.onDisk {
 			ui.Row(c.Key("disk")).Padding(4, 10).Gap(8).Background(th.Warning.Alpha(0.15)).Children(func() {
 				ui.Text(c, "File changed on disk").Grow(1)
-				if ui.Button(c, "Reload").Clicked() {
+				if kit.TextButton(c, "reload", "Reload").Clicked() {
 					b.load(x)
 				}
-				if ui.Button(c, "Keep mine").Clicked() {
+				if kit.TextButton(c, "keep", "Keep mine").Clicked() {
 					x.onDisk = false
 				}
 			})
@@ -130,7 +137,7 @@ var varName = regexp.MustCompile(`\{\{\s*([^{}]+?)\s*\}\}`)
 func (b *Bench) form(c *ui.Context, x *tab) bool {
 	th := c.Theme()
 	focused := false
-	ui.Row(c.Key("form")).Height(40).Padding(0, 8).Gap(6).AlignItems(ui.Center).BorderWidth(0, 0, 1, 0).BorderColor(th.Border).Children(func() {
+	kit.Bar(c, "form", func() {
 		m := x.req.Method
 		opts := methods
 		if !contains(methods, m) {
@@ -214,7 +221,7 @@ func table(c *ui.Context, key string, rows *[]kv, kph, vph string) bool {
 			})
 		}
 		ui.Row(c.Key("addrow")).Children(func() {
-			if ui.Button(c.Key("add"), "+ Add").Background(ui.Transparent).Clicked() {
+			if kit.TextButton(c, "add", "+ Add").Clicked() {
 				*rows = append(*rows, kv{})
 			}
 		})
@@ -226,7 +233,7 @@ func table(c *ui.Context, key string, rows *[]kv, kph, vph string) bool {
 func (b *Bench) requestPanes(c *ui.Context, x *tab) {
 	th := c.Theme()
 	r := x.req
-	ui.Row(c.Key("rtabs")).Padding(6, 8).Children(func() {
+	kit.Bar(c, "rtabs", func() {
 		ui.Segmented(c.Key("seg"), &x.reqPane, "Params", "Headers", "Body", "Auth", "Settings")
 	})
 	for i := 1; i <= 5; i++ {
@@ -256,7 +263,7 @@ func (b *Bench) requestPanes(c *ui.Context, x *tab) {
 					})
 				}
 				ui.Row(c.Key("addrow")).Children(func() {
-					if ui.Button(c.Key("add"), "+ Add").Background(ui.Transparent).Clicked() {
+					if kit.TextButton(c, "add", "+ Add").Clicked() {
 						r.Headers = append(r.Headers, httpfile.Header{})
 					}
 				})
@@ -377,7 +384,7 @@ func (b *Bench) bodyPane(c *ui.Context, x *tab) {
 			if ui.TextInput(c.Key("p"), &p).Placeholder("path, relative to the .http file").Grow(1).Changed() {
 				r.Body = "< " + p
 			}
-			if ui.Button(c.Key("choose"), "Choose…").Clicked() {
+			if kit.TextButton(c, "choose", "Choose…").Clicked() {
 				if paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: b.Win}); err == nil && len(paths) == 1 {
 					r.Body = "< " + paths[0]
 				}
@@ -408,6 +415,9 @@ func statusColor(th *ui.Theme, code int, err string) ui.Color {
 	case err != "" || code >= 500:
 		return th.Danger
 	case code >= 400:
+		if th.Dark {
+			return ui.Hex("#f0a050")
+		}
 		return ui.Hex("#d9822b")
 	case code >= 300:
 		return th.Accent
@@ -428,7 +438,7 @@ func (b *Bench) response(c *ui.Context, x *tab) {
 			resp.Headers.Set(k, v)
 		}
 	}
-	ui.Row(c.Key("status")).Height(32).Padding(0, 10).Gap(12).AlignItems(ui.Center).BorderWidth(1, 0, 1, 0).BorderColor(th.Border).Children(func() {
+	kit.Bar(c, "status", func() {
 		switch {
 		case resp == nil:
 			ui.Text(c, "Send a request (⌘↩)").TextColor(th.TextMuted)
@@ -450,18 +460,21 @@ func (b *Bench) response(c *ui.Context, x *tab) {
 			ui.Text(c, size(resp.Size)).TextColor(th.TextMuted)
 			ui.Text(c, resp.Proto).TextColor(th.TextMuted)
 			if resp.Insecure {
-				ui.Text(c, "⚠︎ TLS not verified").TextColor(th.Warning)
+				ui.Row(c.Key("tls")).Gap(4).AlignItems(ui.Center).Children(func() {
+					ui.Icon(c, kit.Warning).FontSize(12).TextColor(th.Warning)
+					ui.Text(c, "TLS not verified").TextColor(th.Warning)
+				})
 			}
 		}
 		ui.Box(c).Grow(1)
 		if kit.IconButton(c, "hist", "History", kit.History, x.history).Clicked() {
 			x.history = !x.history
 		}
-	})
+	}).Gap(12)
 	if x.old != nil {
 		ui.Row(c.Key("fromhist")).Padding(4, 10).Gap(8).Background(th.Accent.Alpha(0.12)).Children(func() {
 			ui.Text(c, "From history, "+x.old.At.Format("2006-01-02 15:04:05")).Grow(1)
-			if ui.Button(c, "Back to latest").Clicked() {
+			if kit.TextButton(c, "latest", "Back to latest").Clicked() {
 				x.old = nil
 			}
 		})
@@ -473,12 +486,13 @@ func (b *Bench) response(c *ui.Context, x *tab) {
 	if resp == nil || !resp.Done && len(resp.Body) == 0 {
 		return
 	}
-	ui.Row(c.Key("ptabs")).Padding(6, 8).Gap(8).AlignItems(ui.Center).Children(func() {
+	kit.Bar(c, "ptabs", func() {
 		ui.Segmented(c.Key("seg"), &x.respPane, "Body", "Headers", "Cookies", "Timeline", "Request")
 		ui.Box(c).Grow(1)
 		if x.respPane == 0 {
-			ui.Text(c, "Pretty").FontSize(12).TextColor(c.Theme().TextMuted)
-			ui.Switch(c.Key("pretty"), &x.pretty).Label("Pretty")
+			if kit.IconButton(c, "pretty", "Pretty", kit.Format, x.pretty).Clicked() {
+				x.pretty = !x.pretty
+			}
 			if kit.IconButton(c, "copy", "Copy", kit.Copy, false).Clicked() {
 				mygo.Clipboard.WriteText(string(resp.Body))
 			}
@@ -617,10 +631,7 @@ func (b *Bench) historyList(c *ui.Context, x *tab) {
 		}
 		for i, e := range list {
 			e := e
-			row := ui.Row(c.Key(i)).Gap(12).Padding(3, 6).Radius(5).Cursor(ui.CursorPointer)
-			if row.Hovered() {
-				row.Background(th.SurfaceHover)
-			}
+			row := kit.Row(c, fmt.Sprint(i), 0, false).Gap(12).Cursor(ui.CursorPointer)
 			row.Children(func() {
 				ui.Text(c, e.At.Format("01-02 15:04:05")).TextColor(th.TextMuted)
 				st := fmt.Sprint(e.Status)

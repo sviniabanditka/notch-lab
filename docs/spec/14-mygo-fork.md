@@ -52,121 +52,19 @@ R-MYGO-019. `Screen.Notch()` returns the notch rectangle in screen coordinates a
 
 R-MYGO-020. `App.OnGlobalPointer` installs one global and one local `NSEvent` monitor for mouse moves while a listener is registered, and removes them when the last `off` runs. The callback runs on the main goroutine with the position in `Display.Bounds` coordinates. No Accessibility permission is needed. Acceptance: `examples/notch-pointer` prints positions while another app is in front.
 
-## Patches: WebKit
+## Patches: WebKit (M4, done)
 
-| Patch | API | Requirement |
-|---|---|---|
-| datastore | `WebViewOptions.DataStoreID string` | R-MYGO-030 |
-| extensions | `WebViewOptions.ExtensionController *webkit.ExtensionController` and package `webkit` | R-MYGO-031 … R-MYGO-036 |
-| inspectable | `Page.SetInspectable(bool)` | R-MYGO-040 |
-| userscript | `Page.AddUserScript(source, when, mainFrameOnly, world)` | R-MYGO-041 |
-| handler | `Page.AddScriptMessageHandler(name, world, func(body any))` | R-MYGO-042 |
-| evalworld | `Page.EvalInWorld(world, js) (any, error)` | R-MYGO-043 |
-| download | `Page.OnDownload(func(d *Download))` | R-MYGO-044 |
-| popup | `Page.OnCreateWebView(func(req NavigationRequest) *WebView)` | R-MYGO-045 |
-| permission | `Page.OnPermission(func(kind, origin string) Decision)` | R-MYGO-046 |
-| find | `Page.Find(text string, opts FindOptions) (count int, err error)` | R-MYGO-047 |
-| zoom | `Page.SetZoom(float64)`, `Page.Zoom()` | R-MYGO-048 |
-| snapshot | `Page.Snapshot(rect) (image.Image, error)` | R-MYGO-049 |
-| contextmenu | `Page.OnContextMenu(func(info ContextMenuInfo) []MenuItem)` | R-MYGO-050 |
-| title | `Page.OnTitleChanged`, `Page.OnURLChanged`, `Page.OnProgress`, `Page.OnFaviconChanged` | R-MYGO-051 |
-| naverror | `Page.OnNavigationError(func(url string, code int, msg string))` | R-MYGO-052 |
-| dialogs | `Page.OnJSDialog(func(kind, msg, def string) (ok bool, text string))` | R-MYGO-053 |
-| auth | `Page.OnAuthChallenge(func(host string) (user, pass string, ok bool))` | R-MYGO-054 |
+mygo 0.4.5 already has the Web view features the browser Bench needs: navigation, history, find, downloads, permissions, zoom, titles, load errors, `Eval`, new windows. The fork adds one patch, which opens the native objects. Everything WebKit-specific beyond that lives in notch-lab's `internal/webkit`, written with purego and the ObjC runtime.
 
-R-MYGO-030. `DataStoreID` is a UUID text. The fork creates the configuration with `[WKWebsiteDataStore dataStoreForIdentifier:]`. An empty value means the default store. `webkit.RemoveDataStore(id)` calls `removeDataStoreForIdentifier:completionHandler:` and returns after completion. `webkit.DataStoreIDs()` lists the identifiers that exist.
+| Patch | API | Requirement | Commit |
+|---|---|---|---|
+| webview-hooks | `PageOptions.Configure func(native uintptr)`, `WebView.NativeHandle()`, `Page.SetWebViewOpenHandler`, `WindowOpenRequest.Native`, `WebViewOptions.Native` | R-MYGO-030 | `notch: web view hooks` |
 
-R-MYGO-031. Package `github.com/egoist/mygo/webkit` exposes, through purego and the ObjC runtime, these classes: `WKWebExtension`, `WKWebExtensionContext`, `WKWebExtensionController`, `WKWebExtensionAction`, `WKWebExtensionMatchPattern`, `WKWebExtensionMessagePort`, `WKWebExtensionDataRecord`. Each Go type wraps one ObjC object id and exposes the methods the browser Bench needs (`04-browser.md`). Objects are retained in Go and released in a finalizer.
+R-MYGO-030. `PageOptions.Configure` runs with the `WKWebViewConfiguration` before the Web view is made: the app sets the data store and the Extension controller there. `NativeHandle` returns the `WKWebView`. `SetWebViewOpenHandler` answers `window.open()` and `target=_blank` with a `*WebView` the app makes from `WindowOpenRequest.Native`, the configuration WebKit hands over; `WebViewOptions.Native` makes a Web view from such a configuration. An Extension popup uses the same field with the Extension's own configuration.
 
-R-MYGO-032. The fork registers two ObjC classes at run time with `objc.RegisterClass`: `NotchExtensionTab` conforming to `WKWebExtensionTab`, and `NotchExtensionWindow` conforming to `WKWebExtensionWindow`. Every protocol method calls a Go function through a table keyed by the object id. The Go side implements `webkit.ExtensionTab` and `webkit.ExtensionWindow` interfaces:
+R-MYGO-031. `internal/webkit` holds, in notch-lab: the data store per Profile (`dataStoreForIdentifier:`), user scripts in named content worlds, script message handlers, `isInspectable`, the default browser calls, and the WebExtension bridge (`04-browser.md` R-WEB-130 … R-WEB-133): the controller and its delegate, contexts, and the classes `NotchExtTab`, `NotchExtWindow`, `NotchExtDelegate` registered at run time with `objc.RegisterClass`. Completion handlers are copied with `_Block_copy` and called through the block's invoke pointer.
 
-```go
-type ExtensionTab interface {
-    Window() ExtensionWindow
-    Index() int
-    ParentTab() ExtensionTab
-    WebView() *mygo.WebView
-    Title() string; URL() string; PendingURL() string
-    IsLoadingComplete() bool
-    IsSelected() bool; IsPinned() bool; IsMuted() bool; IsPlayingAudio() bool
-    IsReaderModeAvailable() bool; IsReaderModeActive() bool
-    Size() (w, h float64); ZoomFactor() float64
-    SetZoomFactor(float64) error; SetPinned(bool) error; SetMuted(bool) error
-    SetSelected(bool) error; SetReaderModeActive(bool) error
-    DetectWebpageLocale() string
-    Reload(fromOrigin bool) error; GoBack() error; GoForward() error
-    LoadURL(string) error; Activate() error; Close() error
-    Duplicate(opts TabOpts) (ExtensionTab, error)
-    CaptureVisible() (image.Image, error)
-    ShouldGrantPermissionsOnUserGesture() bool
-    ShouldBypassPermissions() bool
-}
-type ExtensionWindow interface {
-    Tabs() []ExtensionTab; ActiveTab() ExtensionTab
-    Type() WindowType; State() WindowState
-    IsPrivate() bool; IsFocused() bool
-    Frame() Rect; ScreenFrame() Rect
-    SetFrame(Rect) error; SetState(WindowState) error
-    Focus() error; Close() error
-}
-```
-
-R-MYGO-033. `ExtensionController` wraps `WKWebExtensionController` with a configuration whose identifier is a UUID (`[WKWebExtensionControllerConfiguration configurationWithIdentifier:]`), so Extension storage persists. The controller's delegate is a registered class `NotchExtensionControllerDelegate` that forwards to Go callbacks:
-
-| Delegate method | Go callback |
-|---|---|
-| `openWindowsForExtensionContext:` | `OpenWindows() []ExtensionWindow` |
-| `focusedWindowForExtensionContext:` | `FocusedWindow() ExtensionWindow` |
-| `openNewWindowUsingConfiguration:forExtensionContext:completionHandler:` | `OpenNewWindow(cfg) (ExtensionWindow, error)` |
-| `openNewTabUsingConfiguration:forExtensionContext:completionHandler:` | `OpenNewTab(cfg) (ExtensionTab, error)` |
-| `openOptionsPageForExtensionContext:completionHandler:` | `OpenOptionsPage(ctx) error` |
-| `promptForPermissions:inTab:forExtensionContext:completionHandler:` | `PromptPermissions(perms, tab) (granted []string, expiry)` |
-| `promptForPermissionToAccessURLs:inTab:forExtensionContext:completionHandler:` | `PromptURLs(urls, tab) (granted, expiry)` |
-| `promptForPermissionMatchPatterns:inTab:forExtensionContext:completionHandler:` | `PromptPatterns(patterns, tab) (granted, expiry)` |
-| `presentPopupForAction:forExtensionContext:completionHandler:` | `PresentPopup(action) error` |
-| `sendMessage:toApplicationWithIdentifier:forExtensionContext:replyHandler:` | `NativeMessage(appID string, msg any) (reply any, err error)` |
-| `connectUsingMessagePort:forExtensionContext:completionHandler:` | `NativeConnect(port *MessagePort) error` |
-| `didUpdateAction:forExtensionContext:` | `ActionUpdated(action)` |
-
-R-MYGO-034. `ExtensionContext` exposes: `Load`, `Unload`, `Extension()`, `UniqueIdentifier`, `BaseURL`, `IsLoaded`, `Errors() []error`, `HasRequestedOptionalAccessToAllHosts`, `CurrentPermissions`, `CurrentPermissionMatchPatterns`, `GrantPermissions(perms, expiry)`, `GrantMatchPatterns(patterns, expiry)`, `RevokePermissions`, `RevokeMatchPatterns`, `Action(tab) *Action`, `PerformAction(tab)`, `PerformCommand(id)`, `Commands`, `MenuItems(tab) []MenuItem`, `DidOpenTab(tab)`, `DidCloseTab(tab, windowClosing)`, `DidActivateTab(tab, previous)`, `DidSelectTabs`, `DidDeselectTabs`, `DidMoveTab(tab, oldIndex, oldWindow)`, `DidReplaceTab(old, new)`, `DidChangeTabProperties(props, tab)`, `DidOpenWindow`, `DidCloseWindow`, `DidFocusWindow`, `OptionsPageURL`, `OverrideNewTabPageURL`, `InspectionName`, `SetInspectable`, `UnsupportedAPIs`, `WebViewConfiguration`.
-
-R-MYGO-035. `Extension` exposes: `NewExtensionFromDirectory(path) (*Extension, error)`, `Manifest() map[string]any`, `ManifestVersion`, `DisplayName`, `DisplayShortName`, `DisplayVersion`, `DisplayDescription`, `Version`, `Icon(size) image.Image`, `ActionIcon(size)`, `RequestedPermissions`, `OptionalPermissions`, `RequestedPermissionMatchPatterns`, `OptionalPermissionMatchPatterns`, `AllRequestedMatchPatterns`, `HasBackgroundContent`, `HasPersistentBackgroundContent`, `HasInjectedContent`, `HasOptionsPage`, `HasOverrideNewTabPage`, `HasCommands`, `HasContentModificationRules`, `Errors`, `DefaultLocale`, `SupportsManifestVersion(n) bool`.
-
-R-MYGO-036. `Action` exposes: `Label`, `Icon(size)`, `BadgeText`, `HasUnreadBadgeText`, `SetHasUnreadBadgeText`, `IsEnabled`, `PresentsPopup`, `PopupWebView() *mygo.WebView`, `ClosePopup`, `InlinePresentationPopover`, `MenuItems`, `AssociatedTab`. `MessagePort` exposes `ApplicationIdentifier`, `SendMessage(any) error`, `OnMessage(func(any, error))`, `OnDisconnect(func(error))`, `Disconnect()`, `IsDisconnected`.
-
-R-MYGO-037. `WebViewOptions.ExtensionController` sets `configuration.webExtensionController` at creation. The controller is set at creation only; a Web view created without it never loads Extensions.
-
-R-MYGO-038. `WebViewOptions.UserContentWorld string` names a content world for the app's own scripts. The fork creates one `WKContentWorld` per name with `[WKContentWorld worldWithName:]`.
-
-R-MYGO-040. `SetInspectable(true)` sets `isInspectable = YES` so Safari's Web Inspector can attach. Available on macOS 13.3 and later; the fork no-ops below.
-
-R-MYGO-041. `AddUserScript(source, when, mainFrameOnly, world)`: `when` is `AtDocumentStart` or `AtDocumentEnd`; `world` is `WorldPage`, `WorldDefaultClient` or a named world (R-MYGO-038). `RemoveAllUserScripts()` exists.
-
-R-MYGO-042. `AddScriptMessageHandler(name, world, fn)` registers a `WKScriptMessageHandlerWithReply` in that world. `fn` receives the JSON-decoded body and returns `(reply any, err error)`; the reply resolves the page's `webkit.messageHandlers.<name>.postMessage()` promise. A body larger than 4 MB is refused with an error to the page.
-
-R-MYGO-043. `EvalInWorld(world, js)` calls `callAsyncJavaScript:arguments:inFrame:inContentWorld:completionHandler:` and returns the JSON-decoded result. A result that cannot be serialized returns `ErrNotSerializable`.
-
-R-MYGO-044. `OnDownload` fires from `navigationResponse` with a non-displayable MIME type and from a `download` attribute link. `Download` exposes `SuggestedFilename`, `URL`, `MIME`, `Size`, `Start(dest string)`, `Cancel()`, `OnProgress(func(received, total int64))`, `OnFinish(func(err error))`. The app chooses the destination.
-
-R-MYGO-045. `OnCreateWebView` fires from `webView:createWebViewWithConfiguration:forNavigationAction:windowFeatures:`. The callback returns a `*WebView` created on the same window with the given configuration, or nil to block. The fork passes the configuration through `WebViewOptions.ParentConfiguration` so the new view shares the data store, the extension controller and the process pool.
-
-R-MYGO-046. `OnPermission(kind, origin)` covers `camera`, `microphone`, `cameraAndMicrophone`, `geolocation`, `notifications`, `deviceOrientation`. `Decision` is `Grant`, `Deny` or `Prompt`. `Prompt` shows WebKit's own prompt.
-
-R-MYGO-047. `Find(text, opts)` uses `WKFindConfiguration`: `CaseSensitive`, `Backwards`, `Wraps`. It returns the count of matches via the page's `find` result; `FindNext`, `FindPrevious`, `ClearFind` exist. Match highlighting uses WebKit's own highlight.
-
-R-MYGO-048. `SetZoom` sets `pageZoom`. Range 0.25 to 5.0.
-
-R-MYGO-049. `Snapshot(rect)` calls `takeSnapshotWithConfiguration:completionHandler:` and returns an `image.RGBA`. An empty rect means the visible area.
-
-R-MYGO-050. `OnContextMenu` receives `ContextMenuInfo{LinkURL, ImageURL, SelectedText, IsEditable, MediaURL}` and returns extra items appended to WebKit's menu. An item is `{Label, Action func(), Enabled}`. Items are built with `WKContextMenuElementInfo` where available; the fork falls back to a native menu at the pointer when WebKit gives no hook.
-
-R-MYGO-051. `OnTitleChanged(func(string))`, `OnURLChanged(func(string))`, `OnProgress(func(float64))` observe `title`, `URL`, `estimatedProgress` with KVO through a registered observer class. `OnFaviconChanged(func(url string))` runs a user script at document end that posts `<link rel="icon">` hrefs to a handler named `notchFavicon` in a named world, and resolves `/favicon.ico` when none is declared.
-
-R-MYGO-052. `OnNavigationError` fires from `didFailNavigation` and `didFailProvisionalNavigation` with the error's URL, code and localized description. A cancelled navigation (`NSURLErrorCancelled`) is not reported.
-
-R-MYGO-053. `OnJSDialog(kind, msg, def)` covers `alert`, `confirm`, `prompt`. The callback returns on the main goroutine; the fork answers the completion handler after the callback returns. A callback that takes longer than 30 s answers `false`.
-
-R-MYGO-054. `OnAuthChallenge(host)` answers HTTP basic and digest challenges. A `false` return cancels the challenge.
+R-MYGO-032. purego limits: a method registered with `objc.RegisterClass` cannot return a float, so the optional `zoomFactorForWebExtensionContext:` is not implemented; a struct argument (`CGSize` for `iconForSize:`) goes through `purego.RegisterFunc` on `objc_msgSend` with a Go struct, not an array.
 
 ## Not patched
 
@@ -202,8 +100,8 @@ R-MYGO-081. `docs/fork/patches.md` in the fork lists every patch, its commit sub
 
 | Risk | Effect | Response |
 |---|---|---|
-| upstream changes `WebView` internals between tags | the WebKit patches conflict | patches keep new code in `notch_*.go`; conflicts stay on the wiring lines |
-| `WKWebExtension` protocols gain required methods in a new macOS | the registered class misses a selector; WebKit logs and skips it | `docs/fork/selectors.md` is checked against each new SDK; missing methods return defaults |
+| upstream changes `WebView` internals between tags | the web view hooks conflict | the patch is small and keeps new code in `notch_*.go` |
+| `WKWebExtension` protocols gain required methods in a new macOS | the registered class misses a selector; WebKit logs and skips it | the classes in `internal/webkit` are checked against each new SDK; missing methods return defaults |
 | purego callback from a non-main thread | WebKit calls some delegate methods off the main thread | every callback marshals to the main goroutine before touching Go state; reply handlers are called from the callback's thread |
 | global pointer monitor costs CPU | the hover trigger polls on every mouse move | the monitor only compares against the notch rect; the app installs it only while `notch.hoverShows` is true |
 | `setActivationPolicy` in full screen | desktop switch | refused by R-MYGO-013 |

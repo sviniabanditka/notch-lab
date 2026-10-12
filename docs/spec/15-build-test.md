@@ -123,6 +123,8 @@ R-BUILD-053. `nl shot` captures the window only. A context menu is a window of i
 
 R-BUILD-054. The smoke run `tools/verify/smoke` does: `nl up`; `nl shot smoke`; `nl down`. Exit 0 on success. M1 adds: create a Lab and a terminal Bench. M6 adds: `nl mcp terminal.create`; `nl mcp terminal.write '{"text":"echo ok"}'`; `nl mcp terminal.key Enter`; read the Screen and expect `ok`.
 
+R-BUILD-055. Two live checks run real WebKit in a window of their own, without the app: `go run ./tools/webcheck` (data store, Probe, titles, navigation) and `go run ./tools/extcheck` (a fixture Extension: load, content script, worker message, native message). `extcheck -store` also installs uBlock Origin Lite from the Chrome Web Store (network). `extcheck -install <home>/extensions` puts uBlock Origin Lite, pinned, into a dev home.
+
 ## CI
 
 R-BUILD-060. `.github/workflows/ci.yml` runs on `macos-15` on push and pull request. The fork of mygo is private: the repository secret `MYGO_FORK_TOKEN` (a token that reads `sviniabanditka/mygo`) goes into a git `insteadOf` rule before the first `go` command. Steps:

@@ -8,3 +8,6 @@ func AddMessageHandler(uintptr, string, string, func(string)) {}
 func SetInspectable(uintptr, bool)                            {}
 func SetDefaultBrowser(string, func(error))                   {}
 func IsDefaultBrowser(string) bool                            { return false }
+
+// Supported reports WKWebExtension; never off macOS.
+func Supported() bool { return false }

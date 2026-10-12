@@ -4,6 +4,9 @@ The browser Bench shows web Pages in WebKit views inside the Layout. It loads Ch
 
 Requirements are numbered `R-WEB-nnn`.
 
+> M4 status (2026-10-12). Done: Tabs, Profiles, the Probe, default browser (stage A); the Extension controller and adapters, Store install with the "Add to notch-lab" button, CRX3 check, the Shim, the native answers for bookmarks, history, downloads, userScripts and scripting, action buttons with a popup, the options page, Settings › Extensions, daily updates (stage B). `tools/extcheck` checks the bridge against real WebKit and installs uBlock Origin Lite from the Store. `[later]` in M4: AMO installs and `.xpi`/`.zip` files (R-WEB-146, R-WEB-148), the second permission sheet (R-WEB-142), side panels, offscreen documents, `identity`, `webRequest`, `tabGroups` answers (R-WEB-151), capture (R-WEB-153), popup sizing to its content and the 300 ms reopen guard (R-WEB-161), the "more" menu for unpinned Extensions and the button's context menu (R-WEB-160, R-WEB-163), remembered grants (R-WEB-170), the permission diff on update (R-WEB-171), removal of an Extension's WebKit data (R-WEB-181), the notch panel as an Extension window (R-WEB-132), the 2 s wait of early Pages (R-WEB-134).
+
+
 ## Tabs and Web views
 
 R-WEB-001. A browser Tab holds exactly one Page. The Tab's type data is `{"url": "<string>", "title": "<string>", "favicon": "<path or empty>", "zoom": <number>, "scroll": <number>}`.
@@ -228,7 +231,7 @@ R-WEB-135. An Extension that fails to load shows in Settings › Extensions with
 
 ### Install from a Store
 
-R-WEB-140. On `https://chromewebstore.google.com` and `https://chrome.google.com/webstore`, the app injects a user script at document end in the page world, as Search's `StoreRelay` does. The script:
+R-WEB-140. On `https://chromewebstore.google.com`, the app injects a user script at document end in the main frame, in a content world of its own with a random name, as Search's `StoreRelay` does. The app tells the script the installed ids and the busy id through the attribute `data-notch-store` on the document element, which both worlds see. The script:
 
 1. Hides the "Switch to Chrome" dialog, known by the Chrome logo image it carries.
 2. Hides the banner block around the enabled button whose `aria-label` names Chrome, going up from the button while the block is under 160 characters and holds no install button.
@@ -259,9 +262,9 @@ R-WEB-146. On `https://addons.mozilla.org` the app injects a user script that re
 
 R-WEB-147. Settings › Extensions has a field "Paste a link to an extension, or its id" with Add. The app finds 32 letters a–p in the text, or an AMO link, and installs as above. "Open the Store" opens `https://chromewebstore.google.com/category/extensions` in a new Tab.
 
-R-WEB-148. Settings › Extensions has "Load from folder…". The folder is loaded in place, with the id `local-<sha256 of path, 16 hex>`. "Reload" re-reads the folder. "Load from file…" takes a `.crx`, `.xpi` or `.zip`: a `.crx` goes through R-WEB-144 with the id from its header; a `.xpi` and a `.zip` are unpacked under R-WEB-145 with the id from the manifest's `browser_specific_settings.gecko.id` or `key`, else `local-…`.
+R-WEB-148. Settings › Extensions has "Load from folder…". The folder is loaded in place, with the id Chrome gives an unpacked folder: the first 16 bytes of the SHA-256 of the path, as letters a–p. The app writes the Shim into the folder (R-WEB-150). "Reload" re-reads the folder. "Load from file…" takes a `.crx`, `.xpi` or `.zip`: a `.crx` goes through R-WEB-144 with the id from its header; a `.xpi` and a `.zip` are unpacked under R-WEB-145 with the id from the manifest's `browser_specific_settings.gecko.id` or `key`, else `local-…`.
 
-R-WEB-149. The list of installed Extensions is `$NOTCH_LAB_HOME/extensions/installed.json`: an array of `{id, name, version, enabled, fromStore, permissions, pinned, source}`, as Search's `Installed`.
+R-WEB-149. The list of installed Extensions is `$NOTCH_LAB_HOME/extensions/installed.json`: an array of `{id, name, version, enabled, pinned, local, updated}`: `local` is the folder of an unpacked Extension, `updated` the Unix time of the last download.
 
 ### The Shim
 
@@ -309,7 +312,7 @@ R-WEB-164. A side panel (R-WEB-151) opens in a drawer at the right of the Leaf. 
 
 R-WEB-170. A permission request from an Extension (`permissions.request`, host access on first use) shows a sheet named for the Extension with the permissions in plain words, Allow and Deny. The choice is remembered per Extension in `installed.json` under `granted`.
 
-R-WEB-171. Once a day, and at start when the last check is older than a day, the app asks the Store for each `fromStore` Extension's current version through the same download URL with a HEAD request. When the version in the redirect's file name is newer, the app downloads and checks the CRX (R-WEB-143, R-WEB-144), compares the manifest's permissions with the installed ones minus `.notch-added`, and:
+R-WEB-171. Every hour the app downloads again each Store Extension whose last download is older than a day. A new version installs in place and reloads the Extension; the same version only updates `updated`. The text below is the full rule `[later]`: the app asks the Store for each Store Extension's current version through the same download URL with a HEAD request. When the version in the redirect's file name is newer, the app downloads and checks the CRX (R-WEB-143, R-WEB-144), compares the manifest's permissions with the installed ones minus `.notch-added`, and:
 
 - installs in place when no permission was added, then reloads the Extension;
 - else shows a Toast "<name> asks for new permissions" with Review, which opens the permission sheet; Allow installs.

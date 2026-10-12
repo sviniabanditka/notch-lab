@@ -43,6 +43,10 @@ type Bench struct {
 	// ToastAction shows a Toast with one button.
 	ToastAction func(msg, label string, fn func())
 	Confirm     func(q, yes string) bool
+	// CloseTab closes a Tab through the Shell.
+	CloseTab func(t *model.Tab)
+	// Ext is nil before macOS 15.4 and until StartExtensions.
+	Ext *Ext
 
 	tabs  map[*model.Tab]*tab
 	focus *tab
@@ -81,6 +85,7 @@ type tab struct {
 	}
 	log       Log
 	lastQuery string
+	ext       *webkit.ExtTab // the Tab as Extensions see it (R-WEB-133)
 }
 
 type suggestion struct{ title, url string }
@@ -149,6 +154,10 @@ func (b *Bench) live(t *model.Tab) *tab {
 		if readData(t).URL == "" {
 			x.focusAddr = true
 		}
+		if b.Ext != nil {
+			x.ext = webkit.NewTab(tabHost{b, x})
+			b.Ext.ctl.DidOpenTab(x.ext)
+		}
 	}
 	return x
 }
@@ -163,7 +172,12 @@ func (b *Bench) wake(x *tab, native uintptr) *mygo.WebView {
 	opts := mygo.WebViewOptions{Native: native, BackgroundColor: "light-dark(#ffffff, #1e1e1e)"}
 	if native == 0 {
 		opts.URL = d.URL
-		opts.Page.Configure = func(cfg uintptr) { webkit.SetDataStore(cfg, profile) }
+		opts.Page.Configure = func(cfg uintptr) {
+			webkit.SetDataStore(cfg, profile)
+			if b.Ext != nil {
+				b.Ext.ctl.Attach(cfg) // R-WEB-130
+			}
+		}
 	}
 	if b.Set.S.Browser.Inspectable {
 		opts.Page.DevTools = mygo.DevToolsEnabled
@@ -187,6 +201,9 @@ func (b *Bench) wire(x *tab) {
 	webkit.SetInspectable(h, b.Set.S.Browser.Inspectable)
 	webkit.AddUserScript(h, ListenerScript(), true, true, ProbeWorld)
 	webkit.AddUserScript(h, WatcherScript(), true, true, "")
+	if b.Ext != nil {
+		b.Ext.wireStore(x)
+	}
 	webkit.AddMessageHandler(h, ProbeWorld, ProbeHandler, func(batch string) {
 		b.Post(func() { x.log.Add(batch) })
 	})
@@ -272,6 +289,9 @@ func (b *Bench) navigated(x *tab, u string) {
 	}
 	b.St.Changed()
 	b.retitle(x)
+	if b.Ext != nil && x.ext != nil {
+		b.Ext.ctl.DidChangeTab(x.ext)
+	}
 	if z, ok := b.Set.S.Browser.Zoom[Origin(u)]; ok { // R-WEB-091
 		x.wv.Page().SetZoomFactor(z)
 	}
@@ -553,6 +573,13 @@ func (b *Bench) View(c *ui.Context, t *model.Tab, focused bool) bool {
 		}
 	})
 	if focused && b.focus != x {
+		if b.Ext != nil && x.ext != nil {
+			var prev *webkit.ExtTab
+			if b.focus != nil {
+				prev = b.focus.ext
+			}
+			b.Ext.ctl.DidActivateTab(x.ext, prev)
+		}
 		b.focus = x
 		if x.focusAddr || d.URL == "" {
 			x.addrH.Focus()
@@ -635,6 +662,9 @@ func (b *Bench) addressBar(c *ui.Context, x *tab, focused bool) bool {
 						b.Zoom(x.t.Bench, 0)
 					}
 				}
+			}
+			if b.Ext != nil {
+				b.Ext.buttons(c, x)
 			}
 			star := "☆"
 			if bm, _ := b.Marks.Find(d.URL); bm != nil {
@@ -968,6 +998,12 @@ func (b *Bench) Closed(t *model.Tab) {
 	if x := b.tabs[t]; x != nil {
 		if x.wv != nil {
 			x.wv.Destroy()
+		}
+		if b.Ext != nil && x.ext != nil {
+			b.Ext.ctl.DidCloseTab(x.ext)
+		}
+		if b.focus == x {
+			b.focus = nil
 		}
 		delete(b.tabs, t)
 	}

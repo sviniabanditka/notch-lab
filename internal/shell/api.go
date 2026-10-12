@@ -113,6 +113,9 @@ func (s *Shell) typeOf(b *model.Bench) TabType {
 }
 
 // closeTab closes a Tab after the type's question (R-TERM-067), and frees it.
+// CloseTab closes a Tab as Cmd+W does.
+func (s *Shell) CloseTab(t *model.Tab) { s.closeTab(t) }
+
 func (s *Shell) closeTab(t *model.Tab) {
 	tt := s.typeOf(t.Bench)
 	if cl, ok := tt.(Closer); ok && !cl.CanClose(t) {

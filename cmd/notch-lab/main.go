@@ -137,6 +137,7 @@ func (a *app) start() {
 	a.web.Post, a.web.Show, a.web.Toast, a.web.Confirm = a.term.Post, a.ed.Show, a.sh.Toast, a.sh.Confirm
 	a.web.ToastAction = a.sh.ToastAction
 	a.sv.Browser = a.browserSettings
+	a.sv.Extensions = func(c *ui.Context) { a.web.ExtensionSettings(c, a.settings) }
 	a.term.OpenURL = func(l *model.Lab, u string) {
 		if t := a.web.OpenURL(l, u); t != nil {
 			a.sh.Show(t)
@@ -172,6 +173,8 @@ func (a *app) start() {
 	a.ed.Win = a.main
 	a.files.Win = a.main
 	a.web.Win = a.main
+	a.web.CloseTab = a.sh.CloseTab
+	a.web.StartExtensions() // R-WEB-130
 	// The red button and Cmd+W with no Tab hide the window (R-SHELL-007).
 	a.main.OnClose(func(e *mygo.CloseEvent) {
 		e.PreventDefault()

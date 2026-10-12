@@ -119,7 +119,7 @@ R-BUILD-051. Input goes to the app's pid only. The user's cursor and front app s
 
 R-BUILD-052. The Mac's Cyrillic layout types Cyrillic through `osascript keystroke`. `nl text` posts Unicode directly. Cmd+letter shortcuts go through menu accelerators, because mygo reports them as key 0.
 
-R-BUILD-053. `nl shot` captures the window only. A context menu is a window of its own and is absent from the shot.
+R-BUILD-053. `nl shot` captures the window only. A context menu is a window of its own and is absent from the shot. A window on another Space, or hidden behind a full-screen app, draws no frames: mygo pauses an occluded window, so posted input waits until the window shows. `ui.Tester` covers pointer drags.
 
 R-BUILD-054. The smoke run `tools/verify/smoke` does: `nl up`; `nl shot smoke`; `nl down`. Exit 0 on success. M1 adds: create a Lab and a terminal Bench. M6 adds: `nl mcp terminal.create`; `nl mcp terminal.write '{"text":"echo ok"}'`; `nl mcp terminal.key Enter`; read the Screen and expect `ok`.
 

@@ -11,3 +11,6 @@ Search by Office Commun (MIT) — the Shim JavaScript and the design of the
   Extension layer (from milestone M4).
 
 Go dependencies: see go.mod; their licenses are those of each module.
+
+Lucide (ISC) — https://lucide.dev
+  The icons in internal/shell/icons.go are Lucide shapes.

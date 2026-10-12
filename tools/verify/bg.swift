@@ -52,7 +52,12 @@ func key(_ code: CGKeyCode, _ flags: CGEventFlags, _ text: String?) {
 typealias SetWindowLocation = @convention(c) (CGEvent, CGPoint) -> Void
 let setWindowLocation = unsafeBitCast(dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGEventSetWindowLocation")!, to: SetWindowLocation.self)
 let origin: CGPoint = {
-  let list = CGWindowListCopyWindowInfo([.optionIncludingWindow], CGWindowID(win)) as? [[String: Any]] ?? []
+  // optionIncludingWindow alone can come back empty (another Space, a
+  // window just reopened): look the window up in the full list as well.
+  var list = CGWindowListCopyWindowInfo([.optionIncludingWindow], CGWindowID(win)) as? [[String: Any]] ?? []
+  if list.isEmpty {
+    list = (CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] ?? []).filter { ($0[kCGWindowNumber as String] as? Int64) == win || ($0[kCGWindowNumber as String] as? Int) == Int(win) }
+  }
   guard let b = list.first?[kCGWindowBounds as String] as? [String: Double] else { fputs("bg: no window \(win)\n", stderr); exit(1) }
   return CGPoint(x: b["X"]!, y: b["Y"]!)
 }()
@@ -112,9 +117,9 @@ default:
     }
   case "drag":
     let q = CGPoint(x: num(6), y: num(7))
-    mouse(.mouseMoved, p); mouse(.leftMouseDown, p)
+    mouse(.mouseMoved, p); usleep(80000); mouse(.leftMouseDown, p); usleep(80000)
     for i in 1...10 { let t = Double(i) / 10; mouse(.leftMouseDragged, CGPoint(x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t)); usleep(25000) }
-    mouse(.leftMouseUp, q)
+    usleep(80000); mouse(.leftMouseUp, q)
   default: fputs("bg: unknown op \(op)\n", stderr); exit(2)
   }
 }

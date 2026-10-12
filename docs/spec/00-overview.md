@@ -75,8 +75,8 @@ Every `internal/` package exposes its API in `api.go` and keeps everything else 
 | Measure | Limit |
 |---|---|
 | Time from launch to first frame | 1 s |
-| Memory at idle with no browser Tab | 80 MB |
-| Memory with one browser Tab | 150 MB |
+| Memory at idle with no browser Tab, main window 1200 x 800 pt on a Retina display | 120 MB (measured 107 MB at M1; the window's GPU buffers are about 45 MB of it) |
+| Memory with one browser Tab | 190 MB |
 | Terminal frame rate while a program writes at full speed | 60 fps |
 | Key press to glyph on screen in a terminal Tab | 16 ms |
 | Switcher result for a query over 10 000 items | 50 ms |

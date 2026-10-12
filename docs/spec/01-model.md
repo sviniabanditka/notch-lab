@@ -72,7 +72,7 @@ R-MODEL-040. The user drags a Divider to change the ratio. The Divider is 1 pt w
 
 R-MODEL-041. A Layout holds Tabs of its own Bench only.
 
-R-MODEL-042. The Layout is saved in State as JSON: `{"split":{"dir":"row","ratio":0.5,"a":...,"b":...}}` or `{"leaf":{"tab":"<id>"}}` or `{"leaf":{}}`.
+R-MODEL-042. The Layout is saved in State as JSON: `{"split":{"dir":"row","ratio":0.5,"a":...,"b":...}}` or `{"leaf":{"tab":"<id>"}}` or `{"leaf":{}}`. The focused Leaf carries `"focus":true`. At load, a Leaf whose Tab is missing or shown twice goes away, as when its Tab closes.
 
 ## State
 
@@ -94,7 +94,7 @@ CREATE TABLE kv    (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 PRAGMA user_version = 1;
 ```
 
-R-MODEL-052. The app writes State at most once per 100 ms. Several changes inside that time go in one transaction.
+R-MODEL-052. The app writes State at most once per 100 ms. Several changes inside that time go in one transaction. In v1 the transaction rewrites every row; the State is small.
 
 R-MODEL-053. The app writes State before it quits. A write that fails shows a Toast and writes to the log.
 
@@ -114,4 +114,4 @@ R-MODEL-061. Titles and names are at most 200 characters. The app cuts longer te
 
 ## Events
 
-R-MODEL-070. `internal/model` emits events on every change: `LabChanged`, `BenchChanged`, `TabChanged`, `LayoutChanged`, `SelectionChanged`. The Shell, the Switcher, Unread and the MCP server subscribe. Events carry ids, not objects.
+R-MODEL-070. `[later: M6, with the MCP server]` `internal/model` emits events on every change: `LabChanged`, `BenchChanged`, `TabChanged`, `LayoutChanged`, `SelectionChanged`. The Shell, the Switcher, Unread and the MCP server subscribe. Events carry ids, not objects.

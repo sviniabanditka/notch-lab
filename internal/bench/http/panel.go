@@ -51,15 +51,19 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 					b.importCurl(bench, s)
 				}
 				m.Separator()
-				if m.Item("Clear cookies").Chosen() && b.confirm("Clear the cookies of this Bench?", "Clear") { // R-HTTP-084
-					s.jar.Clear()
+				if m.Item("Clear cookies").Chosen() { // R-HTTP-084
+					b.confirm("Clear the cookies of this Bench?", "Clear", func() {
+						s.jar.Clear()
+					})
 				}
-				if m.Item("Clear history").Chosen() && b.confirm("Clear the history of this Bench?", "Clear") { // R-HTTP-103
-					for _, f := range s.files {
-						for _, bl := range f.Blocks {
-							os.Remove(historyFile(b, f.Path, bl.Req.Title()))
+				if m.Item("Clear history").Chosen() { // R-HTTP-103
+					b.confirm("Clear the history of this Bench?", "Clear", func() {
+						for _, f := range s.files {
+							for _, bl := range f.Blocks {
+								os.Remove(historyFile(b, f.Path, bl.Req.Title()))
+							}
 						}
-					}
+					})
 				}
 				if m.Item("Open the Bench folder").Chosen() {
 					_ = os.MkdirAll(s.folder, 0o755)
@@ -140,11 +144,13 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 						mygo.Shell.ShowItemInFolder(f.Path)
 					}
 					m.Separator()
-					if m.Item("Delete Collection").Chosen() && b.confirm("Move “"+f.Name()+"” to the Trash?", "Move to Trash") {
-						if err := mygo.Shell.TrashItem(f.Path); err != nil {
-							b.toast(err.Error())
-						}
-						s.scanned = time.Time{}
+					if m.Item("Delete Collection").Chosen() {
+						b.confirm("Move “"+f.Name()+"” to the Trash?", "Move to Trash", func() {
+							if err := mygo.Shell.TrashItem(f.Path); err != nil {
+								b.toast(err.Error())
+							}
+							s.scanned = time.Time{}
+						})
 					}
 				})
 				if !open {
@@ -175,8 +181,6 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 		})
 	})
 }
-
-func (b *Bench) confirm(q, yes string) bool { return b.Confirm == nil || b.Confirm(q, yes) }
 
 func historyFile(b *Bench, file, name string) string {
 	return httpclient.HistoryFile(filepath.Join(b.Dir, "http", "history"), file, name)
@@ -237,12 +241,14 @@ func (b *Bench) requestMenu(m *ui.Menu, bench *model.Bench, s *store, f *httpfil
 		})
 	}
 	m.Separator()
-	if m.Item("Delete Request").Chosen() && b.confirm("Delete “"+r.Title()+"”?", "Delete") {
-		f.Remove(i)
-		if err := f.Save(); err != nil {
-			b.toast(err.Error())
-		}
-		s.scanned = time.Time{}
+	if m.Item("Delete Request").Chosen() {
+		b.confirm("Delete “"+r.Title()+"”?", "Delete", func() {
+			f.Remove(i)
+			if err := f.Save(); err != nil {
+				b.toast(err.Error())
+			}
+			s.scanned = time.Time{}
+		})
 	}
 }
 
@@ -374,4 +380,17 @@ func sortedKeys(m map[string]string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// confirm runs then when the user answers yes; at once without Confirm.
+func (b *Bench) confirm(q, yes string, then func()) {
+	if b.Confirm == nil {
+		then()
+		return
+	}
+	b.Confirm(q, yes, func(ok bool) {
+		if ok {
+			then()
+		}
+	})
 }

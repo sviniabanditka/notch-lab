@@ -5,7 +5,7 @@ package shell
 
 import (
 	"fmt"
-	"log"
+	"slices"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -40,7 +40,8 @@ type Shell struct {
 	GoToFile func(root string)
 	// Overlays draw over the window after the Shell, as the Go to File palette.
 	Overlays []func(c *ui.Context)
-	// Strip replaces the title strip: the notch panel's own (R-SHELL-018).
+	// Strip is the notch panel's top band, over the whole panel; the card
+	// keeps its toolbar (R-SHELL-018).
 	Strip func(c *ui.Context)
 	// BeforeFrame runs first in every frame of this Shell's window.
 	BeforeFrame func()
@@ -64,6 +65,7 @@ type Shell struct {
 	resizing  bool // the sidebar edge is dragged
 	sw        switcher
 	dlg       dialog
+	q         Questions
 	menuSig   string
 	panelH    map[*model.Bench]float32
 	panelDrag bool
@@ -113,9 +115,11 @@ type Subtitler interface {
 }
 
 // Closer is a TabType that asks its own question before a Tab closes, as
-// Save, Don't Save, Cancel (R-EDIT-006); false keeps the Tab.
+// Save, Don't Save, Cancel (R-EDIT-006). CanClose returns true to close the
+// Tab at once; false when it asks, and it calls close once the answer
+// lets the Tab close.
 type Closer interface {
-	CanClose(t *model.Tab) bool
+	CanClose(t *model.Tab, close func()) bool
 }
 
 // command sends a menu command to the focused Bench's type.
@@ -140,13 +144,21 @@ func (s *Shell) CloseTab(t *model.Tab) { s.closeTab(t) }
 
 func (s *Shell) closeTab(t *model.Tab) {
 	tt := s.typeOf(t.Bench)
-	if cl, ok := tt.(Closer); ok && !cl.CanClose(t) {
+	if cl, ok := tt.(Closer); ok && !cl.CanClose(t, func() { s.closeNow(t, tt) }) {
 		return
 	}
 	if tt != nil {
-		if q := tt.CloseQuestion(t); q != "" && !s.confirm(q, "Close") {
+		if q := tt.CloseQuestion(t); q != "" {
+			s.confirm(q, "Close", func() { s.closeNow(t, tt) })
 			return
 		}
+	}
+	s.closeNow(t, tt)
+}
+
+func (s *Shell) closeNow(t *model.Tab, tt TabType) {
+	if t.Bench == nil || !slices.Contains(t.Bench.Tabs, t) { // closed while the question showed
+		return
 	}
 	s.St.CloseTab(t)
 	if tt != nil {
@@ -428,37 +440,16 @@ func (s *Shell) GoToUnread() {
 // DeleteBench deletes a Bench, after a confirmation when it has Tabs
 // (R-MODEL-016).
 func (s *Shell) DeleteBench(b *model.Bench) {
-	if len(b.Tabs) > 0 && !s.confirm(fmt.Sprintf("Delete the Bench “%s” and its %d Tabs?", b.Name, len(b.Tabs)), "Delete") {
+	if len(b.Tabs) == 0 {
+		s.St.DeleteBench(b)
 		return
 	}
-	s.St.DeleteBench(b)
+	s.confirm(fmt.Sprintf("Delete the Bench “%s” and its %d Tabs?", b.Name, len(b.Tabs)), "Delete", func() { s.St.DeleteBench(b) })
 }
 
 // DeleteLab deletes a Lab after a confirmation (R-MODEL-005).
 func (s *Shell) DeleteLab(l *model.Lab) {
-	if !s.confirm(fmt.Sprintf("Delete the Lab “%s” with its %d Benches?", l.Name, len(l.Benches)), "Delete") {
-		return
-	}
-	s.St.DeleteLab(l)
-}
-
-// confirm asks a yes-or-no question with a system alert. Tests answer yes.
-// Confirm asks a yes-or-no question with a system alert.
-func (s *Shell) Confirm(question, yes string) bool { return s.confirm(question, yes) }
-
-func (s *Shell) confirm(question, yes string) bool {
-	if s.Win == nil {
-		return true
-	}
-	r, err := mygo.Dialog.Message(mygo.MessageOptions{
-		Parent: s.Win, Type: mygo.MessageWarning, Message: question,
-		Buttons: []string{yes, "Cancel"}, DefaultButton: 1, CancelButton: 1,
-	})
-	if err != nil {
-		log.Printf("confirm: %v", err)
-		return false
-	}
-	return r.Button == 0
+	s.confirm(fmt.Sprintf("Delete the Lab “%s” with its %d Benches?", l.Name, len(l.Benches)), "Delete", func() { s.St.DeleteLab(l) })
 }
 
 // chooseFolder asks for a folder; "" when the user cancels.

@@ -64,19 +64,28 @@ func (b *Bench) runFromUI(x *tab, all bool) {
 	if len(stmts) == 0 {
 		return
 	}
+	var asks []string
 	if err := Check(c, stmts, func(stmt, why string) bool {
-		return b.confirm(fmt.Sprintf("%s on “%s”:\n\n%s", why, c.Name, stmt), "Run") // R-DB-052
+		asks = append(asks, why+":\n"+stmt)
+		return true
 	}); err != nil {
 		x.messages = []string{err.Error()}
 		return
 	}
-	limit := 0
-	if x.limit {
-		limit = 500
+	run := func() {
+		limit := 0
+		if x.limit {
+			limit = 500
+		}
+		if err := b.Run(x.t, stmts, limit, int(x.timeout), nil); err != nil {
+			b.toast(err.Error())
+		}
 	}
-	if err := b.Run(x.t, stmts, limit, int(x.timeout), nil); err != nil {
-		b.toast(err.Error())
+	if len(asks) == 0 {
+		run()
+		return
 	}
+	b.confirm(fmt.Sprintf("Run on “%s”?\n\n%s", c.Name, strings.Join(asks, "\n\n")), "Run", run) // R-DB-052
 }
 
 // toolbar is the Connection, Run, Run all, Cancel, read-only, Limit,

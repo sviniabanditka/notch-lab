@@ -96,6 +96,10 @@ type app struct {
 	agents   *agentsbench.Bench
 	active   bool
 	notch    *notch
+	// cur and curQ are the Shell and the questions of the window that
+	// draws; see drawing.
+	cur      *shell.Shell
+	curQ     *shell.Questions
 	mcp      *mcp.Server
 	agentsUI agentsUI
 	// lastToast counts repeats of an agent's Toast (R-MCP-044).
@@ -132,6 +136,7 @@ func (a *app) start() {
 	st.EnsureLab()
 
 	a.sh = shell.New(st, set, "main", userHome)
+	a.cur, a.curQ = a.sh, a.sh.Questions()
 	a.sh.StateDir = a.dir
 	a.sh.OpenSettings = a.openSettings
 	a.sh.Quit = mygo.App.Quit
@@ -157,8 +162,8 @@ func (a *app) start() {
 	a.ed.Post = a.term.Post
 	a.ed.Show = func(t *model.Tab) { a.sh.Show(t) }
 	a.ed.Toast = a.sh.Toast
-	a.ed.Confirm = a.sh.Confirm
-	a.ed.AskText = a.sh.AskText
+	a.ed.Confirm, a.ed.Ask = a.confirm, a.ask
+	a.ed.AskText = a.askText
 	a.ed.OpenTerminal = func(l *model.Lab, dir string) { a.sh.Show(a.term.OpenIn(l, dir)) }
 	editorbench.Lab = func() *model.Lab { return a.st.Window("main").Lab }
 	a.term.OpenPath = func(l *model.Lab, path string, line, col int) { a.ed.OpenPath(l, path, line, col) }
@@ -166,11 +171,11 @@ func (a *app) start() {
 	a.sh.Overlays = append(a.sh.Overlays, a.ed.Overlay)
 	a.files = filesbench.New(st, userHome)
 	a.files.Post, a.files.Show, a.files.Toast = a.term.Post, a.ed.Show, a.sh.Toast
-	a.files.Confirm, a.files.AskText = a.sh.Confirm, a.sh.AskText
+	a.files.Confirm, a.files.AskText = a.confirm, a.askText
 	a.files.OpenFile = func(l *model.Lab, path string) { a.ed.OpenPath(l, path, 0, 0) }
 	a.files.OpenTerminal = a.ed.OpenTerminal
 	a.web = browserbench.New(st, set, userHome, a.dir, &browserbench.History{DB: store.DB()})
-	a.web.Post, a.web.Show, a.web.Toast, a.web.Confirm = a.term.Post, a.ed.Show, a.sh.Toast, a.sh.Confirm
+	a.web.Post, a.web.Show, a.web.Toast, a.web.Confirm = a.term.Post, a.ed.Show, a.sh.Toast, a.confirm
 	a.web.ToastAction = a.sh.ToastAction
 	a.sv.Browser = a.browserSettings
 	a.sv.Extensions = func(c *ui.Context) { a.web.ExtensionSettings(c, a.settings) }
@@ -191,15 +196,15 @@ func (a *app) start() {
 	})
 	a.http = httpbench.New(st, userHome, a.dir)
 	a.http.Post, a.http.Show, a.http.Toast = a.term.Post, a.ed.Show, a.sh.Toast
-	a.http.Confirm, a.http.AskText, a.http.Visible = a.sh.Confirm, a.sh.AskText, a.visible
+	a.http.Confirm, a.http.AskText, a.http.Visible = a.confirm, a.askText, a.visible
 	a.db = dbbench.New(st, userHome, a.dir)
 	a.db.Post, a.db.Show, a.db.Toast = a.term.Post, a.ed.Show, a.sh.Toast
-	a.db.Confirm, a.db.AskText, a.db.Visible = a.sh.Confirm, a.sh.AskText, a.visible
+	a.db.Confirm, a.db.AskText, a.db.Visible = a.confirm, a.askText, a.visible
 	a.sh.Overlays = append(a.sh.Overlays, a.db.Overlay)
 	a.notes = notesbench.New(a.ed, a.dir)
 	a.ed.TitleFor, a.ed.AutosaveFor, a.ed.Prepare = notesbench.Title, notesbench.Autosave, a.notes.Prepare
 	a.prs = prbench.New(st, userHome, a.dir)
-	a.prs.Post, a.prs.Show, a.prs.Confirm = a.term.Post, a.ed.Show, a.sh.Confirm
+	a.prs.Post, a.prs.Show, a.prs.Confirm = a.term.Post, a.ed.Show, a.confirm
 	a.prs.Focused = func() bool { return a.active }
 	a.prs.AgentPane = func(l *model.Lab) string {
 		for _, x := range a.term.Agents() {
@@ -220,7 +225,7 @@ func (a *app) start() {
 	a.agents.OpenFile = func(p string, line int) { a.ed.OpenPath(a.st.Window("main").Lab, p, line, 0) }
 	a.sh.Overlays = append(a.sh.Overlays, a.agents.Overlay)
 	a.ssh = sshbench.New(a.term, a.dir)
-	a.ssh.Confirm = a.sh.Confirm
+	a.ssh.Confirm = a.confirm
 	a.db.TunnelFor = a.ssh.Tunnel
 	a.sh.Overlays = append(a.sh.Overlays, a.ssh.Overlay)
 	a.sh.Types = map[model.BenchType]shell.TabType{model.Terminal: a.term, model.Editor: a.ed, model.Files: a.files, model.Browser: a.web, model.HTTP: a.http, model.DB: a.db, model.SSH: a.ssh, model.Notes: a.notes,
@@ -417,8 +422,12 @@ func (a *app) openSettings(section string) {
 		StateKey:      "settings",
 		TitleBarStyle: mygo.TitleBarHidden,
 		Vibrancy:      mygo.VibrancySidebar,
-		Content:       ui.View(a.sv.View),
+		Content: ui.View(func(c *ui.Context) {
+			a.curQ = &a.sv.Q
+			a.sv.View(c)
+		}),
 	})
+	a.sv.Q.Win = a.settings
 }
 
 // browserSettings draws the browser's part of Settings › Browser: the
@@ -506,4 +515,20 @@ func commit() string {
 // logf writes "<RFC3339 time> <level> main: <message>" (R-BUILD-023).
 func logf(level, format string, args ...any) {
 	log.Printf(time.Now().Format(time.RFC3339)+" "+level+" main: "+format, args...)
+}
+
+// drawing notes the window whose frame runs: a Bench's question shows in
+// the window the user acts in.
+func (a *app) drawing(sh *shell.Shell, q *shell.Questions) { a.cur, a.curQ = sh, q }
+
+func (a *app) confirm(question, yes string, then func(ok bool)) {
+	a.curQ.Confirm(question, yes, then)
+}
+
+func (a *app) ask(question string, buttons []string, then func(int)) {
+	a.curQ.Ask(question, buttons, then)
+}
+
+func (a *app) askText(title, current string, check func(string) string) {
+	a.cur.AskText(title, current, check)
 }

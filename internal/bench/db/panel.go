@@ -106,10 +106,12 @@ func (b *Bench) connRow(c *ui.Context, bench *model.Bench, p *panelState, cn *db
 			b.Disconnect(cn.ID)
 		}
 		m.Separator()
-		if m.Item("Delete…").Chosen() && b.confirm("Delete the Connection “"+cn.Name+"” and its password?", "Delete") { // R-DB-011
-			b.Disconnect(cn.ID)
-			b.Conns.Remove(cn.ID)
-			delete(b.live, cn.ID)
+		if m.Item("Delete…").Chosen() { // R-DB-011
+			b.confirm("Delete the Connection “"+cn.Name+"” and its password?", "Delete", func() {
+				b.Disconnect(cn.ID)
+				b.Conns.Remove(cn.ID)
+				delete(b.live, cn.ID)
+			})
 		}
 	})
 	if !open {

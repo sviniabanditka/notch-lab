@@ -44,7 +44,7 @@ func setup(t *testing.T, files map[string]string) *app {
 	a.b.Post = func(fn func()) { posted <- fn }
 	a.b.Show = a.sh.Show
 	a.b.Toast = a.sh.Toast
-	a.b.Confirm = func(string, string) bool { return true }
+	a.b.Confirm = func(_, _ string, then func(bool)) { then(true) }
 	a.sh.Types = map[model.BenchType]shell.TabType{model.Editor: a.b}
 	a.sh.Overlays = []func(*ui.Context){a.b.Overlay}
 	a.tt = ui.NewTester(func(c *ui.Context) {
@@ -166,7 +166,7 @@ func TestUntitledAndClose(t *testing.T) {
 	}
 	a.tt.Frame()
 	a.tt.Type("draft")
-	// No window: the question answers Cancel, so the Tab stays.
+	// Nothing asks: the Tab with changes stays.
 	a.sh.CloseFocused()
 	if len(a.bench.Tabs) != 1 {
 		t.Fatal("a dirty Tab closed without asking")

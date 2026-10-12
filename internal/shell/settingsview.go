@@ -17,6 +17,8 @@ type SettingsView struct {
 	// Browser, Extensions and Agents draw the app's own controls of those
 	// sections: default browser, history, permissions, Extensions, MCP.
 	Browser, Extensions, Agents func(c *ui.Context)
+	// Q are the questions the Settings window asks.
+	Q Questions
 }
 
 // Open selects a section by name; "" keeps the current one.
@@ -73,7 +75,7 @@ func (v *SettingsView) View(c *ui.Context) {
 			if t.Dark {
 				shadow = ui.RGBA(0, 0, 0, 0.35)
 			}
-			ui.Column(c.Key("card")).Grow(1).Basis(0).MinHeight(0).Radius(radiusLg).Background(card(t)).Border(1, stroke(t)).
+			ui.Column(c.Key("card")).Grow(1).Basis(0).MinHeight(0).Radius(windowRadius-cardInset).Background(card(t)).Border(1, stroke(t)).
 				Shadow(0, 1, 10, 0, shadow).Clip().AlignItems(ui.Stretch).Children(func() {
 				ui.Row(c).Height(toolbarH+4).Shrink(0).DragWindow().Padding(0, 22).AlignItems(ui.Center).Children(func() {
 					ui.Text(c, SettingsSections[v.Section]).FontSize(17).FontWeight(700)
@@ -87,6 +89,7 @@ func (v *SettingsView) View(c *ui.Context) {
 			})
 		})
 	})
+	v.Q.View(c)
 }
 
 var sectionColors = []ui.Color{
@@ -248,9 +251,8 @@ func (v *SettingsView) section(c *ui.Context) {
 		if ui.Button(c, "Open Log Folder").Clicked() {
 			_ = mygo.Shell.OpenPath(v.S.StateDir)
 		}
-		if ui.Button(c, "Reset State…").TextColor(t.Danger).Clicked() && v.ResetState != nil &&
-			v.S.confirm("Delete every Lab, Bench and Tab and start again?", "Reset") {
-			v.ResetState()
+		if ui.Button(c, "Reset State…").TextColor(t.Danger).Clicked() && v.ResetState != nil {
+			v.Q.Yes("Delete every Lab, Bench and Tab and start again?", "Reset", v.ResetState)
 		}
 	}
 }

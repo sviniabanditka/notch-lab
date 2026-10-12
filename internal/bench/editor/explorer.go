@@ -125,12 +125,14 @@ func (b *Bench) entryMenu(m *ui.Menu, bench *model.Bench, path string, isDir boo
 	if g != nil && !isDir {
 		switch g.files[path] {
 		case 'M', 'D':
-			if m.Item("Discard Changes…").Chosen() && b.Confirm(fmt.Sprintf("Discard changes to %s? This cannot be undone.", filepath.Base(path)), "Discard") {
-				out, err := exec.Command("git", "-C", g.top, "checkout", "--", path).CombinedOutput()
-				if err != nil {
-					b.Toast(strings.TrimSpace(string(out)))
-				}
-				b.refreshGit(bench)
+			if m.Item("Discard Changes…").Chosen() {
+				b.confirm(fmt.Sprintf("Discard changes to %s? This cannot be undone.", filepath.Base(path)), "Discard", func() {
+					out, err := exec.Command("git", "-C", g.top, "checkout", "--", path).CombinedOutput()
+					if err != nil {
+						b.Toast(strings.TrimSpace(string(out)))
+					}
+					b.refreshGit(bench)
+				})
 			}
 		}
 	}

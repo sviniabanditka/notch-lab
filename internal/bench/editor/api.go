@@ -40,7 +40,10 @@ type Bench struct {
 	// Toast shows a message.
 	Toast func(string)
 	// Confirm asks a yes-or-no question.
-	Confirm func(question, yes string) bool
+	Confirm func(question, yes string, then func(ok bool))
+	// Ask asks a question with buttons in the window, the last of which
+	// cancels; then gets the index chosen.
+	Ask func(question string, buttons []string, then func(int))
 	// OpenTerminal opens a terminal Tab in a folder of a Lab (R-EDIT-147).
 	OpenTerminal func(l *model.Lab, dir string)
 	// Win is the window, for its dialogs.
@@ -612,19 +615,27 @@ func (b *Bench) alert(msg string) {
 	_, _ = mygo.Dialog.Message(mygo.MessageOptions{Parent: b.Win, Type: mygo.MessageError, Message: msg})
 }
 
-// CanClose asks Save, Don't Save, Cancel for a Buffer with changes (R-EDIT-006).
-func (b *Bench) CanClose(t *model.Tab) bool {
+// CanClose asks Save, Don't Save, Cancel for a Buffer with changes
+// (R-EDIT-006), in the window, and calls close unless the user cancels.
+func (b *Bench) CanClose(t *model.Tab, close func()) bool {
 	x := b.tabs[t]
 	if x == nil || x.doc == nil || !x.doc.Dirty() {
 		return true
 	}
-	name := t.DisplayTitle()
-	switch b.ask(fmt.Sprintf("Save the changes to “%s”?", name), "Save", "Don't Save", "Cancel") {
-	case 0:
-		return b.save(x, true)
-	case 1:
-		return true
+	if b.Ask == nil { // nothing can ask: keep the changes
+		return false
 	}
+	b.Ask(fmt.Sprintf("Save the changes to “%s”?\n\nYour changes are lost if you do not save them.", t.DisplayTitle()),
+		[]string{"Save", "Don't Save", "Cancel"}, func(i int) {
+			switch i {
+			case 0:
+				if b.save(x, true) {
+					close()
+				}
+			case 1:
+				close()
+			}
+		})
 	return false
 }
 
@@ -918,4 +929,17 @@ func (b *Bench) OpenPath(l *model.Lab, path string, line, col int) {
 		return
 	}
 	b.Open(bench, path, line, col, false)
+}
+
+// confirm runs then when the user answers yes; at once without Confirm.
+func (b *Bench) confirm(q, yes string, then func()) {
+	if b.Confirm == nil {
+		then()
+		return
+	}
+	b.Confirm(q, yes, func(ok bool) {
+		if ok {
+			then()
+		}
+	})
 }

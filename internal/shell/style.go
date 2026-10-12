@@ -11,14 +11,21 @@ import (
 // work in a rounded card that floats beside it, with rounded panes split
 // by gaps, as macOS apps draw them (02-shell.md, "Theme").
 
+// PanelRadius is the radius of the notch panel's bottom corners.
+const PanelRadius = 20
+
 const (
-	radiusSm   = 6  // buttons and rows
-	radiusMd   = 8  // panes
-	radiusLg   = 11 // the content card
-	cardInset  = 8  // around the card, where the material shows
-	paneGap    = 6  // between the panes of a Split
-	toolbarH   = 40 // the card's top bar
-	iconButton = 28
+	radiusSm  = 6  // buttons and rows
+	radiusMd  = 8  // panes
+	radiusLg  = 11 // tiles and groups
+	cardInset = 8  // around the card, where the material shows
+	// windowRadius is the corner radius macOS gives a window without a
+	// toolbar. The card's corners are concentric with the window's:
+	// their radius is the window's less the inset.
+	windowRadius = 16
+	paneGap      = 6  // between the panes of a Split
+	toolbarH     = 40 // the card's top bar
+	iconButton   = 28
 )
 
 // hoverMotion eases the colors of hovered and chosen controls.
@@ -83,4 +90,12 @@ func iconBtn(c *ui.Context, key, label string, icon *ui.SVG, active bool) ui.Ele
 	}
 	b.Children(func() { ui.Icon(c, icon).FontSize(15).TextColor(fg) })
 	return b
+}
+
+// cardRadius keeps the card's corners concentric with the window's.
+func (s *Shell) cardRadius() float32 {
+	if s.Strip != nil {
+		return PanelRadius - cardInset
+	}
+	return windowRadius - cardInset
 }

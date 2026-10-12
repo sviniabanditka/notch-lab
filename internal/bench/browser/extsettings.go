@@ -96,9 +96,9 @@ func (b *Bench) ExtensionSettings(c *ui.Context, parent *mygo.Window) {
 				if en.Local != "" && ui.Button(c, "Reload").Clicked() {
 					e.Reload(en.ID)
 				}
-				if ui.Button(c, "Remove").Clicked() &&
-					(b.Confirm == nil || b.Confirm("Remove "+en.Name+" and its data?", "Remove")) {
-					e.Remove(en.ID)
+				if ui.Button(c, "Remove").Clicked() {
+					id := en.ID
+					b.confirm("Remove "+en.Name+" and its data?", "Remove", func() { e.Remove(id) })
 				}
 			})
 			if cx != nil {

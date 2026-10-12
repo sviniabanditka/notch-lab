@@ -241,9 +241,8 @@ func (e *Ext) wireStore(x *tab) {
 			}
 			// What gets installed is read from the Tab's address, never the page.
 			if _, ok := m["add"]; ok {
-				if id := extensions.StoreID(readData(x.t).URL); id != "" &&
-					(e.b.Confirm == nil || e.b.Confirm("Add this Extension to notch-lab? It can read and change the sites it asks for.", "Add")) {
-					e.Install(id)
+				if id := extensions.StoreID(readData(x.t).URL); id != "" {
+					e.b.confirm("Add this Extension to notch-lab? It can read and change the sites it asks for.", "Add", func() { e.Install(id) })
 				}
 			}
 		})
@@ -383,7 +382,13 @@ func (e *Ext) OpenOptions(cx *webkit.Context) {
 
 func (e *Ext) Prompt(cx *webkit.Context, what []string, done func(bool)) {
 	q := cx.Name + " asks for:\n" + joinLines(what)
-	e.b.Post(func() { done(e.b.Confirm == nil || e.b.Confirm(q, "Allow")) })
+	e.b.Post(func() {
+		if e.b.Confirm == nil {
+			done(true)
+			return
+		}
+		e.b.Confirm(q, "Allow", done)
+	})
 }
 
 func joinLines(s []string) string {

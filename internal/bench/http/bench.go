@@ -30,7 +30,7 @@ type Bench struct {
 	Show func(t *model.Tab)
 	// Toast, Confirm and AskText are the Shell's.
 	Toast   func(string)
-	Confirm func(question, yes string) bool
+	Confirm func(question, yes string, then func(ok bool))
 	AskText func(title, current string, check func(string) string)
 	// Visible reports whether a Tab shows in a Leaf now (R-HTTP-099).
 	Visible func(t *model.Tab) bool

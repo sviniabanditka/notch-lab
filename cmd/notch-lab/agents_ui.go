@@ -71,27 +71,25 @@ func (a *app) runClaude(args string) {
 	}()
 }
 
-// setLevel changes a level, asking once before the first Full (R-MCP-043).
-func (a *app) setLevel(apply func()) bool {
+// setLevel sets a level to v with apply, asking once before the first
+// Full (R-MCP-043).
+func (a *app) setLevel(v string, apply func()) {
 	m := &a.set.S.MCP
-	before := *m
-	apply()
-	full := m.Access == "full"
-	for _, d := range m.Domains {
-		full = full || d == "full"
-	}
-	if full && !m.FullAgreed {
-		if !a.sh.Confirm("An agent can type in your terminals, act in your browser signed in as you, and change your files. Continue?", "Continue") {
-			*m = before
-			return false
+	commit := func() {
+		apply()
+		a.set.Changed(nil)
+		if a.mcp != nil {
+			a.mcp.ListChanged() // R-MCP-023
 		}
+	}
+	if v != "full" || m.FullAgreed {
+		commit()
+		return
+	}
+	a.sv.Q.Yes("An agent can type in your terminals, act in your browser signed in as you, and change your files. Continue?", "Continue", func() {
 		m.FullAgreed = true
-	}
-	a.set.Changed(nil)
-	if a.mcp != nil {
-		a.mcp.ListChanged() // R-MCP-023
-	}
-	return true
+		commit()
+	})
 }
 
 func (a *app) agentsSettings(c *ui.Context) {
@@ -108,7 +106,7 @@ func (a *app) agentsSettings(c *ui.Context) {
 	row("access", "Access for agents", func() {
 		v := m.Access
 		if ui.Select(c.Key("acc"), &v, levels).Width(160).Changed() {
-			a.setLevel(func() { m.Access = v })
+			a.setLevel(v, func() { m.Access = v })
 		}
 	})
 	for _, d := range mcpDomains {
@@ -119,7 +117,7 @@ func (a *app) agentsSettings(c *ui.Context) {
 				v = "inherit"
 			}
 			if ui.Select(c.Key("d"+d), &v, append([]string{"inherit"}, levels...)).Width(160).Changed() {
-				a.setLevel(func() {
+				a.setLevel(v, func() {
 					if v == "inherit" {
 						delete(m.Domains, d)
 					} else {
@@ -230,9 +228,11 @@ func (a *app) agentsSettings(c *ui.Context) {
 	ui.Text(c, "Audit log").Bold()
 	ui.Row(c.Key("af")).Gap(8).Children(func() {
 		ui.TextInput(c.Key("filter"), &a.agentsUI.filter).Placeholder("Filter by agent or tool").Grow(1)
-		if ui.Button(c.Key("clear"), "Clear").Clicked() && a.sh.Confirm("Clear the Audit log?", "Clear") {
-			_, _ = a.store.DB().Exec(`DELETE FROM audit`)
-			a.agentsUI.auditKey = ""
+		if ui.Button(c.Key("clear"), "Clear").Clicked() {
+			a.sv.Q.Yes("Clear the Audit log?", "Clear", func() {
+				_, _ = a.store.DB().Exec(`DELETE FROM audit`)
+				a.agentsUI.auditKey = ""
+			})
 		}
 	})
 	key := fmt.Sprintf("%s|%d", a.agentsUI.filter, time.Now().Unix()/2)

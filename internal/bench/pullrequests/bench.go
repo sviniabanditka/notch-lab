@@ -24,7 +24,7 @@ type Bench struct {
 	Post func(func())
 	Show func(t *model.Tab)
 	// Confirm asks a yes-or-no question.
-	Confirm func(question, yes string) bool
+	Confirm func(question, yes string, then func(ok bool))
 	// Focused reports whether the app's window has the focus (R-PR-042).
 	Focused func() bool
 	// AgentPane is the terminal Tab of the Lab where a review goes, and
@@ -53,9 +53,15 @@ func (h host) Paste(pane, text string) error {
 }
 func (h host) Update(fn func()) { h.b.Post(fn) }
 func (h host) Confirm(message, detail, action string, then func()) {
-	if h.b.Confirm == nil || h.b.Confirm(message+"\n\n"+detail, action) {
+	if h.b.Confirm == nil {
 		then()
+		return
 	}
+	h.b.Confirm(message+"\n\n"+detail, action, func(ok bool) {
+		if ok {
+			then()
+		}
+	})
 }
 func (h host) LeavePullRequests() {}
 func (h host) WindowFocused() bool {

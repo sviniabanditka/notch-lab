@@ -42,7 +42,7 @@ type Bench struct {
 	Toast   func(string)
 	// ToastAction shows a Toast with one button.
 	ToastAction func(msg, label string, fn func())
-	Confirm     func(q, yes string) bool
+	Confirm     func(q, yes string, then func(ok bool))
 	// CloseTab closes a Tab through the Shell.
 	CloseTab func(t *model.Tab)
 	// Ext is nil before macOS 15.4 and until the first Web view.
@@ -1058,7 +1058,7 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 		ui.Segmented(c.Key("sec"), &b.panel.section, "Bookmarks", "History", "Downloads")
 		iso := readBench(bench).Isolated
 		if ui.Switch(c.Key("iso"), &iso).Label("Isolated profile").Tooltip("Cookies and sign-ins of its own").Changed() {
-			if b.Confirm == nil || b.Confirm("Cookies and sign-ins of this Bench change. Continue?", "Continue") {
+			b.confirm("Cookies and sign-ins of this Bench change. Continue?", "Continue", func() {
 				var s map[string]any
 				_ = json.Unmarshal([]byte(bench.Settings), &s)
 				if s == nil {
@@ -1074,7 +1074,7 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 						x.wv = nil
 					}
 				}
-			}
+			})
 		}
 		switch b.panel.section {
 		case 0:
@@ -1189,6 +1189,19 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 					})
 				}
 			})
+		}
+	})
+}
+
+// confirm runs then when the user answers yes; at once without Confirm.
+func (b *Bench) confirm(q, yes string, then func()) {
+	if b.Confirm == nil {
+		then()
+		return
+	}
+	b.Confirm(q, yes, func(ok bool) {
+		if ok {
+			then()
 		}
 	})
 }

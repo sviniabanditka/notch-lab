@@ -52,7 +52,28 @@ func (s *Shell) View(c *ui.Context) {
 	} else {
 		c.Root().Background(chrome(t))
 	}
-	ui.Row(c).Fill().AlignItems(ui.Stretch).Children(func() {
+	if s.Strip != nil {
+		// The notch panel: a black band as tall as the notch runs across
+		// the top, so the notch looks part of it; the Shell is under it.
+		ui.Column(c).Fill().AlignItems(ui.Stretch).Children(func() {
+			s.Strip(c)
+			ui.Row(c.Key("body")).Grow(1).Basis(0).MinHeight(0).AlignItems(ui.Stretch).Children(func() { s.body(c) })
+		})
+	} else {
+		ui.Row(c).Fill().AlignItems(ui.Stretch).Children(func() { s.body(c) })
+	}
+	s.switcherView(c)
+	s.dialogView(c)
+	for _, o := range s.Overlays {
+		o(c)
+	}
+	s.q.View(c)
+	s.syncMenu()
+}
+
+// body is the rail, the sidebar and the card.
+func (s *Shell) body(c *ui.Context) {
+	{
 		s.rail(c)
 		if s.win().Sidebar {
 			s.sidebar(c)
@@ -64,13 +85,7 @@ func (s *Shell) View(c *ui.Context) {
 		ui.Column(c.Key("stage")).Grow(1).Basis(0).MinWidth(0).Padding(cardInset, cardInset, cardInset, left).AlignItems(ui.Stretch).Children(func() {
 			s.card(c)
 		})
-	})
-	s.switcherView(c)
-	s.dialogView(c)
-	for _, o := range s.Overlays {
-		o(c)
 	}
-	s.syncMenu()
 }
 
 // card is the rounded, raised surface the Layout lives on.
@@ -81,12 +96,8 @@ func (s *Shell) card(c *ui.Context) {
 		shadow = ui.RGBA(0, 0, 0, 0.35)
 	}
 	ui.Column(c.Key("card")).Grow(1).Basis(0).MinWidth(0).MinHeight(0).AlignItems(ui.Stretch).
-		Radius(radiusLg).Background(card(t)).Border(1, stroke(t)).Shadow(0, 1, 10, 0, shadow).Clip().Children(func() {
-		if s.Strip != nil {
-			s.Strip(c)
-		} else {
-			s.toolbar(c)
-		}
+		Radius(s.cardRadius()).Background(card(t)).Border(1, stroke(t)).Shadow(0, 1, 10, 0, shadow).Clip().Children(func() {
+		s.toolbar(c)
 		ui.Column(c.Key("layout")).Grow(1).Basis(0).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
 			s.layout(c)
 		})
@@ -170,7 +181,11 @@ func (s *Shell) titleStrip(c *ui.Context) { s.toolbar(c) }
 func (s *Shell) rail(c *ui.Context) {
 	t := c.Theme()
 	ui.Column(c.Key("rail")).Width(railW).Shrink(0).AlignItems(ui.Center).Gap(6).Children(func() {
-		ui.Row(c).Height(titleH + 6).Shrink(0).FillWidth().DragWindow()
+		top := float32(titleH + 6) // under the window buttons
+		if s.Strip != nil {
+			top = 2
+		}
+		ui.Row(c).Height(top).Shrink(0).FillWidth().DragWindow()
 		s.labButton(c)
 		ui.Box(c).Size(20, 1).Shrink(0).Margin(2, 0).Background(stroke(t))
 		l := s.lab()
@@ -296,7 +311,11 @@ func (s *Shell) sidebar(c *ui.Context) {
 	t := c.Theme()
 	w := float32(s.Set.S.Sidebar.Width)
 	ui.Column(c.Key("sidebar")).Width(w).Shrink(0).AlignItems(ui.Stretch).Children(func() {
-		ui.Row(c).Height(titleH).Shrink(0).DragWindow()
+		if s.Strip == nil {
+			ui.Row(c).Height(titleH).Shrink(0).DragWindow()
+		} else {
+			ui.Box(c).Height(cardInset).Shrink(0)
+		}
 		b := s.bench()
 		if b == nil {
 			ui.Column(c).Padding(16).Gap(8).Children(func() {

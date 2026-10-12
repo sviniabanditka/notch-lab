@@ -25,8 +25,6 @@ type notch struct {
 	sliding bool
 	hover   *time.Timer
 	strip   int // the strip's height: the notch's, or 28 without one
-	stripH  ui.Handle
-	notchW  float32
 }
 
 var notchSizes = map[string][2]int{"S": {720, 480}, "M": {1000, 640}, "L": {1280, 800}}
@@ -42,10 +40,10 @@ func (a *app) newNotch(userHome string) {
 	sh.AgentStatus = a.sh.AgentStatus
 	sh.ToggleNotch = n.toggle
 	sh.Strip = n.stripView
-	sh.BeforeFrame = func() { a.drawingIn(n.win) }
+	sh.BeforeFrame = func() { a.drawingIn(n.win); a.drawing(sh, sh.Questions()) }
 	sh.MenuOwner = func() bool { return n.win != nil && n.win.IsFocused() }
 	a.sh.ToggleNotch = n.toggle
-	a.sh.BeforeFrame = func() { a.drawingIn(a.main) }
+	a.sh.BeforeFrame = func() { a.drawingIn(a.main); a.drawing(a.sh, a.sh.Questions()) }
 	a.sh.MenuOwner = func() bool { return n.win == nil || !n.win.IsFocused() }
 	a.sh.Elsewhere = func(t *model.Tab) string {
 		if n.win != nil && n.shows(t) {
@@ -143,6 +141,7 @@ func (n *notch) show() {
 	// The rail and sidebar show the popover material, as the main window
 	// shows the sidebar material.
 	win.SetVibrancy(mygo.VibrancyPopover)
+	roundBottom(win, shell.PanelRadius)
 	// Above the menu bar, so AppKit keeps the panel's top at the top of
 	// the display, around the notch (R-SHELL-013).
 	if h := win.NativeHandle(); h != 0 {
@@ -305,53 +304,53 @@ func mouseDown() bool {
 	return objc.Send[uint](objc.ID(objc.GetClass("NSEvent")), objc.RegisterName("pressedMouseButtons"))&1 != 0
 }
 
-// stripView is the notch panel's title strip: the Lab menu and the title
-// left of the notch, S/M/L and Move to window right of it (R-SHELL-018).
+// stripView is the notch panel's top band, black and as tall as the
+// notch, so the notch looks part of the panel: the Lab menu left of the
+// notch, S/M/L and Move to window right of it (R-SHELL-018).
 func (n *notch) stripView(c *ui.Context) {
-	th := c.Theme()
 	size := n.a.set.S.Notch.Size
-	// Where the notch is in the strip: the strip starts after the rail and
-	// the sidebar, the notch sits in the middle of the panel.
-	box := n.stripH.Bounds(c)
-	left := float32(-1)
+	gap := float32(0)
 	if r, ok := mygo.Screen.Notch(); ok && n.win != nil {
-		left = float32(n.win.Bounds().Width-r.Width)/2 - box.X - 8
-		n.notchW = float32(r.Width + 16)
+		gap = float32(r.Width + 24)
 	}
-	ui.Row(c.Key("nstrip")).Height(float32(max(n.strip, 28))).Shrink(0).Padding(0, 10).Gap(8).AlignItems(ui.Center).Bind(&n.stripH).Children(func() {
-		lab := func() {
-			ui.Button(c.Key("nlab"), n.a.st.Window("notch").Lab.Name+" ▾").Padding(2, 8).Background(ui.Transparent).Shrink(0).Menu(n.sh.LabMenu)
-			ui.Text(c, n.sh.Title()).FontSize(12).TextColor(th.TextMuted).SingleLine().Shrink(1).MinWidth(0)
+	white := ui.RGB(255, 255, 255)
+	pill := func(key, label string, on bool) ui.Element {
+		b := ui.Button(c.Key(key), label).Padding(2, 9).Radius(7).Border(1, ui.Transparent).
+			TextColor(white.Alpha(0.6)).Background(ui.Transparent)
+		if on {
+			b.TextColor(white).Background(white.Alpha(0.16))
+		} else if b.Hovered() {
+			b.Background(white.Alpha(0.08))
 		}
-		if left > 60 {
-			ui.Row(c.Key("nleft")).Width(left - 10).Shrink(0).Gap(8).AlignItems(ui.Center).Children(lab)
-			ui.Box(c).Width(n.notchW).Shrink(0)
-		} else {
-			if left >= 0 {
-				ui.Box(c).Width(max(0, left+n.notchW-10)).Shrink(0)
-			}
-			lab()
+		return b
+	}
+	ui.Row(c.Key("nstrip")).Height(float32(max(n.strip, 28))).Shrink(0).Padding(0, 12).AlignItems(ui.Center).
+		Background(ui.RGB(0, 0, 0)).Children(func() {
+		ui.Row(c.Key("nleft")).Grow(1).Basis(0).MinWidth(0).Gap(6).AlignItems(ui.Center).Children(func() {
+			lab := n.a.st.Window("notch").Lab
+			ui.Box(c).Size(8, 8).Shrink(0).Radius(4).Background(ui.Hex(lab.Color))
+			pill("nlab", lab.Name+" ▾", false).TextColor(white).Shrink(1).MinWidth(0).Menu(n.sh.LabMenu)
+		})
+		if gap > 0 {
+			ui.Box(c).Width(gap).Shrink(0)
 		}
-		ui.Box(c).Grow(1)
-		for _, s := range []string{"S", "M", "L"} {
-			b := ui.Button(c.Key("size"+s), s).Padding(2, 7).Tooltip("Panel size")
-			if s != size {
-				b.Background(ui.Transparent)
-			}
-			if b.Clicked() && s != size {
-				n.a.set.S.Notch.Size = s
-				n.a.set.Changed(nil)
-				if _, w, h := n.place(); n.win != nil {
-					b := n.win.Bounds()
-					b.X += (b.Width - w) / 2
-					b.Width, b.Height = w, h
-					n.win.SetBounds(b)
+		ui.Row(c.Key("nright")).Grow(1).Basis(0).MinWidth(0).Gap(2).Justify(ui.End).AlignItems(ui.Center).Children(func() {
+			for _, sz := range []string{"S", "M", "L"} {
+				if pill("size"+sz, sz, sz == size).Tooltip("Panel size").Clicked() && sz != size {
+					n.a.set.S.Notch.Size = sz
+					n.a.set.Changed(nil)
+					if _, w, h := n.place(); n.win != nil {
+						b := n.win.Bounds()
+						b.X += (b.Width - w) / 2
+						b.Width, b.Height = w, h
+						n.win.SetBounds(b)
+					}
 				}
 			}
-		}
-		if ui.Button(c.Key("tomain"), "⤢").Label("Move to window").Tooltip("Move to window").Padding(2, 8).Background(ui.Transparent).Clicked() {
-			n.moveToWindow()
-		}
+			if pill("tomain", "⤢", false).Label("Move to window").Tooltip("Move to window").Clicked() {
+				n.moveToWindow()
+			}
+		})
 	})
 }
 
@@ -372,4 +371,24 @@ func (n *notch) moveToWindow() {
 	n.a.st.Changed()
 	n.hide()
 	n.a.sh.ShowWindow()
+}
+
+// roundBottom rounds a window's bottom corners and keeps its top square,
+// flush with the top of the display, as the notch.
+func roundBottom(win *mygo.Window, radius float64) {
+	h := win.NativeHandle()
+	if h == 0 {
+		return
+	}
+	sel := objc.RegisterName
+	w := objc.ID(h)
+	w.Send(sel("setOpaque:"), false)
+	w.Send(sel("setBackgroundColor:"), objc.ID(objc.GetClass("NSColor")).Send(sel("clearColor")))
+	v := w.Send(sel("contentView"))
+	v.Send(sel("setWantsLayer:"), true)
+	l := v.Send(sel("layer"))
+	l.Send(sel("setCornerRadius:"), radius)
+	l.Send(sel("setMaskedCorners:"), uint(1|2)) // kCALayerMinXMinYCorner | kCALayerMaxXMinYCorner
+	l.Send(sel("setMasksToBounds:"), true)
+	w.Send(sel("invalidateShadow"))
 }

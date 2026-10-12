@@ -66,7 +66,7 @@ R-SHELL-016. The notch panel shows the same State as the main window. It has its
 
 R-SHELL-017. The same Tab can be in a Leaf of the notch panel and in a Leaf of the main window. The Tab's view is shared: a terminal Tab draws the same Session, a browser Tab shows the same Page. While the panel shows the Tab, the main window shows a placeholder (R-SHELL-009). A Page can be in one Web view only: the window that draws it owns the Web view. A static Snapshot of the Page in the other window, with a "Show here" button, is `[later]`.
 
-R-SHELL-018. The notch panel's title strip holds: the Lab menu, the S/M/L control, the "Move to window" button, the focused Tab's title. The rail and the sidebar are present in sizes M and L. In size S the sidebar is hidden by default and Cmd+B shows it over the Layout.
+R-SHELL-018. The notch panel has a black top band as tall as the notch, across the whole panel, so that the notch looks part of the panel. Left of the notch the band holds the Lab's color dot and the Lab menu; right of the notch, the S/M/L control and the "Move to window" button. The rail, the sidebar and the card are under the band; the card keeps its toolbar with the focused Tab's title. The panel's bottom corners have a 20 pt radius; its top corners are square, flush with the top of the display. The rail and the sidebar are present in sizes M and L. In size S the sidebar is hidden by default and Cmd+B shows it over the Layout.
 
 R-SHELL-019. The "Move to window" button opens the main window, selects the notch panel's Lab, Bench and Tab there, and hides the notch panel.
 
@@ -304,6 +304,12 @@ R-SHELL-153. The 16 ANSI colors for terminal Tabs are part of the theme.
 R-SHELL-154. The look tokens are in `internal/shell/style.go`: corner radii 6, 8 and 11 pt; 6 pt gaps between Splits; a hairline of the text color at 9 %; hover and press tints of the text color. A selected row has a tint of the accent color, not a solid fill. Each Split is a rounded pane; the focused pane has an accent border. Icon buttons in the toolbar are 28 x 28 pt. Each Bench type has a color (`TypeColor`) for its tile in the New Bench sheet.
 
 R-SHELL-155. Syntax colors in the editor and the db Bench follow a change of the theme between dark and light.
+
+R-SHELL-156. The card's corners are concentric with the window's: their radius is the window's corner radius (16 pt in the main and Settings windows, 20 pt at the bottom of the notch panel) less the 8 pt inset.
+
+## Questions
+
+R-SHELL-157. A question (a confirmation, Save / Don't Save / Cancel) shows inside the window the user acts in, over a dimmed backdrop: not a system alert. It has a tile with "!" in the accent color, or in the danger color for Delete, Remove, Discard, Reset, Clear and Move to Trash; the message; the detail; and the buttons, Cancel left and the action right. Return chooses the action, or Cancel for a danger action. Escape and a click outside answer Cancel. Questions wait in a queue and show one at a time. A Bench asks in the window whose frame runs: the main window, the notch panel or the Settings window. File choosers stay the system's panels.
 
 ## Settings
 

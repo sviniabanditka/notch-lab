@@ -23,7 +23,7 @@ import (
 type Bench struct {
 	*terminal.Bench
 	Hosts   *sshhosts.Store
-	Confirm func(q, yes string) bool
+	Confirm func(q, yes string, then func(ok bool))
 	Win     *mygo.Window
 
 	query   string
@@ -222,8 +222,9 @@ func (b *Bench) hostRow(c *ui.Context, bench *model.Bench, group string, h *sshh
 			b.EditHost(h)
 		}
 		m.Separator()
-		if m.Item("Delete…").Chosen() && (b.Confirm == nil || b.Confirm("Delete the Host “"+h.Name+"”? Open sessions stay.", "Delete")) {
-			b.Hosts.Remove(h.ID)
+		if m.Item("Delete…").Chosen() {
+			id := h.ID
+			b.confirm("Delete the Host “"+h.Name+"”? Open sessions stay.", "Delete", func() { b.Hosts.Remove(id) })
 		}
 	})
 }
@@ -245,4 +246,17 @@ func trimOpts(s string) []string {
 		}
 	}
 	return out
+}
+
+// confirm runs then when the user answers yes; at once without Confirm.
+func (b *Bench) confirm(q, yes string, then func()) {
+	if b.Confirm == nil {
+		then()
+		return
+	}
+	b.Confirm(q, yes, func(ok bool) {
+		if ok {
+			then()
+		}
+	})
 }

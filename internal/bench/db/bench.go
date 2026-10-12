@@ -28,7 +28,7 @@ type Bench struct {
 	Show func(t *model.Tab)
 	// Toast, Confirm and AskText are the Shell's.
 	Toast   func(string)
-	Confirm func(question, yes string) bool
+	Confirm func(question, yes string, then func(ok bool))
 	AskText func(title, current string, check func(string) string)
 	// Visible reports whether a Tab shows in a Leaf now (R-DB-071).
 	Visible func(t *model.Tab) bool
@@ -77,8 +77,6 @@ func (b *Bench) toast(s string) {
 		b.Toast(s)
 	}
 }
-
-func (b *Bench) confirm(q, yes string) bool { return b.Confirm == nil || b.Confirm(q, yes) }
 
 // Connections lists the Connections of a Bench's Lab, in order.
 func (b *Bench) Connections(bench *model.Bench) []*dbconn.Connection {
@@ -227,3 +225,16 @@ func (b *Bench) palette(dark bool) *syntax.Palette {
 }
 
 func lower(s string) string { return strings.ToLower(s) }
+
+// confirm runs then when the user answers yes; at once without Confirm.
+func (b *Bench) confirm(q, yes string, then func()) {
+	if b.Confirm == nil {
+		then()
+		return
+	}
+	b.Confirm(q, yes, func(ok bool) {
+		if ok {
+			then()
+		}
+	})
+}

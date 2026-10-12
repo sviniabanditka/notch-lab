@@ -28,7 +28,7 @@ type Bench struct {
 	Show func(t *model.Tab)
 	// Toast, Confirm and AskText are the Shell's.
 	Toast   func(string)
-	Confirm func(question, yes string) bool
+	Confirm func(question, yes string, then func(ok bool))
 	AskText func(title, current string, check func(string) string)
 	// OpenFile opens a file in the Lab's editor Bench (R-FILES-032).
 	OpenFile func(l *model.Lab, path string)
@@ -650,15 +650,17 @@ func (b *Bench) trash(x *tab) {
 
 func (b *Bench) deleteForever(x *tab) {
 	paths := b.selected(x)
-	if len(paths) == 0 || !b.Confirm(fmt.Sprintf("Delete %d items permanently? This cannot be undone.", len(paths)), "Delete") {
+	if len(paths) == 0 {
 		return
 	}
-	for _, p := range paths {
-		if err := os.RemoveAll(p); err != nil {
-			b.Toast(err.Error())
+	b.confirm(fmt.Sprintf("Delete %d items permanently? This cannot be undone.", len(paths)), "Delete", func() {
+		for _, p := range paths {
+			if err := os.RemoveAll(p); err != nil {
+				b.Toast(err.Error())
+			}
 		}
-	}
-	b.load(x, true)
+		b.load(x, true)
+	})
 }
 
 func (b *Bench) newFolder(x *tab) {
@@ -1028,3 +1030,16 @@ var (
 	iconFolder = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>`))
 	iconFile   = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>`))
 )
+
+// confirm runs then when the user answers yes; at once without Confirm.
+func (b *Bench) confirm(q, yes string, then func()) {
+	if b.Confirm == nil {
+		then()
+		return
+	}
+	b.Confirm(q, yes, func(ok bool) {
+		if ok {
+			then()
+		}
+	})
+}

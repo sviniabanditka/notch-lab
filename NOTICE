@@ -24,3 +24,4 @@ creack/pty (MIT) — the Daemon's pseudo-terminals.
 
 chroma (MIT), go-gitdiff (MIT), goldmark (MIT) — highlighting, diffs, markdown.
 modelcontextprotocol/go-sdk (Apache-2.0 and MIT) — the MCP Bridge.
+jackc/pgx (MIT), go-sql-driver/mysql (MPL-2.0), golang.org/x/crypto (BSD-3-Clause) — the db Bench and its SSH tunnel.

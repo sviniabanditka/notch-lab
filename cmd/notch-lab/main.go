@@ -18,6 +18,7 @@ import (
 	browserbench "github.com/sviniabanditka/notch-lab/internal/bench/browser"
 	editorbench "github.com/sviniabanditka/notch-lab/internal/bench/editor"
 	filesbench "github.com/sviniabanditka/notch-lab/internal/bench/files"
+	httpbench "github.com/sviniabanditka/notch-lab/internal/bench/http"
 	"github.com/sviniabanditka/notch-lab/internal/bench/terminal"
 	"github.com/sviniabanditka/notch-lab/internal/daemon"
 	"github.com/sviniabanditka/notch-lab/internal/home"
@@ -82,6 +83,7 @@ type app struct {
 	ed       *editorbench.Bench
 	files    *filesbench.Bench
 	web      *browserbench.Bench
+	http     *httpbench.Bench
 	active   bool
 	notch    *notch
 	mcp      *mcp.Server
@@ -177,7 +179,10 @@ func (a *app) start() {
 			}
 		})
 	})
-	a.sh.Types = map[model.BenchType]shell.TabType{model.Terminal: a.term, model.Editor: a.ed, model.Files: a.files, model.Browser: a.web}
+	a.http = httpbench.New(st, userHome, a.dir)
+	a.http.Post, a.http.Show, a.http.Toast = a.term.Post, a.ed.Show, a.sh.Toast
+	a.http.Confirm, a.http.AskText, a.http.Visible = a.sh.Confirm, a.sh.AskText, a.visible
+	a.sh.Types = map[model.BenchType]shell.TabType{model.Terminal: a.term, model.Editor: a.ed, model.Files: a.files, model.Browser: a.web, model.HTTP: a.http}
 	a.sh.DaemonOK = a.term.Connected
 	a.sh.RestartDaemon = func() { go a.connect() }
 	mygo.App.OnDidBecomeActive(func() { a.active = true })
@@ -199,6 +204,7 @@ func (a *app) start() {
 	a.ed.Win = a.main
 	a.files.Win = a.main
 	a.web.Win = a.main
+	a.http.Win = a.main
 	a.web.CloseTab = a.sh.CloseTab
 	a.web.StartExtensions() // R-WEB-130
 	a.newNotch(userHome)

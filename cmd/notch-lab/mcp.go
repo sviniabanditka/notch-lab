@@ -21,6 +21,7 @@ func (a *app) startMCP() {
 	tools = append(tools, a.terminalTools()...)
 	tools = append(tools, a.browserTools()...)
 	tools = append(tools, a.editorTools()...)
+	tools = append(tools, a.httpTools()...)
 	a.mcp = &mcp.Server{
 		Path:     mcp.SocketPath(a.dir),
 		Tools:    tools,

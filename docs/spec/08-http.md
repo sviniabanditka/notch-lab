@@ -2,6 +2,8 @@
 
 The http Bench sends HTTP requests and shows their responses. Requests live in `.http` files that git can track.
 
+> M7 status (2026-10-12). Done: `.http` files with an exact round trip (CRLF too), REST Client file variables, Environments with Keychain secrets, the Panel, the Request Tab, sending with timings, redirects, the cookie jar, streaming, large bodies, the history, curl import and export, and the MCP tools. Packages: `internal/httpfile` (format, variables, curl), `internal/httpclient` (sending, jar, history), `internal/keychain`, `internal/bench/http`. `[later]` in M7: the multipart table (R-HTTP-069: a multipart body edits as REST Client text, `< path` lines read files), syntax highlight of the body (R-HTTP-067: a plain monospace field), the enabled column of Params, drag between Collections (R-HTTP-045: "Move to" in the menu), fold arrows, search and XML indent of a pretty body (R-HTTP-094), the HTML preview (R-HTTP-095: images show), one block per event of an event stream (R-HTTP-098: the text shows as it arrives), "Open in editor" of a large body (R-HTTP-097), the Divider position in the Bench settings (R-HTTP-062: kept per Tab while the app runs).
+
 ## Storage
 
 R-HTTP-001. An http Bench has a Bench folder. The setting `folder` in the Bench settings holds its path.
@@ -53,9 +55,10 @@ R-HTTP-021. The app resolves a variable in this order. The first match wins.
 | Order | Source |
 |---|---|
 | 1 | `# @var` lines of the Request |
-| 2 | the active Environment |
-| 3 | the `$shared` section of `http-client.env.json` |
-| 4 | built-ins |
+| 2 | the file's variables: `@name = value` lines, as REST Client writes them |
+| 3 | the active Environment |
+| 4 | the `$shared` section of `http-client.env.json` |
+| 5 | built-ins |
 
 R-HTTP-022. Built-ins:
 
@@ -78,7 +81,7 @@ R-HTTP-030. Environments live in `http-client.env.json` in the Bench folder. The
 
 R-HTTP-031. The Panel header has an Environment select. "No environment" is the first choice. The selected Environment is stored in the Bench settings as `environment`.
 
-R-HTTP-032. A variable whose name starts with `secret.` is a secret. The file holds `"secret.token": ""`. The value lives in the Keychain under the service `dev.sviniabanditka.notch-lab/http/<environment>/<name>`.
+R-HTTP-032. A variable whose name starts with `secret.` is a secret. The file holds `"secret.token": ""`. The value lives in the Keychain under the service `dev.sviniabanditka.notch-lab` with the account `http/env/<environment>/<name>` (R-SHELL-165). The app talks to `/usr/bin/security` over its standard input, so a value never shows in a process's arguments.
 
 R-HTTP-033. The Environment editor (Panel header, gear button) shows variables of the selected Environment and of `$shared` in a table. A secret shows as dots with a "Set" button. Setting a secret writes the Keychain and writes the empty string to the file.
 
@@ -188,7 +191,7 @@ R-HTTP-081. The timeout covers the whole exchange from dial to the last body byt
 
 R-HTTP-082. With follow redirects on, the app follows up to 10 redirects and shows each hop in the Timeline. With follow redirects off, the app shows the 3xx Response.
 
-R-HTTP-083. The cookie jar is one `net/http/cookiejar` per Bench, saved to `$NOTCH_LAB_HOME/http/cookies/<bench id>.json` after every Response, loaded at start. A Request with `# @no-cookie-jar` sends no cookies and stores none.
+R-HTTP-083. The cookie jar is one `net/http/cookiejar` per Bench, saved to `$NOTCH_LAB_HOME/http/cookies/<bench id>.json` after every Response, loaded at start. The file keeps each site's cookies by name and value, with path `/` and 30 days to live. A Request with `# @no-cookie-jar` sends no cookies and stores none.
 
 R-HTTP-084. The Panel header menu has "Clear cookies". The app asks for confirmation.
 

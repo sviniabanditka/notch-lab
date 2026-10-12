@@ -89,4 +89,3 @@ func TypeIcon(t model.BenchType) *ui.SVG {
 	}
 	return iconAgents
 }
-

@@ -46,6 +46,13 @@ var (
 	Trash        = Lucide(`<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>`)
 	Star         = Lucide(`<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>`)
 	Globe        = Lucide(`<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>`)
+	ArrowUp      = Lucide(`<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>`)
+	ArrowDown    = Lucide(`<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>`)
+	Check        = Lucide(`<path d="M20 6 9 17l-5-5"/>`)
+	Sparkles     = Lucide(`<path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0l1.58 6.14A2 2 0 0 0 15.5 9.94l6.14 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0z"/>`)
+	Loader       = Lucide(`<path d="M21 12a9 9 0 1 1-6.22-8.56"/>`)
+	Dot          = Lucide(`<circle cx="12" cy="12" r="4" fill="currentColor"/>`)
+	FolderSearch = Lucide(`<path d="M10.7 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v4.1"/><circle cx="17" cy="17" r="3"/><path d="m21 21-1.5-1.5"/>`)
 	Info         = Lucide(`<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>`)
 	Lock         = Lucide(`<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>`)
 	Warning      = Lucide(`<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>`)
@@ -225,4 +232,115 @@ func Sheet(c *ui.Context, key, title string, icon *ui.SVG, col ui.Color, width, 
 			ui.Column(c.Key("body")).Grow(1).Basis(0).MinHeight(0).AlignItems(ui.Stretch).Children(fn)
 		})
 	})
+}
+
+// The look's tokens, shared with the Shell (internal/shell/style.go).
+const (
+	// RowH is the height of a row in a list: Tabs, Panel items.
+	RowH = 26
+	// BarH is the height of a Bench's bar under the card's toolbar.
+	BarH = 36
+)
+
+// Motion eases the colors of hovered and chosen controls.
+var Motion = motion
+
+// Hover and Pressed tint what the pointer is over, from the text color, so
+// that they read on any background.
+func Hover(t *ui.Theme) ui.Color   { return t.Text.Alpha(0.06) }
+func Pressed(t *ui.Theme) ui.Color { return t.Text.Alpha(0.10) }
+
+// Chosen is the selection: a tint of the accent, stronger in dark.
+func Chosen(t *ui.Theme) ui.Color {
+	if t.Dark {
+		return t.Accent.Alpha(0.30)
+	}
+	return t.Accent.Alpha(0.16)
+}
+
+// Stroke is a hairline: borders and separators.
+func Stroke(t *ui.Theme) ui.Color { return t.Text.Alpha(0.09) }
+
+// Faint is muted small text: about 4.6:1, WCAG AA.
+func Faint(t *ui.Theme) ui.Color { return t.Text.Alpha(0.55) }
+
+// Row is a row of a list, indented by depth: the hover tint, or the
+// chosen one when selected. The caller adds its children.
+func Row(c *ui.Context, key string, depth int, selected bool) ui.Element {
+	t := c.Theme()
+	r := ui.Row(c.Key(key)).Height(RowH).Shrink(0).Padding(0, 8, 0, 8+float32(depth)*14).Gap(6).Radius(6).
+		AlignItems(ui.Center).Transition(motion)
+	switch {
+	case selected:
+		r.Background(Chosen(t))
+	case r.Hovered():
+		r.Background(Hover(t))
+	}
+	return r
+}
+
+// Chevron is the disclosure arrow of a folding row: right when closed,
+// down when open.
+func Chevron(c *ui.Context, open bool) {
+	i := ui.Icon(c, Forward).FontSize(11).TextColor(Faint(c.Theme())).Width(12).Shrink(0)
+	if open {
+		i.Rotate(90)
+	}
+}
+
+// Bar is a Bench's bar under the card's toolbar: one height everywhere, a
+// hairline under it.
+func Bar(c *ui.Context, key string, fn func()) ui.Element {
+	return ui.Row(c.Key(key)).Height(BarH).Shrink(0).Padding(0, 8).Gap(6).AlignItems(ui.Center).
+		BorderWidth(0, 0, 1, 0).BorderColor(Stroke(c.Theme())).Children(fn)
+}
+
+// Caption is the title of a group in a Panel: small, semibold, muted.
+func Caption(c *ui.Context, text string) ui.Element {
+	return ui.Text(c, text).FontSize(11).FontWeight(600).TextColor(Faint(c.Theme())).SingleLine()
+}
+
+// PanelHead is the head of a Bench's Panel: a search field over the
+// Panel's items and the Panel's icon buttons, which actions draws.
+func PanelHead(c *ui.Context, query *string, label string, actions func()) ui.Element {
+	return ui.Row(c.Key("panelhead")).Shrink(0).Gap(4).Padding(0, 2).AlignItems(ui.Center).Children(func() {
+		ui.SearchField(c.Key("q"), query).Label(label).Grow(1).MinWidth(0)
+		if actions != nil {
+			actions()
+		}
+	})
+}
+
+// TextButton is a borderless button with a word, for actions in bars and
+// lists: the hover tint, no face of its own.
+func TextButton(c *ui.Context, key, label string) ui.Element {
+	t := c.Theme()
+	b := ui.Row(c.Key(key)).Height(Size).Shrink(0).Padding(0, 10).Radius(6).AlignItems(ui.Center).
+		Role(ui.RoleButton).Label(label).Focusable().FocusRing(true).Cursor(ui.CursorPointer).Transition(motion)
+	switch {
+	case b.Pressed():
+		b.Background(Pressed(t))
+	case b.Hovered():
+		b.Background(Hover(t))
+	}
+	b.Children(func() { ui.Text(c, label).TextColor(t.Accent).FontWeight(500) })
+	return b
+}
+
+// Chip is a small rounded label that acts as a button, as a path segment
+// or a bookmark: tinted on hover, chosen when on.
+func Chip(c *ui.Context, key, label string, on bool) ui.Element {
+	t := c.Theme()
+	b := ui.Row(c.Key(key)).Height(24).Shrink(0).Padding(0, 8).Radius(6).AlignItems(ui.Center).
+		Role(ui.RoleButton).Label(label).Cursor(ui.CursorPointer).Transition(motion)
+	fg := t.Text
+	switch {
+	case on:
+		b.Background(Chosen(t))
+		fg = t.Accent
+	case b.Hovered():
+		b.Background(Hover(t))
+	}
+	b.Children(func() { ui.Text(c, label).TextColor(fg).SingleLine() })
+	return b
 }

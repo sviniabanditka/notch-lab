@@ -32,25 +32,13 @@ const (
 // hoverMotion eases the colors of hovered and chosen controls.
 var hoverMotion = ui.ElementTransition{Duration: 120 * time.Millisecond, Colors: true}
 
-// stroke is a hairline: borders and separators, over any background.
-func stroke(t *ui.Theme) ui.Color { return t.Text.Alpha(0.09) }
-
-// hover and pressed tint what the pointer is over, from the text color, so
-// they read on the material as on the card.
-func hover(t *ui.Theme) ui.Color   { return t.Text.Alpha(0.06) }
-func pressed(t *ui.Theme) ui.Color { return t.Text.Alpha(0.10) }
-
-// chosen tints a selected row: the accent, light enough for text to stay
-// the text color.
-func chosen(t *ui.Theme) ui.Color {
-	if t.Dark {
-		return t.Accent.Alpha(0.30)
-	}
-	return t.Accent.Alpha(0.16)
-}
-
-// faint is text that labels: section titles, counts, shortcuts.
-func faint(t *ui.Theme) ui.Color { return t.Text.Alpha(0.55) } // about 4.6:1, AA for small text
+// The tints are kit's (internal/kit), so that the Shell and the Benches
+// look the same.
+func stroke(t *ui.Theme) ui.Color  { return kit.Stroke(t) }
+func hover(t *ui.Theme) ui.Color   { return kit.Hover(t) }
+func pressed(t *ui.Theme) ui.Color { return kit.Pressed(t) }
+func chosen(t *ui.Theme) ui.Color  { return kit.Chosen(t) }
+func faint(t *ui.Theme) ui.Color   { return kit.Faint(t) }
 
 // chrome is the window's own fill where the material would be, for a
 // window without vibrancy (Reduce transparency, tests).

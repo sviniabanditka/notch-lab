@@ -544,7 +544,7 @@ func (e *Ext) PresentPopup(cx *webkit.Context, t *webkit.ExtTab) {
 		Anchor:    mygo.Rectangle{X: int(r.X), Y: int(r.Y), Width: int(r.W), Height: int(r.H)},
 		Placement: mygo.PlacementBottomEnd,
 		Width:     380, Height: 520,
-		Popover: true,
+		Popover: true, Focusable: true, // a press outside closes it (R-WEB-161)
 		Content: ui.View(func(c *ui.Context) {
 			if wv != nil {
 				ui.WebView(c.Key("popup"), wv).Grow(1)

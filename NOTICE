@@ -4,6 +4,8 @@ herdr-go (MIT) — https://github.com/MaxBoiko21/herdr-go
   tools/icon/letters.swift and tools/verify/{bg,keys,mouse}.swift are copied from it.
   internal/filetree, filesearch, filepreview, diffview and platform/* are copied from it,
   with notch-lab hooks added to filetree (Mark, Menu, Open, HideDots).
+  internal/pullrequests, chat, tasks and transcript are copied from it (M11), and
+  internal/session holds the types of its session/api.go.
 
 mygo (MIT) — https://github.com/egoist/mygo
   The app builds on a fork, github.com/sviniabanditka/mygo, branch notch-lab.

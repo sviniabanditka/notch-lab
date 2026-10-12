@@ -16,25 +16,25 @@ R-BUILD-002. `mygo.json`:
 {
   "name": "notch-lab",
   "identifier": "dev.sviniabanditka.notch-lab",
-  "version": "<from VERSION>",
+  "version": "0.1.0",
   "main": "./cmd/notch-lab",
   "out": "build",
   "icon": "tools/icon/icon.png",
-  "extraBinaries": ["./cmd/notch-labd"],
-  "plist": {
-    "LSMinimumSystemVersion": "15.4",
-    "CFBundleURLTypes": [{"CFBundleURLName": "Web", "CFBundleURLSchemes": ["http", "https"], "LSHandlerRank": "Default"}],
-    "CFBundleDocumentTypes": [{"CFBundleTypeName": "HTML", "LSItemContentTypes": ["public.html"], "CFBundleTypeRole": "Viewer"}],
-    "NSUserNotificationsUsageDescription": "notch-lab tells you when an agent needs you.",
-    "NSCameraUsageDescription": "A web page asked for the camera.",
-    "NSMicrophoneUsageDescription": "A web page asked for the microphone.",
-    "NSLocationUsageDescription": "A web page asked for your location.",
-    "LSUIElement": false
+  "macos": {
+    "minimumSystemVersion": "15.4",
+    "infoPlist": {
+      "CFBundleURLTypes": [{"CFBundleURLName": "Web", "CFBundleURLSchemes": ["http", "https"], "LSHandlerRank": "Default"}],
+      "CFBundleDocumentTypes": [{"CFBundleTypeName": "HTML", "LSItemContentTypes": ["public.html"], "CFBundleTypeRole": "Viewer"}],
+      "NSUserNotificationsUsageDescription": "notch-lab tells you when an agent needs you.",
+      "NSCameraUsageDescription": "A web page asked for the camera.",
+      "NSMicrophoneUsageDescription": "A web page asked for the microphone.",
+      "NSLocationUsageDescription": "A web page asked for your location."
+    }
   }
 }
 ```
 
-The build copies `notch-labd` to `Contents/MacOS/notch-labd`. The app starts the Daemon from that path. The exact key names follow the fork's `mygo.json` schema; the fork adds `extraBinaries` and `plist` when upstream has none.
+`version` equals the `VERSION` file; `tools/dev` refuses to build when they differ. The Daemon (M2) is built by `tools/dev` and `tools/verify/nl` into `resources/darwin-<arch>/bin/notch-labd` before `mygo build`, which copies it to `Contents/Resources/bin/notch-labd` and signs it with the app. The app starts the Daemon from that path.
 
 R-BUILD-003. The build signs the bundle ad hoc. The bundle opens on the build Mac without a warning. Notarization with a Developer ID. `[later]` DMG with `mygo build` (no `-skip-dmg`). `[later]`
 
@@ -48,7 +48,7 @@ R-BUILD-010. `tools/dev` is a shell script. It:
 
 1. sets `NOTCH_LAB_HOME=/tmp/notch-lab-dev` and `CGO_ENABLED=0`;
 2. runs the build;
-3. starts `build/darwin-*/notch-lab.app/Contents/MacOS/notch-labd` under that home when none runs there;
+3. starts `build/darwin-*/notch-lab.app/Contents/Resources/bin/notch-labd` under that home when the bundle has one and none runs there;
 4. opens the app bundle with `open -n`;
 5. tails `$NOTCH_LAB_HOME/app.log`.
 
@@ -121,11 +121,11 @@ R-BUILD-052. The Mac's Cyrillic layout types Cyrillic through `osascript keystro
 
 R-BUILD-053. `nl shot` captures the window only. A context menu is a window of its own and is absent from the shot.
 
-R-BUILD-054. The smoke run `tools/verify/smoke` does: `nl up`; create a Lab; create a terminal Bench; `nl mcp session.create`; `nl mcp session.write '{"text":"echo ok"}'`; `nl mcp session.key Enter`; read the Screen and expect `ok`; `nl shot smoke`; `nl down`. Exit 0 on success.
+R-BUILD-054. The smoke run `tools/verify/smoke` does: `nl up`; `nl shot smoke`; `nl down`. Exit 0 on success. M1 adds: create a Lab and a terminal Bench. M6 adds: `nl mcp terminal.create`; `nl mcp terminal.write '{"text":"echo ok"}'`; `nl mcp terminal.key Enter`; read the Screen and expect `ok`.
 
 ## CI
 
-R-BUILD-060. `.github/workflows/ci.yml` runs on `macos-15` on push and pull request:
+R-BUILD-060. `.github/workflows/ci.yml` runs on `macos-15` on push and pull request. The fork of mygo is private: the repository secret `MYGO_FORK_TOKEN` (a token that reads `sviniabanditka/mygo`) goes into a git `insteadOf` rule before the first `go` command. Steps:
 
 1. `go vet ./...`
 2. `go test ./...`
@@ -169,7 +169,7 @@ R-BUILD-082. Automatic updates. `[later]`
 
 ## Licenses
 
-R-BUILD-090. The repository is MIT. `LICENSE` holds the text.
+R-BUILD-090. The repository is MIT. `LICENSE` holds the text. The repositories (`notch-lab`, the fork of mygo) are private.
 
 R-BUILD-091. `NOTICE` lists: herdr-go (MIT; packages copied), Search by Office Commun (MIT; the Shim JavaScript and the Extension design), the mygo fork (MIT), and every Go dependency with its license, generated with `go-licenses report ./...` into `NOTICE` at each release.
 

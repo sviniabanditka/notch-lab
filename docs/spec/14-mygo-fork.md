@@ -6,7 +6,7 @@ Vocabulary: `CONTEXT.md`. Users of these features: `02-shell.md`, `04-browser.md
 
 R-MYGO-001. The fork lives at `github.com/sviniabanditka/mygo`, branch `notch-lab`. It tracks upstream tag `v0.4.5`.
 
-R-MYGO-002. `go.mod` of notch-lab requires `github.com/egoist/mygo v0.4.5` and has `replace github.com/egoist/mygo => github.com/sviniabanditka/mygo <commit>`. The commit is pinned; `tools/dev` fails when the pin and the fork's branch head differ.
+R-MYGO-002. `go.mod` of notch-lab requires `github.com/egoist/mygo v0.4.5` and has `replace github.com/egoist/mygo => github.com/sviniabanditka/mygo <pseudo-version of the pinned commit>`. The fork is private: builds set `GOPRIVATE=github.com/sviniabanditka` (`tools/dev`, `tools/verify/nl`, CI).
 
 R-MYGO-003. No upstream pull requests. Every patch is one commit with the subject prefix `notch:` and one patch name from the table below. A commit never mixes two patches.
 
@@ -14,42 +14,43 @@ R-MYGO-004. A patch changes upstream files as little as possible. New code goes 
 
 R-MYGO-005. Each patch has a program `examples/notch-<patch>/main.go` that shows it, and a `ui.Tester` test where the patch has no window-system dependence.
 
-## Patches: windows
+## Upstream already covers
 
-| Patch | API | Requirement |
-|---|---|---|
-| panel | `WindowOptions.Panel bool` | R-MYGO-010 |
-| level | `WindowOptions.Level`, `Window.SetLevel` | R-MYGO-011 |
-| frame | `Window.Frame()`, `Window.SetFrame(x, y, w, h)` | R-MYGO-012 |
-| activation | `App.SetActivation(mode)`, `App.Activation()` | R-MYGO-013 |
-| collection | `WindowOptions.CollectionBehavior` | R-MYGO-014 |
-| hides | `WindowOptions.HidesOnDeactivate` | R-MYGO-015 |
-| passthrough | `Window.SetIgnoresMouseEvents(bool)` | R-MYGO-017 |
-| events | `Window.OnDeactivate`, `Window.OnResignKey`, `Window.OnBecomeKey` | R-MYGO-018 |
-| notch | `Screen.Notch()` | R-MYGO-019 |
-| pointer | `App.OnGlobalPointer(func(x, y float64))`, `App.PointerPosition()` | R-MYGO-020 |
+mygo 0.4.5 has these. The fork does not patch them. The app uses them as they are.
 
-R-MYGO-010. `Panel: true` creates an `NSPanel` with style mask `NSWindowStyleMaskNonactivatingPanel | NSWindowStyleMaskBorderless` and sets `becomesKeyOnlyIfNeeded = YES`, `floatingPanel = YES`, `worksWhenModal = YES`. A click in the panel's native UI makes the panel key without activating the app. The panel is `Frameless` by force. Acceptance: `examples/notch-panel` shows a panel over TextEdit; typing in TextEdit goes to TextEdit until a click in the panel's text field.
+| Need (02-shell.md) | Upstream API |
+|---|---|
+| a non-activating panel | `NewFlyout`: an `NSPanel` with `NSWindowStyleMaskNonactivatingPanel` |
+| floating level, above other apps | `WindowOptions.AlwaysOnTop`, `Window.SetAlwaysOnTop`; a Tray or Screen flyout floats by itself |
+| window frame get and set | `Window.Bounds`, `Window.SetBounds`, `SetPosition`, `SetSize` |
+| Dock icon on and off | `App.SetActivationPolicy(ActivationPolicyRegular | ActivationPolicyAccessory)` |
+| every Space, over full screen | `Window.SetVisibleOnAllWorkspaces`; a Screen flyout sets `canJoinAllSpaces` and `fullScreenAuxiliary` itself |
+| mouse pass-through | `Window.SetIgnoreMouseEvents` |
+| app deactivated, window key or not | `App.OnDidResignActive`, `App.OnDidBecomeActive`, `Window.OnFocus`, `Window.OnBlur` |
+| full screen events | `Window.OnEnterFullScreen`, `Window.OnLeaveFullScreen`, `Window.IsFullScreen` |
+| displays and the pointer | `Screen.Displays`, `Screen.PrimaryDisplay`, `Screen.CursorScreenPoint`, `Screen.OnDisplaysChanged` |
+| extra `Info.plist` keys, minimum macOS | `mygo.json` `macos.infoPlist`, `macos.minimumSystemVersion` |
+| a helper binary in the bundle, signed with the app | `resources/darwin-<arch>/bin/<name>`, copied to `Contents/Resources/bin/` |
+| animation of a frame change | the app moves the window per frame with `SetBounds` (`02-shell.md` R-SHELL-014) |
 
-R-MYGO-011. `Level` takes `LevelNormal`, `LevelFloating`, `LevelStatus`. They map to `NSNormalWindowLevel`, `NSFloatingWindowLevel`, `NSStatusWindowLevel`. `SetLevel` changes it at run time.
+R-MYGO-016. Documented gotcha, carried from notch-browser: `SetActivationPolicy` while a window is full screen switches desktops. The app never calls it while `IsFullScreen()` is true on any window; it waits for `OnLeaveFullScreen`.
 
-R-MYGO-012. `Frame()` returns the window frame in points in a top-left origin coordinate space that matches `Display.Bounds`. `SetFrame` moves and resizes in one call with `setFrame:display:animate:` and `animate = false`. `SetFrameAnimated(x, y, w, h, ms)` animates over `ms` milliseconds with `NSAnimationContext` and calls `OnMove`/`OnResize` once at the end.
+## Patches: windows (M0, done)
 
-R-MYGO-013. `SetActivation(ActivationRegular | ActivationAccessory)` calls `setActivationPolicy:`. The call is refused with an error when any window is in full screen (`styleMask & NSWindowStyleMaskFullScreen`), because the switch kicks the window out of its Space. `Activation()` returns the current mode.
+| Patch | API | Requirement | Commit |
+|---|---|---|---|
+| screen-flyout | `FlyoutOptions.Screen` | R-MYGO-010 | `notch: screen flyout` |
+| key-on-click | `FlyoutOptions.KeyOnClick` | R-MYGO-011 | `notch: flyout key on click` |
+| screen-notch | `Screen.Notch() (Rectangle, bool)` | R-MYGO-019 | `notch: Screen.Notch` |
+| global-pointer | `App.OnGlobalPointer(func(x, y int)) (off func())` | R-MYGO-020 | `notch: global pointer` |
 
-R-MYGO-014. `CollectionBehavior` is a bit set: `CanJoinAllSpaces`, `FullScreenAuxiliary`, `Stationary`, `MoveToActiveSpace`, `Transient`, `IgnoresCycle`. They map one to one to `NSWindowCollectionBehavior` values. Applied at creation and with `SetCollectionBehavior`.
+R-MYGO-010. `FlyoutOptions.Screen: true` makes a flyout with neither a Parent nor a Tray. `Anchor` is then in screen coordinates (`Display.Bounds`). The flyout is placed against the anchor inside the bounds of the display the anchor's center is on, the menu bar included, not the work area. The panel has level floating and collection behavior `canJoinAllSpaces | transient | ignoresCycle | fullScreenAuxiliary`. Acceptance: `examples/notch-screen-flyout` hangs a panel from the top center of the primary display over the windows of other apps.
 
-R-MYGO-015. `HidesOnDeactivate: true` sets `hidesOnDeactivate = YES`.
+R-MYGO-011. `FlyoutOptions.KeyOnClick: true` lets the flyout become the key window, but shows it without the keyboard: the front app keeps typing until the user presses in the flyout. A press outside it, in the app or in another app, closes it (`OnClose` can keep it). Escape closes it. Acceptance: `examples/notch-key-on-click` over TextEdit: typing goes to TextEdit until a click in the flyout's text field.
 
-R-MYGO-016. Documented gotcha, carried from notch-browser: a `SetActivation` while a window is full screen switches desktops. The fork refuses it (R-MYGO-013). The app waits for `OnExitFullScreen` before it switches.
+R-MYGO-019. `Screen.Notch()` returns the notch rectangle in screen coordinates and `true` on a Mac whose built-in display has `safeAreaInsets.top > 0` (macOS 12 and later): the gap between `auxiliaryTopLeftArea` and `auxiliaryTopRightArea`, as tall as the top inset. `false` on a display without a notch. `OnDisplaysChanged` fires when the result can change. Acceptance: `examples/notch-screen-notch` prints `{918 0 220 38} true` on a 14-inch MacBook Pro and hangs a panel below it.
 
-R-MYGO-017. `SetIgnoresMouseEvents(true)` sets `ignoresMouseEvents = YES`. Used by the notch panel during its slide.
-
-R-MYGO-018. `OnDeactivate` fires when the app resigns active. `OnResignKey` and `OnBecomeKey` fire per window from `NSWindowDidResignKeyNotification` and `NSWindowDidBecomeKeyNotification`. `OnEnterFullScreen` and `OnExitFullScreen` fire from the matching notifications.
-
-R-MYGO-019. `Screen.Notch()` returns `(rect Rect, ok bool)`. On macOS 12 and later it reads `NSScreen.safeAreaInsets.top`; when `top > 0` the notch rect is the gap between `auxiliaryTopLeftArea` and `auxiliaryTopRightArea`, in the same coordinate space as `Frame()`. `ok` is false on a display without a notch. `OnDisplaysChanged` fires when the result can change.
-
-R-MYGO-020. `OnGlobalPointer` installs one `NSEvent` global monitor for `NSEventMaskMouseMoved | NSEventMaskLeftMouseDown` and calls back on the main goroutine. The monitor needs no Accessibility permission for the pointer position (macOS supplies it to global monitors for mouse-moved events). `PointerPosition()` returns `NSEvent.mouseLocation` converted to `Frame()` space. Acceptance: `examples/notch-pointer` prints the pointer position while another app is in front.
+R-MYGO-020. `App.OnGlobalPointer` installs one global and one local `NSEvent` monitor for mouse moves while a listener is registered, and removes them when the last `off` runs. The callback runs on the main goroutine with the position in `Display.Bounds` coordinates. No Accessibility permission is needed. Acceptance: `examples/notch-pointer` prints positions while another app is in front.
 
 ## Patches: WebKit
 
@@ -181,14 +182,7 @@ R-MYGO-071. The app refuses to start on macOS below 15.4 with a native alert "no
 
 ## Build tool
 
-R-MYGO-090. The fork's `mygo build` reads two keys that upstream `mygo.json` has none of:
-
-| Key | Type | Effect |
-|---|---|---|
-| `extraBinaries` | list of Go main package paths | each is built for the same target and copied to `Contents/MacOS/<name>`; the app bundle signs them with the app |
-| `plist` | object | each key and value is merged into `Info.plist` after mygo's own keys; a key present in both takes the `plist` value |
-
-R-MYGO-091. `examples/notch-build` holds a `mygo.json` with both keys. The test builds it and checks that the second binary and the plist key are in the bundle.
+R-MYGO-090. The fork changes nothing in `mygo build`. The Daemon ships as `resources/darwin-<arch>/bin/notch-labd` (`15-build-test.md`), and extra `Info.plist` keys go in `macos.infoPlist`.
 
 ## Rebase procedure
 
@@ -214,3 +208,4 @@ R-MYGO-081. `docs/fork/patches.md` in the fork lists every patch, its commit sub
 | global pointer monitor costs CPU | the hover trigger polls on every mouse move | the monitor only compares against the notch rect; the app installs it only while `notch.hoverShows` is true |
 | `setActivationPolicy` in full screen | desktop switch | refused by R-MYGO-013 |
 | a display without a notch | `Screen.Notch()` false | the app uses the top-center strip (R-SHELL-015) |
+| `KeyOnClick` and a press in the app's own menu bar | the local monitor sees no menu bar press; the flyout stays | the flyout also closes on `App.OnDidResignActive` and on Escape |

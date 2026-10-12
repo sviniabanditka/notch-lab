@@ -4,7 +4,7 @@ Each milestone ends with a build the user can run every day. The order is fixed.
 
 | # | Name | Delivers | Depends on |
 |---|---|---|---|
-| M0 | Fork and skeleton | fork of mygo with the window patches (`14-mygo-fork.md`), app bundle, `tools/dev`, verify skill, empty main window | — |
+| M0 | Fork and skeleton (done 2026-10-12) | fork of mygo with the window patches (`14-mygo-fork.md`), app bundle, `tools/dev`, verify skill, empty main window | — |
 | M1 | Model and Shell | Labs, Benches, Tabs, Layout with Splits, State, rail, sidebar, Lab menu, Switcher, History, shortcuts, Settings window, theme | M0 |
 | M2 | Terminal | the Daemon, Sessions, the Emulator, terminal Bench, agent detection, Unread | M1 |
 | M3 | Editor and files | editor Bench with Explorer and Preview, Go to File, files Bench, git status and diff | M1 |

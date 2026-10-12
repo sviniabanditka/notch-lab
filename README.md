@@ -2,7 +2,7 @@
 
 A native macOS development environment under the notch and in a full window: terminals, a browser with Extensions, an editor, files, notes, an HTTP client, a database manager, SSH hosts, pull requests and coding agents. Agents control all of it through MCP.
 
-Status: specification. No code yet.
+Status: M0 done (fork, bundle, tools, an empty main window). The repositories are private.
 
 ## Read first
 

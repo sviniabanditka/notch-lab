@@ -1,0 +1,99 @@
+#!/bin/zsh
+# nl — drive notch-lab against its dev home (see .claude/skills/verify/SKILL.md).
+# Input goes to the app's pid alone (bg.swift): the user's cursor and front app
+# stay put. Text and keys without Cmd need the key window, so they bring the
+# app to the front for the send and hand the front back. NL_FOREGROUND=1
+# restores the old path: front first, global events.
+set -e
+ROOT=${0:A:h}
+REPO=${ROOT:h:h}
+export NOTCH_LAB_HOME=${NOTCH_LAB_HOME:-/tmp/notch-lab-dev} CGO_ENABLED=0 GOPRIVATE=github.com/sviniabanditka
+BIN=$NOTCH_LAB_HOME/bin
+ARCH=darwin-arm64; [[ $(uname -m) == x86_64 ]] && ARCH=darwin-amd64
+APP=$REPO/build/$ARCH/notch-lab.app
+export NL_APP_EXE=$APP/Contents/MacOS/notch-lab
+DAEMON=$APP/Contents/Resources/bin/notch-labd
+
+tool() { # build a Swift helper on first use or when its source changed
+  mkdir -p $BIN
+  [[ $BIN/$1 -nt $ROOT/$1.swift ]] || swiftc -O -o $BIN/$1 $ROOT/$1.swift
+  echo $BIN/$1
+}
+app_pid() { pgrep -f "^$NL_APP_EXE" | head -1 }
+# main window = the largest normal-layer window of the app: "number x y w h"
+main_window() { $(tool mouse) bounds $(app_pid) | awk '{print $4*$5, $0}' | sort -k1,1nr | head -1 | cut -d' ' -f2- }
+
+raise() { osascript -e "tell application \"System Events\" to set frontmost of (first process whose unix id is $1) to true" >/dev/null }
+front() {
+  local pid=$(app_pid)
+  [[ -n $pid ]] || { echo "notch-lab is not running (nl up)" >&2; return 1 }
+  raise $pid
+  local f
+  for i in {1..15}; do sleep 0.1; f=$($(tool bg) front); [[ $f == $pid ]] && break; done
+  [[ $f == $pid ]] || { echo "notch-lab is not frontmost (front pid $f); no input sent" >&2; return 1 }
+}
+send() { # background: post to the app's pid, at window points
+  local pid=$(app_pid) n rest
+  [[ -n $pid ]] || { echo "notch-lab is not running (nl up)" >&2; return 1 }
+  read n rest <<< "$(main_window)"
+  [[ -n $n ]] || { echo "no notch-lab window" >&2; return 1 }
+  $(tool bg) $pid $n $@
+}
+typed() { # mygo drops typed keys unless its window is key: front for the send only
+  local prev=$($(tool bg) front)
+  local rc=0
+  front && sleep 0.6 && send $@ && sleep 0.2 || rc=$?
+  [[ $prev == 0 || $prev == $(app_pid) ]] || raise $prev
+  return $rc
+}
+at() { # translate window-relative points to screen points, after front
+  front
+  local n x y w h; read n x y w h <<< "$(main_window)"
+  [[ -n $x ]] || { echo "no notch-lab window" >&2; exit 1 }
+  local cmd=$1; shift; local out=()
+  while (( $# >= 2 )); do out+=($(( x + $1 )) $(( y + $2 ))); shift 2; done
+  $(tool mouse) $cmd $out $@
+}
+
+if [[ -z $NL_FOREGROUND ]]; then
+  case $1 in
+    text) typed text "$2"; exit ;;
+    key) shift; if (( ${@[(Ie)cmd]} )); then send key $@; else typed key $@; fi; exit ;;
+    click|rclick|cclick|dclick|move|cmdclick|scroll|drag) send $@; exit ;;
+  esac
+fi
+case $1 in
+  up)
+    mkdir -p $NOTCH_LAB_HOME/shots
+    pkill -f "^$NL_APP_EXE" || true
+    (cd $REPO && go run github.com/egoist/mygo/cmd/mygo build -skip-dmg >$NOTCH_LAB_HOME/build.log 2>&1) || { tail -20 $NOTCH_LAB_HOME/build.log; exit 1 }
+    if [[ -x $DAEMON ]] && ! pgrep -f "^$DAEMON" >/dev/null; then
+      (nohup $DAEMON >>$NOTCH_LAB_HOME/daemon.log 2>&1 &)
+    fi
+    local prev=$($(tool bg) front)
+    : >$NOTCH_LAB_HOME/app.log
+    local t0=$(date +%s.%N)
+    open -n $APP
+    for i in {1..100}; do [[ -n $(main_window 2>/dev/null) ]] && break; sleep 0.1; done
+    [[ -n $NL_FOREGROUND || $prev == 0 ]] || { sleep 0.5; raise $prev }
+    echo "notch-lab pid $(app_pid); window after $(printf %.1f $(( $(date +%s.%N) - t0 ))) s; log $NOTCH_LAB_HOME/app.log" ;;
+  down)
+    pkill -f "^$NL_APP_EXE" || true
+    pkill -f "^$DAEMON" || true ;;
+  front) front ;;
+  text) front; $(tool keys) text "$2" ;;
+  key)  front; shift; $(tool keys) code $@ ;;
+  click|rclick|cclick|dclick|move|cmdclick) at $1 $2 $3 ;;
+  scroll) at scroll $2 $3 $4 ;;
+  drag) at drag $2 $3 $4 $5 ;;
+  shot)
+    local n rest; read n rest <<< "$(main_window)"
+    [[ -n $n ]] || { echo "no notch-lab window" >&2; exit 1 }
+    screencapture -o -x -l $n $NOTCH_LAB_HOME/shots/$2.png && echo $NOTCH_LAB_HOME/shots/$2.png ;;
+  mem)
+    local pids=$(app_pid); local d=$(pgrep -f "^$DAEMON" | head -1); [[ -n $d ]] && pids="$pids,$d"
+    for i in $(seq 1 ${2:-5}); do ps -o rss=,%cpu=,comm= -p $pids; sleep 1; done |
+      awk '{r[$3]+=$1/1024; c[$3]+=$2; n[$3]++} END {for (k in r) printf "%s: rss avg %.1f MB, cpu avg %.0f%%\n", k, r[k]/n[k], c[k]/n[k]}' ;;
+  mcp) echo "nl mcp: the Bridge arrives in M6" >&2; exit 2 ;;
+  *) echo "usage: nl up|down|front|text S|key CODE [cmd shift ctrl alt]|click|rclick|cclick|dclick|move|cmdclick X Y|scroll X Y N|drag X1 Y1 X2 Y2|shot NAME|mem [SECS]|mcp TOOL JSON" >&2; exit 2 ;;
+esac

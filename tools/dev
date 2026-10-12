@@ -1,0 +1,35 @@
+#!/bin/zsh
+# dev — build and run notch-lab under its own home, /tmp/notch-lab-dev.
+#   tools/dev        build the bundle, start the dev Daemon when there is one, open the app, tail app.log
+#   tools/dev down   quit the app and stop the dev Daemon
+# It never touches ~/Library/Application Support/notch-lab.
+set -e
+REPO=${0:A:h:h}
+export NOTCH_LAB_HOME=${NOTCH_LAB_HOME:-/tmp/notch-lab-dev} CGO_ENABLED=0 GOPRIVATE=github.com/sviniabanditka
+APP=$REPO/build/darwin-arm64/notch-lab.app
+[[ $(uname -m) == x86_64 ]] && APP=$REPO/build/darwin-amd64/notch-lab.app
+EXE=$APP/Contents/MacOS/notch-lab
+DAEMON=$APP/Contents/Resources/bin/notch-labd
+
+if [[ $1 == down ]]; then
+  pkill -f "$EXE" || true
+  pkill -f "$DAEMON" || true
+  rm -rf $NOTCH_LAB_HOME/dev.lock
+  exit
+fi
+[[ -z $1 ]] || { echo "usage: tools/dev [down]" >&2; exit 2 }
+
+mkdir -p $NOTCH_LAB_HOME
+mkdir $NOTCH_LAB_HOME/dev.lock 2>/dev/null || { echo "another tools/dev runs under $NOTCH_LAB_HOME (tools/dev down)" >&2; exit 1 }
+trap 'rm -rf $NOTCH_LAB_HOME/dev.lock' EXIT
+
+cd $REPO
+[[ $(cat VERSION) == $(python3 -c 'import json;print(json.load(open("mygo.json"))["version"])') ]] || { echo "VERSION and mygo.json version differ" >&2; exit 1 }
+go run github.com/egoist/mygo/cmd/mygo build -skip-dmg
+if [[ -x $DAEMON ]] && ! pgrep -f "$DAEMON" >/dev/null; then
+  (NOTCH_LAB_HOME=$NOTCH_LAB_HOME nohup $DAEMON >>$NOTCH_LAB_HOME/daemon.log 2>&1 &)
+fi
+pkill -f "$EXE" || true
+touch $NOTCH_LAB_HOME/app.log
+open -n $APP
+exec tail -f $NOTCH_LAB_HOME/app.log

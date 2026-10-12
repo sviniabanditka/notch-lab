@@ -1,0 +1,13 @@
+notch-lab includes work from these projects.
+
+herdr-go (MIT) — https://github.com/MaxBoiko21/herdr-go
+  tools/icon/letters.swift and tools/verify/{bg,keys,mouse}.swift are copied from it.
+  Packages under internal/ marked "copied from herdr-go" in their doc comment are too.
+
+mygo (MIT) — https://github.com/egoist/mygo
+  The app builds on a fork, github.com/sviniabanditka/mygo, branch notch-lab.
+
+Search by Office Commun (MIT) — the Shim JavaScript and the design of the
+  Extension layer (from milestone M4).
+
+Go dependencies: see go.mod; their licenses are those of each module.

@@ -1,0 +1,10 @@
+#!/bin/zsh
+# smoke — the live check of a build: up, a shot of the window, down.
+# M1 adds a Lab and a Bench; M6 adds the MCP round trip (15-build-test.md R-BUILD-054).
+set -e
+NL=${0:A:h}/nl
+$NL up
+sleep 1
+$NL shot smoke
+$NL down
+echo "smoke ok"

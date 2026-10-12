@@ -24,7 +24,7 @@ Tools, each a Bench type:
 | Fact | Consequence |
 |---|---|
 | mygo 0.4.5 draws native UI on the GPU in pure Go and embeds a system WKWebView in a native window | The whole app is Go. Browser Pages are real WebKit views inside the Layout. |
-| mygo has no non-activating panel, no floating window level, no window position API, no Dock hiding | The app uses a fork of mygo. The fork adds these. No upstream pull requests. |
+| mygo has non-activating flyouts, window levels, frames, activation policies and display queries, but no screen-anchored panel, no panel that takes the keyboard only on click, no notch rectangle and no global pointer | The app uses a fork of mygo with four window patches (`14-mygo-fork.md`) and, from M4, the WebKit patches. No upstream pull requests. |
 | macOS 15.4 has `WKWebExtension`, the engine Safari runs Extensions on | Browser Benches load Chrome and Firefox Extensions. Minimum macOS is 15.4. |
 | Search (Office Commun, MIT) has a complete Extension layer on WKWebExtension: Store install, CRX check, Shims, popups | The app ports that layer to Go. The Shim JavaScript is reused as is. |
 | herdr-go (MIT) has Go packages for pull requests, file search, file preview, diff view, settings, history, unread, transcripts | The app copies those packages. The herdr protocol is not used. |

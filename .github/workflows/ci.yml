@@ -1,0 +1,29 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  macos:
+    runs-on: macos-15
+    env:
+      CGO_ENABLED: "0"
+      GOPRIVATE: github.com/sviniabanditka
+      GOTOOLCHAIN: auto
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Reach the private fork of mygo
+        run: git config --global url."https://x-access-token:${{ secrets.MYGO_FORK_TOKEN }}@github.com/".insteadOf "https://github.com/"
+      - run: go vet ./...
+      - run: go test ./...
+      - run: go run github.com/egoist/mygo/cmd/mygo build -skip-dmg
+      - name: Smoke
+        run: tools/verify/smoke
+        env:
+          NOTCH_LAB_HOME: ${{ runner.temp }}/nl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: notch-lab.app
+          path: build/darwin-arm64/notch-lab.app
+          retention-days: 14

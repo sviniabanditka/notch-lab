@@ -1,0 +1,19 @@
+{
+  "name": "notch-lab",
+  "identifier": "dev.sviniabanditka.notch-lab",
+  "version": "0.1.0",
+  "main": "./cmd/notch-lab",
+  "out": "build",
+  "icon": "tools/icon/icon.png",
+  "macos": {
+    "minimumSystemVersion": "15.4",
+    "infoPlist": {
+      "CFBundleURLTypes": [{"CFBundleURLName": "Web", "CFBundleURLSchemes": ["http", "https"], "LSHandlerRank": "Default"}],
+      "CFBundleDocumentTypes": [{"CFBundleTypeName": "HTML", "LSItemContentTypes": ["public.html"], "CFBundleTypeRole": "Viewer"}],
+      "NSUserNotificationsUsageDescription": "notch-lab tells you when an agent needs you.",
+      "NSCameraUsageDescription": "A web page asked for the camera.",
+      "NSMicrophoneUsageDescription": "A web page asked for the microphone.",
+      "NSLocationUsageDescription": "A web page asked for your location."
+    }
+  }
+}

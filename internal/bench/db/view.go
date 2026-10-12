@@ -220,7 +220,7 @@ func (b *Bench) results(c *ui.Context, x *tab) {
 	}
 	if x.cell != nil {
 		open := true
-		ui.Modal(c.Key("cell"), &open, func() {
+		kit.Modal(c, "cell", &open, func() {
 			ui.Column(c).Width(560).Gap(8).Padding(12).Children(func() {
 				text := *x.cell
 				var buf bytes.Buffer

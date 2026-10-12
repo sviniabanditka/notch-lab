@@ -400,7 +400,7 @@ func (b *Bench) Overlay(c *ui.Context) {
 		return
 	}
 	bench := b.env.bench
-	kit.Sheet(c, "envs", "Environments", 560, 440, &b.env.open, func() {
+	kit.Sheet(c, "envs", "Environments", kit.Gear, ui.Hex("#30b0c7"), 560, 440, &b.env.open, func() {
 		ui.Scroll(c.Key("envscroll")).Grow(1).Basis(0).MinHeight(0).Children(func() {
 			b.envEditor(c, bench, b.store(bench), readSettings(bench).Environment)
 		})

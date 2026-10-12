@@ -1052,7 +1052,7 @@ func (b *Bench) OpenLibrary(bench *model.Bench, section int) {
 // Overlay draws the Library over the window that opened it.
 func (b *Bench) Overlay(c *ui.Context) {
 	if b.lib.open && b.lib.win == b.Win && b.lib.bench != nil {
-		kit.Sheet(c, "library", "Library", 680, 520, &b.lib.open, func() { b.library(c, b.lib.bench) })
+		kit.Sheet(c, "library", "Library", kit.Library, ui.Hex("#0a84ff"), 760, 540, &b.lib.open, func() { b.library(c, b.lib.bench) })
 	}
 }
 
@@ -1072,29 +1072,48 @@ func (b *Bench) library(c *ui.Context, bench *model.Bench) {
 		b.Show(t)
 		b.load(b.live(t), u)
 	}
-	ui.Column(c.Key("bpanel")).Grow(1).Basis(0).MinHeight(0).Gap(8).AlignItems(ui.Stretch).Children(func() {
-		ui.Row(c.Key("top")).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Segmented(c.Key("sec"), &b.panel.section, "Bookmarks", "History", "Downloads", "Extensions")
+	ui.Row(c.Key("lib")).Grow(1).Basis(0).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
+		ui.Column(c.Key("side")).Shrink(0).AlignItems(ui.Stretch).Children(func() {
+			kit.Nav(c, libraryNav, &b.panel.section)
 			ui.Box(c).Grow(1)
-			b.isolatedSwitch(c, bench)
+			ui.Row(c.Key("iso")).Gap(8).Padding(0, 20, 0, 8).AlignItems(ui.Center).Children(func() { b.isolatedSwitch(c, bench) })
 		})
+		ui.Box(c).Width(1).Shrink(0).Margin(0, 16, 0, 0).Background(th.Text.Alpha(0.08))
+		ui.Column(c.Key("page")).Grow(1).Basis(0).MinWidth(0).Gap(8).AlignItems(ui.Stretch).Children(func() { b.librarySection(c, bench, open) })
+	})
+}
+
+// libraryNav are the Library's sections.
+var libraryNav = []kit.NavItem{
+	{Title: "Bookmarks", Icon: kit.Star, Color: ui.Hex("#ff9f0a")},
+	{Title: "History", Icon: kit.History, Color: ui.Hex("#5e5ce6")},
+	{Title: "Downloads", Icon: kit.Download, Color: ui.Hex("#30b0c7")},
+	{Title: "Extensions", Icon: kit.Puzzle, Color: ui.Hex("#34c759")},
+}
+
+func (b *Bench) librarySection(c *ui.Context, bench *model.Bench, open func(u string, newTab bool)) {
+	th := c.Theme()
+	{
 		switch b.panel.section {
 		case 0:
 			var walk func(f *Bookmark, depth int)
 			walk = func(f *Bookmark, depth int) {
 				for _, m := range f.Children {
 					m := m
-					row := ui.Row(c.Key("b"+m.ID)).Height(24).Padding(0, 6, 0, 6+float32(depth)*12).Gap(6).Radius(6)
+					row := ui.Row(c.Key("b"+m.ID)).Height(30).Padding(0, 8, 0, 8+float32(depth)*16).Gap(8).Radius(7).AlignItems(ui.Center).Tooltip(m.URL)
 					if row.Hovered() {
-						row.Background(th.SurfaceHover)
+						row.Background(th.Text.Alpha(0.06))
 					}
 					row.Children(func() {
-						glyph := "·"
+						icon, col := kit.Globe, th.TextMuted
 						if m.Folder {
-							glyph = "▸"
+							icon, col = kit.Folder, th.Accent
 						}
-						ui.Text(c, glyph).TextColor(th.TextMuted)
+						ui.Icon(c, icon).FontSize(14).TextColor(col)
 						ui.Text(c, m.Title).SingleLine().Shrink(1).MinWidth(0)
+						if !m.Folder {
+							ui.Text(c, Host(m.URL)).FontSize(11).TextColor(th.TextMuted).SingleLine().Shrink(1).MinWidth(0)
+						}
 					})
 					if !m.Folder && row.Clicked() {
 						open(m.URL, row.ClickModifiers()&ui.Cmd != 0)
@@ -1122,18 +1141,21 @@ func (b *Bench) library(c *ui.Context, bench *model.Bench) {
 					v := v
 					if d := v.At.Format("Monday, 2 January"); d != day {
 						day = d
-						ui.Text(c, d).FontSize(11).Bold().TextColor(th.TextMuted).Padding(6, 4, 2, 4)
+						ui.Text(c, strings.ToUpper(d)).FontSize(11).FontWeight(600).TextColor(th.TextMuted).Padding(10, 8, 4, 8)
 					}
-					row := ui.Row(c.Key("h"+v.URL)).Height(24).Padding(0, 6).Gap(6).Radius(6).Tooltip(v.URL)
+					row := ui.Row(c.Key("h"+v.URL)).Height(30).Padding(0, 8).Gap(8).Radius(7).AlignItems(ui.Center).Tooltip(v.URL)
 					if row.Hovered() {
-						row.Background(th.SurfaceHover)
+						row.Background(th.Text.Alpha(0.06))
 					}
 					row.Children(func() {
 						title := v.Title
 						if title == "" {
 							title = Display(v.URL)
 						}
+						ui.Icon(c, kit.Globe).FontSize(14).TextColor(th.TextMuted)
 						ui.Text(c, title).SingleLine().Shrink(1).MinWidth(0)
+						ui.Box(c).Grow(1)
+						ui.Text(c, v.At.Format("15:04")).FontSize(11).TextColor(th.TextMuted)
 					})
 					if row.Clicked() {
 						open(v.URL, row.ClickModifiers()&ui.Cmd != 0)
@@ -1196,7 +1218,7 @@ func (b *Bench) library(c *ui.Context, bench *model.Bench) {
 				ui.Column(c).Gap(10).Padding(0, 2).AlignItems(ui.Stretch).Children(func() { b.ExtensionSettings(c, b.Win) })
 			})
 		}
-	})
+	}
 }
 
 // isolatedSwitch gives the Bench a Profile of its own, after a question

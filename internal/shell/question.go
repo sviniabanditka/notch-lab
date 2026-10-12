@@ -1,10 +1,12 @@
 package shell
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 )
 
 // Questions are the alerts a window draws over a dimmed backdrop
@@ -67,7 +69,7 @@ func (s *Questions) View(c *ui.Context) {
 	t := c.Theme()
 	answer := -1
 	open := true
-	ui.Modal(c.Key(len(s.asks)), &open, func() {
+	kit.Modal(c, fmt.Sprint("ask", len(s.asks)), &open, func() {
 		ui.Column(c).Width(300).Padding(6, 4, 2, 4).Gap(10).AlignItems(ui.Stretch).Children(func() {
 			col := t.Accent
 			if q.danger {

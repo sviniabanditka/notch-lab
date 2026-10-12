@@ -869,9 +869,9 @@ func (b *Bench) infoView(c *ui.Context) {
 		return
 	}
 	th := c.Theme()
-	ui.Modal(c, &b.info.open, func() {
+	kit.Modal(c, "info", &b.info.open, func() {
 		ui.Column(c).Width(380).Gap(6).Children(func() {
-			ui.Text(c, "Info").Bold().FontSize(15)
+			ui.Text(c, "Info").FontWeight(700).FontSize(16)
 			for _, l := range b.info.lines {
 				ui.Row(c).Gap(10).Children(func() {
 					ui.Text(c, l[0]).TextColor(th.TextMuted).Width(90)

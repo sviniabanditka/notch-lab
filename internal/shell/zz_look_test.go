@@ -39,9 +39,18 @@ func TestLook(t *testing.T) {
 		shot("switcher", tt)
 		s.sw.open = false
 		s.OpenNewBench()
-		tt.Frame()
+		for range 30 {
+			tt.Frame()
+		}
 		shot("dialog", tt)
 		s.dlg.open = false
+		s.q.asks = append(s.q.asks, question{message: "Delete the Bench “API” and its 3 Tabs?", detail: "This cannot be undone.", buttons: []string{"Delete", "Cancel"}, danger: true, then: func(int) {}})
+		for range 30 {
+			tt.Frame()
+		}
+		shot("question", tt)
+		s.q.asks = nil
+		tt.Frame()
 		v := &SettingsView{S: s}
 		st := ui.NewTester(v.View, 720, 520)
 		st.SetDark(dark)

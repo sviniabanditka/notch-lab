@@ -3,6 +3,7 @@ package shell
 import (
 	"github.com/egoist/mygo/ui"
 
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 	"github.com/sviniabanditka/notch-lab/internal/model"
 )
 
@@ -71,7 +72,7 @@ func (s *Shell) dialogView(c *ui.Context) {
 	}
 	d := &s.dlg
 	t := c.Theme()
-	ui.Modal(c, &d.open, func() {
+	kit.Modal(c, "dialog", &d.open, func() {
 		width := float32(420)
 		if d.kind == dlgNewBench {
 			width = 560
@@ -81,7 +82,7 @@ func (s *Shell) dialogView(c *ui.Context) {
 			case dlgNewBench:
 				s.newBenchSheet(c, d)
 			case dlgNewLab:
-				ui.Text(c, "New Lab").Bold().FontSize(15)
+				ui.Text(c, "New Lab").FontWeight(700).FontSize(16)
 				submit := ui.TextInput(c.Key("name"), &d.text).AutoFocus().Submitted()
 				s.rootRow(c, d, "No root folder")
 				if s.buttons(c, "Create") || submit {
@@ -90,7 +91,7 @@ func (s *Shell) dialogView(c *ui.Context) {
 					d.open = false
 				}
 			case dlgLabSettings:
-				ui.Text(c, "Lab Settings").Bold().FontSize(15)
+				ui.Text(c, "Lab Settings").FontWeight(700).FontSize(16)
 				ui.TextInput(c.Key("name"), &d.text).AutoFocus()
 				s.rootRow(c, d, "No root folder")
 				ui.Row(c).Gap(6).Children(func() {
@@ -119,7 +120,7 @@ func (s *Shell) dialogView(c *ui.Context) {
 					d.open = false
 				}
 			case dlgRename:
-				ui.Text(c, d.title).Bold().FontSize(15)
+				ui.Text(c, d.title).FontWeight(700).FontSize(16)
 				submit := ui.TextInput(c.Key("name"), &d.text).AutoFocus().Submitted()
 				if s.buttons(c, "Rename") || submit {
 					d.apply(d.text)
@@ -127,7 +128,7 @@ func (s *Shell) dialogView(c *ui.Context) {
 					d.open = false
 				}
 			case dlgAsk:
-				ui.Text(c, d.title).Bold().FontSize(15)
+				ui.Text(c, d.title).FontWeight(700).FontSize(16)
 				submit := ui.TextInput(c.Key("name"), &d.text).AutoFocus().Submitted()
 				if d.err != "" {
 					ui.Text(c, d.err).FontSize(12).TextColor(t.Danger)

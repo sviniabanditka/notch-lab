@@ -9,6 +9,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 	"github.com/sviniabanditka/notch-lab/internal/model"
 	"github.com/sviniabanditka/notch-lab/internal/sshhosts"
 )
@@ -52,13 +53,13 @@ func (b *Bench) Overlay(c *ui.Context) {
 	}
 	th := c.Theme()
 	open := true
-	ui.Modal(c.Key("sshsheet"), &open, func() {
+	kit.Modal(c, "sshsheet", &open, func() {
 		ui.Column(c).Width(480).Gap(8).Padding(16).Children(func() {
 			title := "Edit Host"
 			if s.isNew {
 				title = "New Host"
 			}
-			ui.Text(c, title).Bold().FontSize(15)
+			ui.Text(c, title).FontWeight(700).FontSize(16)
 			field := func(label string, body func()) {
 				ui.Row(c.Key(label)).Gap(8).AlignItems(ui.Center).Children(func() {
 					ui.Text(c, label).Width(110).TextColor(th.TextMuted)

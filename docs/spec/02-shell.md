@@ -309,6 +309,8 @@ R-SHELL-156. The card's corners are concentric with the window's: their radius i
 
 R-SHELL-158. Toolbar actions are icon buttons (Lucide shapes, `internal/kit`), 28 x 28 pt, borderless, with a tooltip that names the action and its shortcut and an accessibility label: back, forward, reload, stop, bookmark, history, save, export, copy, format, run all, replace, new (+), close (×), refresh, move to window. A toolbar's main action (Run, Send) is an accent button with an icon and a short word. Buttons in dialogs, sheets and Settings keep their words.
 
+R-SHELL-159. Every modal of the app (questions, the Shell's sheets, Bench sheets) has one look (`kit.Modal`): a backdrop of black at 18 % (light) or 45 % (dark); a panel with a 16 pt radius, the card's background, a hairline border and a deep soft shadow; an entrance from 96 % scale with a fade (none with Reduce motion). A sheet with sections (the Library) has a side navigation as Settings has: a color tile and a title per section, the chosen one tinted with the accent. A sheet's header has a color tile, the title and a close button.
+
 ## Questions
 
 R-SHELL-157. A question (a confirmation, Save / Don't Save / Cancel) shows inside the window the user acts in, over a dimmed backdrop: not a system alert. It has a tile with "!" in the accent color, or in the danger color for Delete, Remove, Discard, Reset, Clear and Move to Trash; the message; the detail; and the buttons, Cancel left and the action right. Return chooses the action, or Cancel for a danger action. Escape and a click outside answer Cancel. Questions wait in a queue and show one at a time. A Bench asks in the window whose frame runs: the main window, the notch panel or the Settings window. File choosers stay the system's panels.

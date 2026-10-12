@@ -25,10 +25,10 @@ trap 'rm -rf $NOTCH_LAB_HOME/dev.lock' EXIT
 
 cd $REPO
 [[ $(cat VERSION) == $(python3 -c 'import json;print(json.load(open("mygo.json"))["version"])') ]] || { echo "VERSION and mygo.json version differ" >&2; exit 1 }
+tools/build-daemon
 go run github.com/egoist/mygo/cmd/mygo build -skip-dmg
-if [[ -x $DAEMON ]] && ! pgrep -f "$DAEMON" >/dev/null; then
-  (NOTCH_LAB_HOME=$NOTCH_LAB_HOME nohup $DAEMON >>$NOTCH_LAB_HOME/daemon.log 2>&1 &)
-fi
+# The app starts the dev Daemon itself (R-TERM-005); a new build replaces it.
+pkill -f "$DAEMON" || true
 pkill -f "$EXE" || true
 touch $NOTCH_LAB_HOME/app.log
 open -n $APP

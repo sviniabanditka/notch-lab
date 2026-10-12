@@ -1,3 +1,5 @@
+> ADR 0007: the Daemon reads the Agent's status from its headless terminal and sends it in `session.state`. Claude Code names its process after its version (`2.1.295`), so detection also reads `argv[0]`.
+
 # Agents: detection, status, the Transcript, the agents Bench, Tasks
 
 ## Parts

@@ -270,6 +270,15 @@ func (s *Shell) tabs(c *ui.Context, b *model.Bench) {
 		row.Children(func() {
 			ui.Icon(c, TypeIcon(b.Type)).FontSize(13).TextColor(fg)
 			ui.Text(c, tab.DisplayTitle()).TextColor(fg).SingleLine().Grow(1).Shrink(1).MinWidth(0)
+			if tt := s.typeOf(b); tt != nil {
+				if g, alert := tt.Glyph(tab); g != "" {
+					col := fg
+					if alert && tab != focused {
+						col = t.Warning
+					}
+					ui.Text(c, g).FontSize(11).TextColor(col)
+				}
+			}
 			if tab.Pinned {
 				ui.Icon(c, iconPin).FontSize(11).TextColor(fg)
 			}
@@ -317,14 +326,14 @@ func (s *Shell) tabs(c *ui.Context, b *model.Bench) {
 			if m.Item("Close Others").Chosen() {
 				for _, x := range list {
 					if x != tab && !x.Pinned {
-						s.St.CloseTab(x)
+						s.closeTab(x)
 					}
 				}
 			}
 			if m.Item("Close to Bottom").Chosen() {
 				for _, x := range list[i+1:] {
 					if !x.Pinned {
-						s.St.CloseTab(x)
+						s.closeTab(x)
 					}
 				}
 			}
@@ -341,7 +350,7 @@ func (s *Shell) tabs(c *ui.Context, b *model.Bench) {
 	})
 	switch {
 	case closeTab != nil:
-		s.St.CloseTab(closeTab)
+		s.closeTab(closeTab)
 	case splitTab != nil:
 		s.SplitTab(splitTab)
 	case showTab != nil:
@@ -445,6 +454,20 @@ func (s *Shell) leaf(c *ui.Context, b *model.Bench, n *model.Node, key string) {
 	t := c.Theme()
 	focused := n == b.Focus
 	many := !b.Layout.IsLeaf() && !b.Zoomed
+	if tt := s.typeOf(b); tt != nil && n.Tab != nil {
+		box := ui.Column(c.Key(key)).Grow(1).Basis(0).MinWidth(0).MinHeight(0).AlignItems(ui.Stretch)
+		if focused && many {
+			box.Border(1, t.Accent.Alpha(0.6))
+		}
+		tab := n.Tab
+		box.Children(func() {
+			if tt.View(c, tab, focused) && !focused {
+				s.St.FocusLeaf(b, n)
+				s.hist.push(tab)
+			}
+		})
+		return
+	}
 	box := ui.Column(c.Key(key)).Grow(1).Basis(0).MinWidth(0).MinHeight(0).Center().Gap(10).Padding(16)
 	if focused && many {
 		box.Border(1, t.Accent.Alpha(0.6))
@@ -478,13 +501,25 @@ func (s *Shell) statusBar(c *ui.Context) {
 			text = b.Type.Title()
 			if tab := b.FocusedTab(); tab != nil {
 				text += " · " + tab.DisplayTitle()
+				if tt := s.typeOf(b); tt != nil {
+					text = tt.Status(tab)
+				}
 			}
 		}
 		ui.Text(c, text).FontSize(11).TextColor(t.TextMuted).SingleLine().Grow(1).Shrink(1).MinWidth(0)
-		ui.Row(c).Gap(4).Tooltip("The Daemon arrives in M2").Children(func() {
-			ui.Box(c).Size(6, 6).Radius(3).Background(t.Danger)
-			ui.Text(c, "daemon off").FontSize(11).TextColor(t.TextMuted)
+		ok := s.DaemonOK != nil && s.DaemonOK()
+		dot, label, tip := t.Danger, "daemon off", "The terminal daemon is not connected; click to retry"
+		if ok {
+			dot, label, tip = t.Success, "daemon", "The terminal daemon is connected"
+		}
+		d := ui.Row(c.Key("daemon")).Gap(4).Tooltip(tip).Cursor(ui.CursorPointer)
+		d.Children(func() {
+			ui.Box(c).Size(6, 6).Radius(3).Background(dot)
+			ui.Text(c, label).FontSize(11).TextColor(t.TextMuted)
 		})
+		if d.Clicked() && !ok && s.RestartDaemon != nil {
+			s.RestartDaemon()
+		}
 		if n := s.St.UnreadCount(); n > 0 {
 			u := ui.Text(c, fmt.Sprintf("%d unread", n)).FontSize(11).TextColor(t.Accent).Cursor(ui.CursorPointer)
 			if u.Clicked() {

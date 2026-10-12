@@ -20,7 +20,7 @@ func TestLoadKeepsUnknownAndResetsBadSection(t *testing.T) {
 	if st.S.Sidebar.Width != 240 || st.S.Appearance.Theme != "dark" || st.S.Appearance.UIFontSize != 16 {
 		t.Fatalf("values %+v %+v", st.S.Sidebar, st.S.Appearance)
 	}
-	if st.S.Terminal.FontFamily != "Menlo" {
+	if !strings.Contains(st.S.Terminal.FontFamily, "Menlo") {
 		t.Fatal("missing section should keep defaults")
 	}
 	if err := st.Flush(); err != nil {

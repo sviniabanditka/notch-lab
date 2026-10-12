@@ -3,3 +3,4 @@
 /dist/
 /.mygo/
 *.log
+/resources/*/bin/

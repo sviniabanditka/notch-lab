@@ -1,0 +1,10 @@
+#!/bin/zsh
+# build-daemon — build notch-labd into resources/darwin-<arch>/bin, where
+# `mygo build` takes it into Contents/Resources/bin of the app bundle.
+set -e
+REPO=${0:A:h:h}
+cd $REPO
+for arch in ${@:-$(go env GOARCH)}; do
+  mkdir -p resources/darwin-$arch/bin
+  CGO_ENABLED=0 GOOS=darwin GOARCH=$arch go build -o resources/darwin-$arch/bin/notch-labd ./cmd/notch-labd
+done

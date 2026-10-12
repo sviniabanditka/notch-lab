@@ -14,6 +14,8 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
+	"github.com/sviniabanditka/notch-lab/internal/bench/terminal"
+	"github.com/sviniabanditka/notch-lab/internal/daemon"
 	"github.com/sviniabanditka/notch-lab/internal/home"
 	"github.com/sviniabanditka/notch-lab/internal/model"
 	"github.com/sviniabanditka/notch-lab/internal/settings"
@@ -61,6 +63,8 @@ type app struct {
 	sv       *shell.SettingsView
 	tray     *mygo.Tray
 	traySig  string
+	term     *terminal.Bench
+	active   bool
 }
 
 func (a *app) start() {
@@ -99,6 +103,17 @@ func (a *app) start() {
 		a.sh.OpenFirstRun()
 	}
 	a.sv = &shell.SettingsView{S: a.sh, ResetState: a.resetState}
+	a.term = terminal.New(st, set, userHome)
+	a.term.Post = func(fn func()) { a.main.Update(fn) }
+	a.term.Toast = a.sh.Toast
+	a.term.Active = func() bool { return a.active }
+	a.term.Visible = a.visible
+	a.term.Show = func(t *model.Tab) { a.sh.Show(t); a.sh.ShowWindow() }
+	a.sh.Types = map[model.BenchType]shell.TabType{model.Terminal: a.term}
+	a.sh.DaemonOK = a.term.Connected
+	a.sh.RestartDaemon = func() { go a.connect() }
+	mygo.App.OnDidBecomeActive(func() { a.active = true })
+	mygo.App.OnDidResignActive(func() { a.active = false })
 
 	a.main = mygo.NewWindow(mygo.WindowOptions{
 		Title:         "notch-lab",
@@ -138,7 +153,9 @@ func (a *app) start() {
 	if err := store.Flush(st); err != nil {
 		logf("error", "state write: %v", err)
 	}
+	go a.connect()
 	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) {
+		a.term.CloseAll()
 		if err := a.store.Flush(a.st); err != nil {
 			logf("error", "state write at quit: %v", err)
 		}
@@ -152,6 +169,49 @@ func (a *app) start() {
 		logf("warn", "tray: %v", err)
 	}
 	logf("info", "frame: main window open")
+}
+
+// connect connects to the terminal Daemon, starting it when needed, and
+// connects again 1 s after the connection is lost (R-TERM-004).
+func (a *app) connect() {
+	dev := os.Getenv("NOTCH_LAB_HOME") != ""
+	c, err := daemon.Connect(a.dir, version, dev)
+	var perr *daemon.Error
+	if errors.As(err, &perr) && perr.Code == "protocol" {
+		// A Daemon of another version runs: restart it once (R-TERM-011).
+		logf("warn", "daemon: %v; restarting it", err)
+		daemon.Restart(a.dir, dev)
+		c, err = daemon.Connect(a.dir, version, dev)
+	}
+	if err != nil {
+		logf("error", "daemon: %v", err)
+		a.main.Update(func() {
+			a.term.SetClient(nil)
+			a.sh.Toast("The terminal daemon did not start: " + err.Error())
+		})
+		return
+	}
+	c.OnLost = func(err error) {
+		logf("warn", "daemon connection lost: %v", err)
+		a.main.Update(func() { a.term.SetClient(nil) })
+		time.Sleep(time.Second)
+		a.connect()
+	}
+	a.main.Update(func() { a.term.SetClient(c) })
+	logf("info", "daemon connected")
+}
+
+// visible reports whether a Tab shows in a Leaf of the main window while
+// the window is in front (R-SHELL-110).
+func (a *app) visible(t *model.Tab) bool {
+	w := a.st.Window("main")
+	if !a.active || !a.main.IsVisible() || t.Bench == nil || w.Bench != t.Bench {
+		return false
+	}
+	if t.Bench.Zoomed {
+		return t.Bench.Focus.Tab == t
+	}
+	return t.Bench.Layout.LeafOf(t) != nil
 }
 
 // firstRun makes Lab "Lab" with a terminal Bench and an editor Bench, and

@@ -119,6 +119,10 @@ func (s *Shell) menu() *mygo.Menu {
 		s.item("Go to File…", "CmdOrCtrl+P", true, func() {}),
 		s.item("Reload", "CmdOrCtrl+R", true, func() {}),
 		mygo.Separator(),
+		s.item("Actual Size", "CmdOrCtrl+0", s.typeOf(b) == nil, func() { s.zoom(0) }),
+		s.item("Zoom In", "CmdOrCtrl+=", s.typeOf(b) == nil, func() { s.zoom(+1) }),
+		s.item("Zoom Out", "CmdOrCtrl+-", s.typeOf(b) == nil, func() { s.zoom(-1) }),
+		mygo.Separator(),
 		{Role: mygo.RoleToggleFullScreen},
 	}}
 
@@ -211,6 +215,12 @@ func (s *Shell) menu() *mygo.Menu {
 		{Label: "Tab", Submenu: tabItems},
 		window, help,
 	})
+}
+
+func (s *Shell) zoom(step int) {
+	if tt := s.typeOf(s.bench()); tt != nil {
+		tt.Zoom(s.bench(), step)
+	}
 }
 
 // ShowWindow shows the main window and brings it to the front (Cmd+N).

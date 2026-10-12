@@ -59,6 +59,10 @@ type Terminal struct {
 	Shell           string  `json:"shell"`
 	Bell            string  `json:"bell"`
 	CopyOnSelect    bool    `json:"copyOnSelect"`
+	AltIsMeta       bool    `json:"altIsMeta"`
+	ConfirmClose    bool    `json:"confirmClose"`
+	OSCTitle        bool    `json:"oscTitle"`
+	BellUnread      bool    `json:"bellUnread"`
 }
 type Browser struct {
 	SearchEngine   string `json:"searchEngine"`
@@ -96,7 +100,8 @@ func Defaults() Settings {
 	s.Appearance = Appearance{Theme: "system", UIFontSize: 13, ShowStatusBar: true}
 	s.Sidebar = Sidebar{Width: 240}
 	s.Window.Main.Open = true
-	s.Terminal = Terminal{FontFamily: "Menlo", FontSize: 13, LineHeight: 1.2, ScrollbackLines: 10000, Cursor: "block", Bell: "none"}
+	s.Terminal = Terminal{FontFamily: "JetBrains Mono, SF Mono, Menlo", FontSize: 13, LineHeight: 1.2, ScrollbackLines: 10000, Cursor: "block", Bell: "none",
+		AltIsMeta: true, ConfirmClose: true, OSCTitle: true}
 	s.Browser = Browser{SearchEngine: "https://duckduckgo.com/?q=%s", HomePage: "about:blank", DownloadFolder: "~/Downloads", BlockPopups: true, DefaultProfile: "shared"}
 	s.Editor = Editor{FontFamily: "Menlo", FontSize: 13, TabWidth: 4, InsertSpaces: true, Autosave: "off", LineNumbers: true}
 	s.MCP = MCP{Access: "off", Domains: map[string]string{}, ToastOnWrite: true}
@@ -170,6 +175,7 @@ func (st *Store) clamp() {
 	s.Appearance.UIFontSize = min(16, max(12, s.Appearance.UIFontSize))
 	s.Sidebar.Width = min(480, max(160, s.Sidebar.Width))
 	s.Terminal.ScrollbackLines = min(100000, max(1000, s.Terminal.ScrollbackLines))
+	s.Terminal.FontSize = min(32, max(8, s.Terminal.FontSize))
 }
 
 // Changed writes the file 100 ms after the first of a batch of changes

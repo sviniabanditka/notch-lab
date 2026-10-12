@@ -29,6 +29,14 @@ type Shell struct {
 	// Quit ends the app.
 	Quit func()
 
+	// Types are the Bench types that draw their own Tabs; others show a
+	// placeholder until their milestone.
+	Types map[model.BenchType]TabType
+	// DaemonOK reports whether the terminal Daemon is connected.
+	DaemonOK func() bool
+	// RestartDaemon reconnects to the Daemon (a click on its status).
+	RestartDaemon func()
+
 	hist     history
 	toasts   []string
 	tabList  ui.ListState
@@ -38,6 +46,58 @@ type Shell struct {
 	menuSig  string
 	// splits keeps a handle per Split node for its last frame's box.
 	splits map[*model.Node]*ui.Handle
+}
+
+// TabType is what a Bench type adds to the Shell. Every method runs on
+// the main goroutine.
+type TabType interface {
+	// NewTab prepares a Tab the Shell made in the Bench: its title and data.
+	NewTab(b *model.Bench, t *model.Tab)
+	// View draws a Tab in its Leaf, and reports whether the Tab's view has
+	// the keyboard focus, which focuses the Leaf.
+	View(c *ui.Context, t *model.Tab, focused bool) bool
+	// CloseQuestion is asked before a Tab closes; "" closes it at once.
+	CloseQuestion(t *model.Tab) string
+	// Closed frees what the Tab held, after it left the Bench.
+	Closed(t *model.Tab)
+	// Status is the status bar text of a focused Tab.
+	Status(t *model.Tab) string
+	// Glyph is a short mark beside the Tab's title, and whether it calls
+	// for the user (an Agent that waits).
+	Glyph(t *model.Tab) (string, bool)
+	// Zoom changes the Bench's font size by step points; 0 resets it.
+	Zoom(b *model.Bench, step int)
+}
+
+func (s *Shell) typeOf(b *model.Bench) TabType {
+	if b == nil || s.Types == nil {
+		return nil
+	}
+	return s.Types[b.Type]
+}
+
+// closeTab closes a Tab after the type's question (R-TERM-067), and frees it.
+func (s *Shell) closeTab(t *model.Tab) {
+	tt := s.typeOf(t.Bench)
+	if tt != nil {
+		if q := tt.CloseQuestion(t); q != "" && !s.confirm(q, "Close") {
+			return
+		}
+	}
+	s.St.CloseTab(t)
+	if tt != nil {
+		tt.Closed(t)
+	}
+}
+
+// newTab makes a Tab of a Bench's type, not yet shown.
+func (s *Shell) newTabOf(b *model.Bench) *model.Tab {
+	t := &model.Tab{ID: model.NewID(), Bench: b, Title: newTitle(b), Data: "{}"}
+	if tt := s.typeOf(b); tt != nil {
+		tt.NewTab(b, t)
+	}
+	b.Tabs = append(b.Tabs, t)
+	return t
 }
 
 // New returns the Shell of a window key.
@@ -90,6 +150,9 @@ func (s *Shell) show(t *model.Tab, record bool) {
 	s.St.Changed()
 }
 
+// Show goes to a Tab: its Lab, its Bench, the focused Leaf.
+func (s *Shell) Show(t *model.Tab) { s.show(t, true) }
+
 // SelectLab shows a Lab in this window.
 func (s *Shell) SelectLab(l *model.Lab) {
 	s.win().SelectLab(l)
@@ -123,7 +186,9 @@ func (s *Shell) NewTab() {
 		s.OpenNewBench()
 		return
 	}
-	s.hist.push(s.St.NewTab(b, newTitle(b)))
+	t := s.newTabOf(b)
+	s.St.ShowTab(t)
+	s.hist.push(t)
 }
 
 // Split opens a new Tab beside the focused Leaf (Cmd+D, Cmd+Shift+D).
@@ -136,8 +201,7 @@ func (s *Shell) Split(dir model.Dir) {
 		s.NewTab()
 		return
 	}
-	t := &model.Tab{ID: model.NewID(), Bench: b, Title: newTitle(b), Data: "{}"}
-	b.Tabs = append(b.Tabs, t)
+	t := s.newTabOf(b)
 	s.St.Split(t, dir)
 	s.hist.push(t)
 }
@@ -152,7 +216,7 @@ func (s *Shell) SplitTab(t *model.Tab) {
 // CloseFocused closes the focused Tab; with none it hides the window (Cmd+W).
 func (s *Shell) CloseFocused() {
 	if t := s.bench().FocusedTab(); t != nil {
-		s.St.CloseTab(t)
+		s.closeTab(t)
 		return
 	}
 	if s.Win != nil {

@@ -14,3 +14,9 @@ Go dependencies: see go.mod; their licenses are those of each module.
 
 Lucide (ISC) — https://lucide.dev
   The icons in internal/shell/icons.go are Lucide shapes.
+
+Ghostty (MIT) — https://ghostty.org
+  libghostty-vt, through mygo's plugins/terminal, emulates every terminal Tab
+  and the Daemon's headless terminals; the bundle carries libghostty-vt.dylib.
+
+creack/pty (MIT) — the Daemon's pseudo-terminals.

@@ -66,10 +66,9 @@ case $1 in
   up)
     mkdir -p $NOTCH_LAB_HOME/shots
     pkill -f "^$NL_APP_EXE" || true
-    (cd $REPO && go run github.com/egoist/mygo/cmd/mygo build -skip-dmg >$NOTCH_LAB_HOME/build.log 2>&1) || { tail -20 $NOTCH_LAB_HOME/build.log; exit 1 }
-    if [[ -x $DAEMON ]] && ! pgrep -f "^$DAEMON" >/dev/null; then
-      (nohup $DAEMON >>$NOTCH_LAB_HOME/daemon.log 2>&1 &)
-    fi
+    (cd $REPO && tools/build-daemon && go run github.com/egoist/mygo/cmd/mygo build -skip-dmg >$NOTCH_LAB_HOME/build.log 2>&1) || { tail -20 $NOTCH_LAB_HOME/build.log; exit 1 }
+    # The app starts the dev Daemon itself (R-TERM-005); a new build replaces it.
+    pkill -f "^$DAEMON" || true
     local prev=$($(tool bg) front)
     : >$NOTCH_LAB_HOME/app.log
     local t0=$(date +%s.%N)
@@ -79,7 +78,9 @@ case $1 in
     echo "notch-lab pid $(app_pid); window after $(printf %.1f $(( $(date +%s.%N) - t0 ))) s; log $NOTCH_LAB_HOME/app.log" ;;
   down)
     pkill -f "^$NL_APP_EXE" || true
-    pkill -f "^$DAEMON" || true ;;
+    [[ -n $NL_KEEP_DAEMON ]] || pkill -f "^$DAEMON" || true ;;
+  quit) # quit the app only: Sessions stay in the Daemon
+    pkill -f "^$NL_APP_EXE" || true ;;
   front) front ;;
   text) front; $(tool keys) text "$2" ;;
   key)  front; shift; $(tool keys) code $@ ;;

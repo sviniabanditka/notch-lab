@@ -17,6 +17,7 @@ jobs:
         run: git config --global url."https://x-access-token:${{ secrets.MYGO_FORK_TOKEN }}@github.com/".insteadOf "https://github.com/"
       - run: go vet ./...
       - run: go test ./...
+      - run: tools/build-daemon
       - run: go run github.com/egoist/mygo/cmd/mygo build -skip-dmg
       - name: Smoke
         run: tools/verify/smoke

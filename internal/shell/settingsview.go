@@ -144,7 +144,11 @@ func (v *SettingsView) section(c *ui.Context) {
 		text("Shell (empty: login shell)", &set.Terminal.Shell)
 		sel("Bell", &set.Terminal.Bell, "none", "sound")
 		sw("Copy on select", &set.Terminal.CopyOnSelect)
-		note("Terminal Benches arrive in M2.")
+		sw("Option is Meta (Alt) for programs", &set.Terminal.AltIsMeta)
+		sw("Ask before closing a running program", &set.Terminal.ConfirmClose)
+		sw("Use the program's title", &set.Terminal.OSCTitle)
+		sw("Bell marks the Tab unread", &set.Terminal.BellUnread)
+		note("Font and cursor apply to Tabs opened after the change.")
 	case "Browser":
 		text("Search engine (%s is the query)", &set.Browser.SearchEngine)
 		text("Home page", &set.Browser.HomePage)

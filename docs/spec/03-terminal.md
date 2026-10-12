@@ -1,12 +1,14 @@
 # Terminal: the Daemon, Sessions, the Emulator, the terminal Bench
 
+> ADR 0007 changes this document: the Emulator is the Ghostty terminal of mygo's `plugins/terminal`; the Daemon keeps a headless one per Session and answers `session.attach` with its Snapshot; one `session.state` event carries folder, title, foreground process, exit and Agent. Where a requirement below says otherwise, ADR 0007 wins.
+
 ## Parts
 
 | Part | Process | Package | Role |
 |---|---|---|---|
 | Daemon | `notch-labd` | `cmd/notch-labd`, `internal/daemon` | owns every Session and its ring buffer, detects Agents |
 | Daemon client | app | `internal/daemon` | connects to the Daemon, attaches Sessions, receives events |
-| Emulator | app | `internal/emulator` | turns a Session's bytes into cells |
+| Emulator | app and Daemon | mygo `plugins/terminal` (Ghostty) | turns a Session's bytes into cells; paints, selects, links |
 | terminal Bench | app | `internal/bench/terminal` | paints cells, takes input, Tabs, selection, links, search |
 
 The Daemon has no Emulator in v1. The Daemon stores bytes. The app renders. Consequence: an MCP Client that reads a Screen reads it from the app (`13-mcp.md`), not from the Daemon. A Session with no attached app has no Screen until an app attaches.
@@ -157,7 +159,7 @@ R-TERM-066. The Tab's context menu has: Restart (close the Session, new Session 
 
 R-TERM-067. Closing a Tab closes its Session in the Daemon. When the Session has a foreground process other than the shell, the app asks "Close <process>?" with Close and Cancel. The setting `terminal.confirm_close` turns the question off.
 
-R-TERM-068. "Open in terminal" from another Bench (editor, files, pull-requests) creates a Tab in the first terminal Bench of the same Lab, or creates a terminal Bench named "terminal" when the Lab has none, with the Session's `cwd` set to the given folder, and goes to it.
+R-TERM-068. `[M3, with the first other Bench]` "Open in terminal" from another Bench (editor, files, pull-requests) creates a Tab in the first terminal Bench of the same Lab, or creates a terminal Bench named "terminal" when the Lab has none, with the Session's `cwd` set to the given folder, and goes to it.
 
 ### Painting
 
@@ -223,17 +225,17 @@ R-TERM-100. The Bench finds links in the rows on screen on every paint, cached p
 
 R-TERM-101. Cmd+hover underlines the link and shows its target in the status bar. Cmd+click opens the link.
 
-R-TERM-102. A URL opens in a browser Tab of the first browser Bench of the same Lab. When the Lab has no browser Bench, the app creates one named "browser". `mailto:` goes to `open`. The setting `terminal.links_external` (default off) sends every URL to the system browser instead.
+R-TERM-102. `[M4]` Until the browser Bench, a URL opens in the system browser. A URL opens in a browser Tab of the first browser Bench of the same Lab. When the Lab has no browser Bench, the app creates one named "browser". `mailto:` goes to `open`. The setting `terminal.links_external` (default off) sends every URL to the system browser instead.
 
 R-TERM-103. A path resolves, in order: as given when absolute; against the Session's current folder (R-TERM-030); against the Bench's effective root folder; with `~` expanded. The first that exists wins. A path that resolves nowhere is not a link.
 
-R-TERM-104. A path to a file opens in an editor Tab of the first editor Bench of the same Lab (created when missing), at the line and column when given. A path to a folder re-roots that editor Bench's Explorer to the folder, or, when Shift is held, opens a files Tab for it.
+R-TERM-104. `[M3]` A path to a file opens in an editor Tab of the first editor Bench of the same Lab (created when missing), at the line and column when given. A path to a folder re-roots that editor Bench's Explorer to the folder, or, when Shift is held, opens a files Tab for it.
 
 R-TERM-105. Link detection on a row takes under 1 ms for a 300-cell row. Rows are scanned only when on screen.
 
 ### Search
 
-R-TERM-110. Cmd+F shows the search bar at the top of the focused Leaf with a text field, the count "n of m", previous and next buttons, and a close button. Escape closes it and clears highlights.
+R-TERM-110. `[later: the plugin has no search API]` Cmd+F shows the search bar at the top of the focused Leaf with a text field, the count "n of m", previous and next buttons, and a close button. Escape closes it and clears highlights.
 
 R-TERM-111. The search is case-insensitive unless the query has an upper-case letter. The search covers the Screen and the Scrollback as logical lines. The Bench runs the search 100 ms after the last key and highlights every match on screen; the current match has the stronger highlight.
 

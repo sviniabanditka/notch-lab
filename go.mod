@@ -43,4 +43,4 @@ require (
 	modernc.org/memory v1.12.1 // indirect
 )
 
-replace github.com/egoist/mygo => github.com/sviniabanditka/mygo v0.4.6-0.20261012154535-b77c86562a19
+replace github.com/egoist/mygo => github.com/sviniabanditka/mygo v0.4.6-0.20261012183644-4185ee039ac9

@@ -84,7 +84,7 @@ type State struct {
 
 // Agent is a coding agent in a Session (12-agents.md).
 type Agent struct {
-	Kind   string `json:"kind"`   // claude, codex
+	Kind   string `json:"kind"` // claude, codex
 	PID    int    `json:"pid"`
 	Status string `json:"status"` // idle, working, blocked, done
 }

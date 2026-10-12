@@ -132,10 +132,10 @@ func TestProtocolMismatch(t *testing.T) {
 
 func TestScreenStatus(t *testing.T) {
 	for text, want := range map[string]string{
-		"✻ Thinking… (esc to interrupt)":                   "working",
-		"Do you want to proceed?\n❯ 1. Yes\n  2. No":        "blocked",
-		"> \n  ? for shortcuts":                              "idle",
-		"• Working (12s • Esc to interrupt)":                "working",
+		"✻ Thinking… (esc to interrupt)":             "working",
+		"Do you want to proceed?\n❯ 1. Yes\n  2. No": "blocked",
+		"> \n  ? for shortcuts":                      "idle",
+		"• Working (12s • Esc to interrupt)":         "working",
 	} {
 		if got := screenStatus(text); got != want {
 			t.Errorf("%q: %s, want %s", text, got, want)

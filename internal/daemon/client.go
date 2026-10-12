@@ -164,7 +164,9 @@ func (c *Client) List() ([]State, error) {
 }
 
 // CloseSession ends a Session in the Daemon.
-func (c *Client) CloseSession(id string) error { return c.call(&Msg{T: "session.close", Session: id}, nil) }
+func (c *Client) CloseSession(id string) error {
+	return c.call(&Msg{T: "session.close", Session: id}, nil)
+}
 
 // Signal sends int, term, kill or hup to a Session's foreground group.
 func (c *Client) Signal(id, sig string) error {

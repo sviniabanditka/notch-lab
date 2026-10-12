@@ -91,7 +91,7 @@ func (a *app) drawingIn(w *mygo.Window) {
 	if w == nil {
 		return
 	}
-	a.ed.Win, a.files.Win, a.web.Win, a.http.Win, a.db.Win = w, w, w, w, w
+	a.ed.Win, a.files.Win, a.web.Win, a.http.Win, a.db.Win, a.ssh.Win = w, w, w, w, w, w
 }
 
 // place is where the panel goes: its top at the top of the display,

@@ -64,6 +64,8 @@ type data struct {
 	Session string   `json:"session"`
 	Cwd     string   `json:"cwd,omitempty"`
 	Argv    []string `json:"argv,omitempty"`
+	// Host is the ssh Bench's Host of an SSH session (10-ssh.md, R-SSH-020).
+	Host string `json:"host,omitempty"`
 }
 
 func readData(t *model.Tab) data {
@@ -138,7 +140,14 @@ func (b *Bench) live(t *model.Tab) *tab {
 		if d.Session != "" {
 			note = "Session was lost; started a new shell."
 		}
-		id, err := b.client.Create(d.Session, d.Cwd, d.Argv, nil, 0, 0)
+		var env map[string]string
+		if d.Host != "" {
+			env = map[string]string{"TERM": "xterm-256color", "NOTCH_LAB": "1"} // R-SSH-022
+			if note != "" {
+				note = "Disconnected; connected again."
+			}
+		}
+		id, err := b.client.Create(d.Session, d.Cwd, d.Argv, env, 0, 0)
 		if err != nil {
 			log.Printf("create session: %v", err)
 			return nil
@@ -281,7 +290,11 @@ func (b *Bench) state(x *tab, st daemon.State) {
 	prev := x.st
 	x.st = st
 	if st.Exited && !prev.Exited && x.term != nil {
-		x.term.Feed([]byte(fmt.Sprintf("\r\n\x1b[2mProcess exited with code %d. Press Enter to restart.\x1b[0m", st.Code)))
+		what, again := "Process", "restart"
+		if readData(x.t).Host != "" {
+			what, again = "ssh", "reconnect" // R-SSH-025
+		}
+		x.term.Feed([]byte(fmt.Sprintf("\r\n\x1b[2m%s exited with code %d. Press Enter to %s.\x1b[0m", what, st.Code, again)))
 	}
 	d := readData(x.t)
 	if st.Cwd != "" && st.Cwd != d.Cwd {
@@ -296,6 +309,9 @@ func (b *Bench) state(x *tab, st daemon.State) {
 // retitle sets the Tab's title (R-TERM-064): the program's title, else the
 // foreground program when it is not the shell, else the folder.
 func (b *Bench) retitle(x *tab) {
+	if readData(x.t).Host != "" {
+		return // an SSH session keeps the Host's name (R-SSH-028)
+	}
 	title := ""
 	if b.Set.S.Terminal.OSCTitle && x.term != nil {
 		title = clean(x.term.Title())

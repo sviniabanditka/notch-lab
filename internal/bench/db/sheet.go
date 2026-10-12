@@ -91,7 +91,9 @@ func (b *Bench) Overlay(c *ui.Context) {
 				field("TLS", func() {
 					ui.Select(c.Key("tls"), &s.c.TLS, []string{"off", "prefer", "require", "verify-ca", "verify-full"}).Grow(1)
 				})
-				field("SSH tunnel", func() { ui.TextInput(c.Key("tunnel"), &s.c.Tunnel).Placeholder("user@bastion:22, optional").Grow(1) })
+				field("SSH tunnel", func() {
+					ui.TextInput(c.Key("tunnel"), &s.c.Tunnel).Placeholder("an ssh Host's name, or user@bastion:22; optional").Grow(1)
+				})
 				if s.c.Tunnel != "" {
 					field("Key file", func() {
 						ui.TextInput(c.Key("id"), &s.c.Identity).Placeholder("~/.ssh/id_ed25519, else the usual keys").Grow(1)

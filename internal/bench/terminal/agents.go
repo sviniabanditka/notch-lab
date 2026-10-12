@@ -162,3 +162,31 @@ func Processes(shell int) []Process {
 	walk(shell)
 	return list
 }
+
+// Subtitle is an SSH session's remote title and folder, from OSC 0, 2
+// and 7 (R-SSH-027, R-SSH-028); "" for others.
+func (b *Bench) Subtitle(t *model.Tab) string {
+	x := b.tabs[t]
+	if x == nil || x.term == nil || readData(t).Host == "" {
+		return ""
+	}
+	var parts []string
+	if title := clean(x.term.Title()); title != "" {
+		parts = append(parts, title)
+	}
+	if dir := x.term.Dir(); dir != "" {
+		parts = append(parts, dir)
+	}
+	return strings.Join(parts, " · ")
+}
+
+// Alive reports a Session that has not exited.
+func (b *Bench) Alive(t *model.Tab) bool {
+	x := b.tabs[t]
+	return x != nil && !x.st.Exited && x.st.PID != 0
+}
+
+// SetData sets an SSH Tab's Host, command and folder.
+func SetSSH(t *model.Tab, host, cwd string, argv []string) {
+	writeData(t, data{Host: host, Cwd: cwd, Argv: argv})
+}

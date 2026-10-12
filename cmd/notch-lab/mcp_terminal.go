@@ -18,7 +18,7 @@ func (a *app) termTab(c *mcp.Call) (*model.Tab, error) {
 	if err != nil {
 		return nil, err
 	}
-	if t.Bench.Type != model.Terminal {
+	if t.Bench.Type != model.Terminal && t.Bench.Type != model.SSH { // an SSH session is a terminal Session
 		return nil, mcp.Errf(mcp.CodeNotFound, "Tab %s is no terminal", t.ID)
 	}
 	return t, nil

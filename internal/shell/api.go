@@ -106,6 +106,12 @@ type Commander interface {
 	Command(b *model.Bench, t *model.Tab, name string) bool
 }
 
+// Subtitler is a TabType with a second, muted text beside a Tab's title in
+// the sidebar, as an SSH session's remote folder (R-SSH-027).
+type Subtitler interface {
+	Subtitle(t *model.Tab) string
+}
+
 // Closer is a TabType that asks its own question before a Tab closes, as
 // Save, Don't Save, Cancel (R-EDIT-006); false keeps the Tab.
 type Closer interface {

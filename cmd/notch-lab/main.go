@@ -20,6 +20,7 @@ import (
 	editorbench "github.com/sviniabanditka/notch-lab/internal/bench/editor"
 	filesbench "github.com/sviniabanditka/notch-lab/internal/bench/files"
 	httpbench "github.com/sviniabanditka/notch-lab/internal/bench/http"
+	sshbench "github.com/sviniabanditka/notch-lab/internal/bench/ssh"
 	"github.com/sviniabanditka/notch-lab/internal/bench/terminal"
 	"github.com/sviniabanditka/notch-lab/internal/daemon"
 	"github.com/sviniabanditka/notch-lab/internal/home"
@@ -86,6 +87,7 @@ type app struct {
 	web      *browserbench.Bench
 	http     *httpbench.Bench
 	db       *dbbench.Bench
+	ssh      *sshbench.Bench
 	active   bool
 	notch    *notch
 	mcp      *mcp.Server
@@ -188,7 +190,11 @@ func (a *app) start() {
 	a.db.Post, a.db.Show, a.db.Toast = a.term.Post, a.ed.Show, a.sh.Toast
 	a.db.Confirm, a.db.AskText, a.db.Visible = a.sh.Confirm, a.sh.AskText, a.visible
 	a.sh.Overlays = append(a.sh.Overlays, a.db.Overlay)
-	a.sh.Types = map[model.BenchType]shell.TabType{model.Terminal: a.term, model.Editor: a.ed, model.Files: a.files, model.Browser: a.web, model.HTTP: a.http, model.DB: a.db}
+	a.ssh = sshbench.New(a.term, a.dir)
+	a.ssh.Confirm = a.sh.Confirm
+	a.db.TunnelFor = a.ssh.Tunnel
+	a.sh.Overlays = append(a.sh.Overlays, a.ssh.Overlay)
+	a.sh.Types = map[model.BenchType]shell.TabType{model.Terminal: a.term, model.Editor: a.ed, model.Files: a.files, model.Browser: a.web, model.HTTP: a.http, model.DB: a.db, model.SSH: a.ssh}
 	a.sh.DaemonOK = a.term.Connected
 	a.sh.RestartDaemon = func() { go a.connect() }
 	mygo.App.OnDidBecomeActive(func() { a.active = true })
@@ -212,6 +218,7 @@ func (a *app) start() {
 	a.web.Win = a.main
 	a.http.Win = a.main
 	a.db.Win = a.main
+	a.ssh.Win = a.main
 	a.web.CloseTab = a.sh.CloseTab
 	a.web.StartExtensions() // R-WEB-130
 	a.newNotch(userHome)

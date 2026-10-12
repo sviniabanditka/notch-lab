@@ -317,7 +317,12 @@ func (s *Shell) tabs(c *ui.Context, b *model.Bench) {
 		}
 		row.Children(func() {
 			ui.Icon(c, TypeIcon(b.Type)).FontSize(13).TextColor(fg)
-			ui.Text(c, tab.DisplayTitle()).TextColor(fg).SingleLine().Grow(1).Shrink(1).MinWidth(0)
+			ui.Text(c, tab.DisplayTitle()).TextColor(fg).SingleLine().Shrink(1).MinWidth(0)
+			sub := ""
+			if st, ok := s.typeOf(b).(Subtitler); ok {
+				sub = st.Subtitle(tab)
+			}
+			ui.Text(c, sub).FontSize(11).TextColor(fg.Alpha(0.6)).SingleLine().Grow(1).Shrink(2).MinWidth(0)
 			if tab.Owner != "" { // R-MCP-032: an agent made it
 				ui.Text(c, "✦").FontSize(11).TextColor(t.Accent).Tooltip("Opened by an agent")
 			}

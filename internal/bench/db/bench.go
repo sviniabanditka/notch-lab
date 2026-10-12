@@ -33,6 +33,8 @@ type Bench struct {
 	// Visible reports whether a Tab shows in a Leaf now (R-DB-071).
 	Visible func(t *model.Tab) bool
 	Win     *mygo.Window
+	// TunnelFor resolves a Tunnel that names an ssh Bench Host (R-DB-009).
+	TunnelFor func(name string) (spec, identity string, ok bool)
 
 	Conns   *dbconn.Store
 	live    map[string]*live
@@ -122,6 +124,14 @@ func (b *Bench) Open(bench *model.Bench, c *dbconn.Connection, done func(*dbconn
 	}
 	l.state, l.err = "connecting", ""
 	conn, root := *c, b.root(bench)
+	if conn.Tunnel != "" && b.TunnelFor != nil {
+		if spec, id, ok := b.TunnelFor(conn.Tunnel); ok {
+			conn.Tunnel = spec
+			if conn.Identity == "" {
+				conn.Identity = id
+			}
+		}
+	}
 	go func() {
 		d, err := dbconn.Open(context.Background(), &conn, root, conn.Password())
 		b.Post(func() {

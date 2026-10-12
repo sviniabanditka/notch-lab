@@ -2,6 +2,8 @@
 
 The ssh Bench keeps Hosts and opens SSH sessions to them. An SSH session is a Session the Daemon runs with the system `ssh`.
 
+> M9 status (2026-10-12). Done: Hosts in `hosts.json`, the `~/.ssh/config` import with `Include` one level deep, the Panel by tag with search, the Host sheet, SSH session Tabs on the terminal Bench and the Daemon, the subtitle, the MCP tools. Packages: `internal/sshhosts`, `internal/bench/ssh`. The db Bench's Tunnel can name a Host (R-DB-003). Changed: R-SSH-026 (a lost Session connects again at once, with a note), R-SSH-042 and R-SSH-043 (`ssh.session.run` runs ssh without a terminal). `[later]`: passwords (R-SSH-003), ping (R-SSH-013), SFTP and port forwards (R-SSH-029), drag to order Hosts.
+
 ## Hosts
 
 R-SSH-001. A Host has: id, name, hostname, port (default 22), user, identity file (optional), jump host (optional, a Host id or an ssh alias), extra ssh options (a list of `-o Key=Value` strings), color, tags (a list of strings), order index.
@@ -12,7 +14,7 @@ R-SSH-003. Passwords for Hosts `[later]`. In v1 the app relies on keys and the s
 
 R-SSH-004. The app imports Hosts from `~/.ssh/config`. The parser reads `Host` blocks and the keys `HostName`, `Port`, `User`, `IdentityFile`, `ProxyJump`. A `Host` with a wildcard (`*`, `?`) is skipped. `Include` lines are followed one level deep.
 
-R-SSH-005. Imported Hosts show in the Panel under "ssh config" with an import marker. The app re-reads `~/.ssh/config` on change, within 1 s.
+R-SSH-005. Imported Hosts show in the Panel under "ssh config" with an import marker. Their id is `config:<alias>`. The app re-reads `~/.ssh/config` and the files it includes on change, within 1 s.
 
 R-SSH-006. An imported Host cannot be edited. Its context menu has "Copy to my hosts", which creates a Host with the same values and no marker.
 
@@ -30,7 +32,7 @@ R-SSH-012. Panel actions:
 
 | Action | Where | Effect |
 |---|---|---|
-| Connect | click, Enter, or Cmd+T with a Host selected | opens an SSH session Tab |
+| Connect | double-click, a click on the selected Host, or Cmd+T with a Host selected | opens an SSH session Tab |
 | New Host | header "+" | the Host sheet |
 | Edit | context menu | the Host sheet |
 | Delete | context menu, Backspace | R-SSH-008 |
@@ -41,7 +43,7 @@ R-SSH-013. Ping status per Host `[later]`.
 
 ## SSH session Tab
 
-R-SSH-020. A Tab holds one SSH session. Type data: `{"host": "<host id or alias>", "session": "<daemon session id>"}`. The title is the Host name.
+R-SSH-020. A Tab holds one SSH session. Type data is a terminal Tab's (`03-terminal.md`) with `host`: `{"host": "<host id>", "session": "<daemon session id>", "cwd": "<home>", "argv": ["/usr/bin/ssh", …]}`. The title is the Host name. The `terminal.*` MCP tools act on SSH session Tabs too; the id is the Tab id.
 
 R-SSH-021. The Daemon starts the Session with this command:
 
@@ -60,11 +62,11 @@ R-SSH-024. Host key prompts and password prompts show in the terminal. The user 
 
 R-SSH-025. When the Session ends, the terminal shows the last Screen, then a line "ssh exited with code <n>. Press Enter to reconnect." in the secondary color. Enter starts a new Session with the same command in the same Tab. Any other key does nothing.
 
-R-SSH-026. At restore, the Tab re-attaches to its Session when the Daemon still has it. Otherwise the Tab shows "Disconnected. Press Enter to reconnect." and Enter connects.
+R-SSH-026. At restore, the Tab re-attaches to its Session when the Daemon still has it. Otherwise the Tab connects again at once and shows the note "Disconnected; connected again." above the Screen for 5 s.
 
 R-SSH-027. The Tab's current folder follows OSC 7 from the remote shell. The sidebar shows the folder under the title when known. Without OSC 7 the folder is unknown and nothing shows.
 
-R-SSH-028. The Tab's title stays the Host name. OSC 0 and OSC 2 from the remote shell show as a subtitle under the title in the sidebar.
+R-SSH-028. The Tab's title stays the Host name. OSC 0 and OSC 2 from the remote shell, and the OSC 7 folder, show as a muted subtitle beside the title in the sidebar and in the status bar.
 
 R-SSH-029. SFTP browsing `[later]`. Port forwards `[later]`.
 
@@ -91,8 +93,8 @@ R-SSH-040. Tools:
 
 R-SSH-041. `ssh.session.open` creates an SSH session Tab on the focused ssh Bench, or on the first ssh Bench of the selected Lab, or on a new ssh Bench named "ssh". The Client owns the Tab.
 
-R-SSH-042. `ssh.session.run` starts a Session with the Host's command plus the argument `-- <command>` as a single shell string, collects the output until exit or the timeout (default 60 s, max 600 s), then ends the Session. The Session shows in a Tab the Client owns and the Tab closes after the result is returned. Output over 1 MiB is cut and marked `truncated: true`.
+R-SSH-042. `ssh.session.run` runs `/usr/bin/ssh -o BatchMode=yes -o ConnectTimeout=15 -T <the Host's arguments> -- <command>` without a terminal, so the output holds no terminal sequences. It collects stdout and stderr until exit or the timeout (default 60 s, at most 120 s, R-MCP-071) and kills ssh at the timeout. Output over 1 MiB is cut and marked `truncated: true`. No Tab shows.
 
-R-SSH-043. A host key prompt during `ssh.session.run` does not get an answer; the run times out and returns `host_key_prompt: true`. The Toast tells the user to connect once by hand.
+R-SSH-043. In batch mode ssh answers no prompt: a host key or password prompt fails at once with exit code 255. When ssh's message names a host key, the result has `host_key_prompt: true` and a Toast tells the user to connect once by hand.
 
 R-SSH-044. Every Full tool call shows a Toast "<client> opened ssh to <host>" or "<client> ran a command on <host>".

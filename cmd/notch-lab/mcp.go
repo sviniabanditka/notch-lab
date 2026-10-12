@@ -23,6 +23,7 @@ func (a *app) startMCP() {
 	tools = append(tools, a.editorTools()...)
 	tools = append(tools, a.httpTools()...)
 	tools = append(tools, a.dbTools()...)
+	tools = append(tools, a.sshTools()...)
 	a.mcp = &mcp.Server{
 		Path:     mcp.SocketPath(a.dir),
 		Tools:    tools,
@@ -176,6 +177,9 @@ func (a *app) bench(c *mcp.Call, typ model.BenchType) (*model.Bench, error) {
 func domainOf(t model.BenchType) string {
 	if t == model.Editor || t == model.Files {
 		return "editor"
+	}
+	if t == model.SSH {
+		return "ssh"
 	}
 	return string(t)
 }

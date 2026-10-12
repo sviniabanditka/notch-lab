@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 	"github.com/sviniabanditka/notch-lab/internal/platform/theme"
 )
 
@@ -67,7 +68,7 @@ func (v *View) topBar(c *ui.Context, inset float32) {
 			}
 		}
 		busy := v.fetching[f] || v.detailBusy || v.found.loading
-		if ui.Button(c, "Refresh").Disabled(busy).Tooltip("Fetch the lists and the item shown again  ⌘R").Clicked() {
+		if kit.Off(kit.IconButton(c, "refresh", "Refresh (⌘R)", kit.Refresh, false), busy).Clicked() {
 			v.refresh()
 		}
 		if busy {

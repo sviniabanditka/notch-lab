@@ -17,6 +17,7 @@ import (
 
 	"github.com/sviniabanditka/notch-lab/internal/httpclient"
 	"github.com/sviniabanditka/notch-lab/internal/httpfile"
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 	"github.com/sviniabanditka/notch-lab/internal/model"
 )
 
@@ -167,14 +168,14 @@ func (b *Bench) form(c *ui.Context, x *tab) bool {
 			ui.Text(c, m[1]).FontSize(11).TextColor(col).Tooltip(tip)
 		}
 		if x.cancel != nil {
-			if ui.Button(c.Key("cancel"), "Cancel").Clicked() {
+			if kit.IconButton(c, "cancel", "Cancel", kit.Stop, false).Clicked() {
 				b.Cancel(x.t)
 			}
-		} else if ui.PrimaryButton(c.Key("send"), "Send").Tooltip("⌘↩").Clicked() {
+		} else if kit.PrimaryIcon(c, "send", "Send (⌘↩)", kit.Play, "Send").Clicked() {
 			b.send(x)
 		}
 		if x.dirty() {
-			if ui.Button(c.Key("save"), "Save").Tooltip("⌘S").Clicked() {
+			if kit.IconButton(c, "save", "Save (⌘S)", kit.Save, false).Clicked() {
 				if err := b.Save(x.t); err != nil {
 					b.toast(err.Error())
 				}
@@ -206,7 +207,7 @@ func table(c *ui.Context, key string, rows *[]kv, kph, vph string) bool {
 				if ui.TextInput(c.Key("v"), &(*rows)[i].V).Placeholder(vph).Grow(1).Changed() {
 					changed = true
 				}
-				if ui.Button(c.Key("x"), "✕").Label("Remove").Padding(0, 6).Background(ui.Transparent).Clicked() {
+				if kit.IconButton(c, "x", "Remove", kit.Close, false).Clicked() {
 					*rows = append((*rows)[:i], (*rows)[i+1:]...)
 					changed = true
 				}
@@ -249,7 +250,7 @@ func (b *Bench) requestPanes(c *ui.Context, x *tab) {
 						}
 						ui.TextInput(c.Key("k"), &r.Headers[i].Name).Placeholder("Header").Width(200)
 						ui.TextInput(c.Key("v"), &r.Headers[i].Value).Placeholder("value").Grow(1)
-						if ui.Button(c.Key("x"), "✕").Label("Remove").Padding(0, 6).Background(ui.Transparent).Clicked() {
+						if kit.IconButton(c, "x", "Remove", kit.Close, false).Clicked() {
 							r.Headers = append(r.Headers[:i], r.Headers[i+1:]...)
 						}
 					})
@@ -352,7 +353,7 @@ func (b *Bench) bodyPane(c *ui.Context, x *tab) {
 				x.lang = l
 				setHeader(r, "Content-Type", langTypes[l]) // R-HTTP-067
 			}
-			if x.lang == "json" && ui.Button(c.Key("fmt"), "Format").Clicked() {
+			if x.lang == "json" && kit.IconButton(c, "fmt", "Format", kit.Format, false).Clicked() {
 				var buf bytes.Buffer
 				if json.Indent(&buf, []byte(r.Body), "", "  ") == nil {
 					r.Body = buf.String()
@@ -436,7 +437,7 @@ func (b *Bench) response(c *ui.Context, x *tab) {
 			ui.Text(c, fmt.Sprintf("%.1f s", time.Since(resp.At).Seconds())).TextColor(th.TextMuted)
 			if resp.Streaming {
 				ui.Text(c, "Streaming").TextColor(th.Accent)
-				if ui.Button(c.Key("stop"), "Stop").Clicked() {
+				if kit.IconButton(c, "stop", "Stop", kit.Stop, false).Clicked() {
 					b.Cancel(x.t)
 				}
 			}
@@ -453,7 +454,7 @@ func (b *Bench) response(c *ui.Context, x *tab) {
 			}
 		}
 		ui.Box(c).Grow(1)
-		if ui.Button(c.Key("hist"), "History").Background(ui.Transparent).Clicked() {
+		if kit.IconButton(c, "hist", "History", kit.History, x.history).Clicked() {
 			x.history = !x.history
 		}
 	})
@@ -478,10 +479,10 @@ func (b *Bench) response(c *ui.Context, x *tab) {
 		if x.respPane == 0 {
 			ui.Text(c, "Pretty").FontSize(12).TextColor(c.Theme().TextMuted)
 			ui.Switch(c.Key("pretty"), &x.pretty).Label("Pretty")
-			if ui.Button(c.Key("copy"), "Copy").Clicked() {
+			if kit.IconButton(c, "copy", "Copy", kit.Copy, false).Clicked() {
 				mygo.Clipboard.WriteText(string(resp.Body))
 			}
-			if ui.Button(c.Key("saveb"), "Save…").Clicked() {
+			if kit.IconButton(c, "saveb", "Save the body…", kit.Download, false).Clicked() {
 				b.saveBody(x, resp)
 			}
 		}

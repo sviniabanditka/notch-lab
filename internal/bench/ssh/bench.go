@@ -15,6 +15,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/sviniabanditka/notch-lab/internal/bench/terminal"
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 	"github.com/sviniabanditka/notch-lab/internal/model"
 	"github.com/sviniabanditka/notch-lab/internal/sshhosts"
 )
@@ -109,7 +110,7 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 	ui.Column(c.Key("sshpanel")).Grow(1).Basis(0).MinHeight(0).Padding(4, 6).Gap(4).AlignItems(ui.Stretch).Children(func() {
 		ui.Row(c.Key("head")).Gap(4).AlignItems(ui.Center).Children(func() {
 			ui.TextInput(c.Key("q"), &b.query).Placeholder("Search hosts").Grow(1)
-			if ui.Button(c.Key("new"), "+").Label("New Host").Padding(0, 6).Background(ui.Transparent).Clicked() {
+			if kit.IconButton(c, "new", "New Host", kit.Plus, false).Clicked() {
 				b.EditHost(nil)
 			}
 		})

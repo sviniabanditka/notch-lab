@@ -14,6 +14,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 	"github.com/sviniabanditka/notch-lab/internal/model"
 	"github.com/sviniabanditka/notch-lab/internal/settings"
 	"github.com/sviniabanditka/notch-lab/internal/webkit"
@@ -605,32 +606,28 @@ func (b *Bench) addressBar(c *ui.Context, x *tab, focused bool) bool {
 			if x.wv != nil {
 				page = x.wv.Page()
 			}
-			btn := func(key, glyph, label string, disabled bool) bool {
-				return ui.Button(c.Key(key), glyph).Label(label).Disabled(disabled).Padding(0, 7).Background(ui.Transparent).Clicked()
+			btn := func(key string, icon *ui.SVG, label string, disabled bool) bool {
+				return kit.Off(kit.IconButton(c, key, label, icon, false), disabled).Clicked()
 			}
-			if btn("back", "‹", "Back", page == nil || !page.CanGoBack()) {
+			if btn("back", kit.Back, "Back", page == nil || !page.CanGoBack()) {
 				page.GoBack()
 			}
-			if btn("fwd", "›", "Forward", page == nil || !page.CanGoForward()) {
+			if btn("fwd", kit.Forward, "Forward", page == nil || !page.CanGoForward()) {
 				page.GoForward()
 			}
 			if x.loading {
-				if btn("stop", "✕", "Stop", page == nil) {
+				if btn("stop", kit.Close, "Stop", page == nil) {
 					page.Stop()
 					x.loading = false
 				}
-			} else if btn("reload", "↻", "Reload", page == nil) {
+			} else if btn("reload", kit.Refresh, "Reload", page == nil) {
 				page.Reload()
 			}
-			lock := ""
 			switch {
 			case strings.HasPrefix(d.URL, "https://"):
-				lock = "🔒"
+				ui.Icon(c, kit.Lock).FontSize(12).TextColor(th.TextMuted).Tooltip(Host(d.URL))
 			case strings.HasPrefix(d.URL, "http://"):
-				lock = "⚠︎"
-			}
-			if lock != "" {
-				ui.Text(c, lock).FontSize(11).Tooltip(Host(d.URL))
+				ui.Icon(c, kit.Warning).FontSize(12).TextColor(th.Danger).Tooltip(Host(d.URL) + ": not secure")
 			}
 			in := ui.TextInput(c.Key("addr"), &x.addr).Placeholder("Search or enter address").Grow(1).Bind(&x.addrH)
 			if in.Changed() {
@@ -671,18 +668,15 @@ func (b *Bench) addressBar(c *ui.Context, x *tab, focused bool) bool {
 			if b.Ext != nil {
 				b.Ext.buttons(c, x)
 			}
-			star := "☆"
-			if bm, _ := b.Marks.Find(d.URL); bm != nil {
-				star = "★"
-			}
-			if btn("bookmark", star, "Bookmark (⇧⌘B)", d.URL == "") {
+			bm, _ := b.Marks.Find(d.URL)
+			if kit.Off(kit.IconButton(c, "bookmark", "Bookmark (⇧⌘B)", kit.Star, bm != nil), d.URL == "").Clicked() {
 				b.toggleBookmark(x)
 			}
 		})
 		if x.note != "" {
 			ui.Row(c.Key("note")).Padding(4, 10).Background(th.Warning.Alpha(0.15)).Children(func() {
 				ui.Text(c, x.note).FontSize(12).Grow(1)
-				if ui.Button(c, "✕").Label("Dismiss").Padding(0, 6).Clicked() {
+				if kit.IconButton(c, "dismiss", "Dismiss", kit.Close, false).Clicked() {
 					x.note = ""
 				}
 			})
@@ -816,7 +810,7 @@ func (b *Bench) consoleView(c *ui.Context, x *tab) {
 			if ui.Button(c, "Clear").Clicked() {
 				x.log.Clear()
 			}
-			if ui.Button(c, "✕").Label("Close").Clicked() {
+			if kit.IconButton(c, "close", "Close", kit.Close, false).Clicked() {
 				x.console.open = false
 			}
 		})

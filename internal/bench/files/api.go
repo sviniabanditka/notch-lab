@@ -17,6 +17,7 @@ import (
 	"github.com/egoist/mygo/transfer"
 	"github.com/egoist/mygo/ui"
 
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 	"github.com/sviniabanditka/notch-lab/internal/model"
 )
 
@@ -410,11 +411,11 @@ func (b *Bench) pathBar(c *ui.Context, x *tab) {
 	th := c.Theme()
 	dir := b.path(x)
 	ui.Row(c.Key("pathbar")).Height(30).Padding(0, 8).Gap(2).BorderWidth(0, 0, 1, 0).BorderColor(th.Border).Children(func() {
-		back := ui.Button(c.Key("back"), "‹").Label("Back").Disabled(len(x.back) == 0).Padding(0, 6)
+		back := kit.IconButton(c, "back", "Back", kit.Back, false).Disabled(len(x.back) == 0)
 		if back.Clicked() {
 			b.Command(x.t.Bench, x.t, "back")
 		}
-		fwd := ui.Button(c.Key("fwd"), "›").Label("Forward").Disabled(len(x.fwd) == 0).Padding(0, 6)
+		fwd := kit.IconButton(c, "fwd", "Forward", kit.Forward, false).Disabled(len(x.fwd) == 0)
 		if fwd.Clicked() {
 			b.Command(x.t.Bench, x.t, "forward")
 		}
@@ -458,7 +459,7 @@ func (b *Bench) pathBar(c *ui.Context, x *tab) {
 			}
 		}
 		ui.Spacer(c)
-		edit := ui.Button(c.Key("edit"), "⌘⇧G").Label("Go to folder").Padding(0, 6).Background(ui.Transparent)
+		edit := kit.IconButton(c, "edit", "Go to folder (⇧⌘G)", kit.Edit, false)
 		if edit.Clicked() {
 			x.editing, x.typed = true, dir
 		}

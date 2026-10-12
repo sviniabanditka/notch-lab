@@ -1,10 +1,11 @@
 package shell
 
 import (
-	"strings"
 	"time"
 
 	"github.com/egoist/mygo/ui"
+
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 )
 
 // The look of the Shell: a sidebar over the window's material, and the
@@ -70,26 +71,7 @@ func card(t *ui.Theme) ui.Color {
 
 // iconBtn is a borderless square button with an icon, tinted on hover.
 func iconBtn(c *ui.Context, key, label string, icon *ui.SVG, active bool) ui.Element {
-	t := c.Theme()
-	name := label // the tooltip names the shortcut; the label does not
-	if i := strings.Index(label, " ("); i > 0 {
-		name = label[:i]
-	}
-	b := ui.Box(c.Key(key)).Size(iconButton, iconButton).Center().Radius(radiusSm).Label(name).Tooltip(label).
-		Cursor(ui.CursorPointer).Transition(hoverMotion)
-	fg := t.TextMuted
-	switch {
-	case active:
-		b.Background(chosen(t))
-		fg = t.Accent
-	case b.Pressed():
-		b.Background(pressed(t))
-	case b.Hovered():
-		b.Background(hover(t))
-		fg = t.Text
-	}
-	b.Children(func() { ui.Icon(c, icon).FontSize(15).TextColor(fg) })
-	return b
+	return kit.IconButton(c, key, label, icon, active)
 }
 
 // cardRadius keeps the card's corners concentric with the window's.

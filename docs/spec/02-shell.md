@@ -66,7 +66,7 @@ R-SHELL-016. The notch panel shows the same State as the main window. It has its
 
 R-SHELL-017. The same Tab can be in a Leaf of the notch panel and in a Leaf of the main window. The Tab's view is shared: a terminal Tab draws the same Session, a browser Tab shows the same Page. While the panel shows the Tab, the main window shows a placeholder (R-SHELL-009). A Page can be in one Web view only: the window that draws it owns the Web view. A static Snapshot of the Page in the other window, with a "Show here" button, is `[later]`.
 
-R-SHELL-018. The notch panel has a black top band as tall as the notch, across the whole panel, so that the notch looks part of the panel. Left of the notch the band holds the Lab's color dot and the Lab menu; right of the notch, the S/M/L control and the "Move to window" button. The rail, the sidebar and the card are under the band; the card keeps its toolbar with the focused Tab's title. The panel's bottom corners have a 20 pt radius; its top corners are square, flush with the top of the display. The rail and the sidebar are present in sizes M and L. In size S the sidebar is hidden by default and Cmd+B shows it over the Layout.
+R-SHELL-018. The notch panel has a top band as tall as the notch, across the whole panel, over the panel's material as the rail and the sidebar. Left of the notch the band holds the Lab's color dot and the Lab menu; right of the notch, the S/M/L control and the "Move to window" button. The rail, the sidebar and the card are under the band; the card keeps its toolbar with the focused Tab's title. The panel's bottom corners have a 20 pt radius; its top corners are square, flush with the top of the display. The rail and the sidebar are present in sizes M and L. In size S the sidebar is hidden by default and Cmd+B shows it over the Layout.
 
 R-SHELL-019. The "Move to window" button opens the main window, selects the notch panel's Lab, Bench and Tab there, and hides the notch panel.
 
@@ -306,6 +306,8 @@ R-SHELL-154. The look tokens are in `internal/shell/style.go`: corner radii 6, 8
 R-SHELL-155. Syntax colors in the editor and the db Bench follow a change of the theme between dark and light.
 
 R-SHELL-156. The card's corners are concentric with the window's: their radius is the window's corner radius (16 pt in the main and Settings windows, 20 pt at the bottom of the notch panel) less the 8 pt inset.
+
+R-SHELL-158. Toolbar actions are icon buttons (Lucide shapes, `internal/kit`), 28 x 28 pt, borderless, with a tooltip that names the action and its shortcut and an accessibility label: back, forward, reload, stop, bookmark, history, save, export, copy, format, run all, replace, new (+), close (×), refresh, move to window. A toolbar's main action (Run, Send) is an accent button with an icon and a short word. Buttons in dialogs, sheets and Settings keep their words.
 
 ## Questions
 

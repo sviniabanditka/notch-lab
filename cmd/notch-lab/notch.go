@@ -10,6 +10,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 	"github.com/sviniabanditka/notch-lab/internal/model"
 	"github.com/sviniabanditka/notch-lab/internal/shell"
 )
@@ -304,32 +305,32 @@ func mouseDown() bool {
 	return objc.Send[uint](objc.ID(objc.GetClass("NSEvent")), objc.RegisterName("pressedMouseButtons"))&1 != 0
 }
 
-// stripView is the notch panel's top band, black and as tall as the
-// notch, so the notch looks part of the panel: the Lab menu left of the
-// notch, S/M/L and Move to window right of it (R-SHELL-018).
+// stripView is the notch panel's top band, as tall as the notch, over
+// the panel's material as the rail and the sidebar: the Lab menu left of
+// the notch, S/M/L and Move to window right of it (R-SHELL-018).
 func (n *notch) stripView(c *ui.Context) {
+	th := c.Theme()
 	size := n.a.set.S.Notch.Size
 	gap := float32(0)
 	if r, ok := mygo.Screen.Notch(); ok && n.win != nil {
 		gap = float32(r.Width + 24)
 	}
-	white := ui.RGB(255, 255, 255)
 	pill := func(key, label string, on bool) ui.Element {
 		b := ui.Button(c.Key(key), label).Padding(2, 9).Radius(7).Border(1, ui.Transparent).
-			TextColor(white.Alpha(0.6)).Background(ui.Transparent)
-		if on {
-			b.TextColor(white).Background(white.Alpha(0.16))
-		} else if b.Hovered() {
-			b.Background(white.Alpha(0.08))
+			TextColor(th.TextMuted).Background(ui.Transparent)
+		switch {
+		case on:
+			b.TextColor(th.Accent).Background(th.Accent.Alpha(0.18))
+		case b.Hovered():
+			b.TextColor(th.Text).Background(th.Text.Alpha(0.06))
 		}
 		return b
 	}
-	ui.Row(c.Key("nstrip")).Height(float32(max(n.strip, 28))).Shrink(0).Padding(0, 12).AlignItems(ui.Center).
-		Background(ui.RGB(0, 0, 0)).Children(func() {
+	ui.Row(c.Key("nstrip")).Height(float32(max(n.strip, 28))).Shrink(0).Padding(0, 12).AlignItems(ui.Center).Children(func() {
 		ui.Row(c.Key("nleft")).Grow(1).Basis(0).MinWidth(0).Gap(6).AlignItems(ui.Center).Children(func() {
 			lab := n.a.st.Window("notch").Lab
 			ui.Box(c).Size(8, 8).Shrink(0).Radius(4).Background(ui.Hex(lab.Color))
-			pill("nlab", lab.Name+" ▾", false).TextColor(white).Shrink(1).MinWidth(0).Menu(n.sh.LabMenu)
+			pill("nlab", lab.Name+" ▾", false).TextColor(th.Text).FontWeight(600).Shrink(1).MinWidth(0).Menu(n.sh.LabMenu)
 		})
 		if gap > 0 {
 			ui.Box(c).Width(gap).Shrink(0)
@@ -347,7 +348,7 @@ func (n *notch) stripView(c *ui.Context) {
 					}
 				}
 			}
-			if pill("tomain", "⤢", false).Label("Move to window").Tooltip("Move to window").Clicked() {
+			if kit.IconButton(c, "tomain", "Move to window", kit.Window, false).Clicked() {
 				n.moveToWindow()
 			}
 		})

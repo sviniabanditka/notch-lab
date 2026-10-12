@@ -11,6 +11,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	ed "github.com/sviniabanditka/notch-lab/internal/editor"
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 )
 
 // maxMatches is where the count stops (R-EDIT-091).
@@ -234,13 +235,13 @@ func (b *Bench) findBar(c *ui.Context, x *tab) {
 				c.After(time.Second)
 			}
 			ui.Text(c, count).FontSize(12).TextColor(t.TextMuted).Width(110)
-			if ui.Button(c.Key("prev"), "↑").Label("Previous match").Clicked() {
+			if kit.IconButton(c, "prev", "Previous match", kit.Up, false).Clicked() {
 				b.step(x, -1)
 			}
-			if ui.Button(c.Key("next"), "↓").Label("Next match").Clicked() {
+			if kit.IconButton(c, "next", "Next match", kit.Down, false).Clicked() {
 				b.step(x, 1)
 			}
-			if ui.Button(c.Key("x"), "✕").Label("Close").Clicked() {
+			if kit.IconButton(c, "x", "Close", kit.Close, false).Clicked() {
 				f.open, f.matches = false, nil
 				x.view.Focus()
 			}
@@ -257,10 +258,10 @@ func (b *Bench) findBar(c *ui.Context, x *tab) {
 				if w.Shortcut(ui.Cmd, ui.KeyEnter) {
 					b.replaceAll(x)
 				}
-				if ui.Button(c, "Replace").Clicked() {
+				if kit.IconButton(c, "r1", "Replace", kit.Replace, false).Clicked() {
 					b.replaceOne(x)
 				}
-				if ui.Button(c, "Replace All").Clicked() {
+				if kit.IconButton(c, "rall", "Replace All", kit.ReplaceAll, false).Clicked() {
 					b.replaceAll(x)
 				}
 			})

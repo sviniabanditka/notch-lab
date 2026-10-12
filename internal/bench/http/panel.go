@@ -13,6 +13,7 @@ import (
 	"github.com/sviniabanditka/notch-lab/internal/httpclient"
 	"github.com/sviniabanditka/notch-lab/internal/httpfile"
 	"github.com/sviniabanditka/notch-lab/internal/keychain"
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 	"github.com/sviniabanditka/notch-lab/internal/model"
 )
 
@@ -35,10 +36,10 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 				set.Environment = env
 				b.writeSettings(bench, set)
 			}
-			if ui.Button(c.Key("gear"), "⚙").Label("Environments").Padding(0, 6).Background(ui.Transparent).Clicked() {
+			if kit.IconButton(c, "gear", "Environments", kit.Gear, false).Clicked() {
 				s.envEdit = !s.envEdit
 			}
-			ui.Button(c.Key("more"), "+").Label("New").Padding(0, 6).Background(ui.Transparent).Menu(func(m *ui.Menu) {
+			kit.IconButton(c, "more", "New", kit.Plus, false).Menu(func(m *ui.Menu) {
 				if m.Item("New Collection…").Chosen() {
 					b.AskText("New Collection", "", func(name string) string {
 						if _, err := b.NewCollection(bench, name); err != nil {

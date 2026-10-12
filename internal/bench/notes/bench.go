@@ -14,6 +14,7 @@ import (
 
 	editorbench "github.com/sviniabanditka/notch-lab/internal/bench/editor"
 	ed "github.com/sviniabanditka/notch-lab/internal/editor"
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 	"github.com/sviniabanditka/notch-lab/internal/model"
 )
 
@@ -252,7 +253,7 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 				}
 				ui.Row(c.Key("h"+sec.name)).Padding(6, 6, 2, 6).Gap(6).AlignItems(ui.Center).Children(func() {
 					ui.Text(c, sec.name).FontSize(11).Bold().TextColor(th.TextMuted).Grow(1)
-					if ui.Button(c.Key("new"), "+").Label("New Note").Padding(0, 6).Background(ui.Transparent).Clicked() {
+					if kit.IconButton(c, "new", "New Note", kit.Plus, false).Clicked() {
 						b.global = sec.glob
 						dir := sec.x.Root
 						if p, err := b.NewNote(dir); err == nil {

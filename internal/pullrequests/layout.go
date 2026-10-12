@@ -2,6 +2,7 @@ package pullrequests
 
 import (
 	"github.com/egoist/mygo/ui"
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 )
 
 const (
@@ -78,7 +79,7 @@ func (v *View) backButton(c *ui.Context) {
 	if !v.narrow {
 		return
 	}
-	if ui.Button(c, "‹ Back").Tooltip("Back to the list  esc").Clicked() {
+	if kit.IconButton(c, "back", "Back to the list (esc)", kit.Back, false).Clicked() {
 		v.backToList()
 	}
 }

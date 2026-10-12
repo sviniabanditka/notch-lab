@@ -13,6 +13,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/sviniabanditka/notch-lab/internal/dbconn"
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 	"github.com/sviniabanditka/notch-lab/internal/model"
 )
 
@@ -120,14 +121,14 @@ func (b *Bench) toolbar(c *ui.Context, x *tab) {
 		}
 		if x.cancel != nil {
 			ui.Spinner(c).Size(14, 14)
-			if ui.Button(c.Key("cancel"), "Cancel").Clicked() {
+			if kit.IconButton(c, "cancel", "Cancel", kit.Stop, false).Clicked() {
 				x.cancel()
 			}
 		} else {
-			if ui.PrimaryButton(c.Key("run"), "Run").Tooltip("⌘↩ the selection or the statement at the cursor").Clicked() {
+			if kit.PrimaryIcon(c, "run", "Run (⌘↩ the selection or the statement at the cursor)", kit.Play, "Run").Clicked() {
 				b.runFromUI(x, false)
 			}
-			if ui.Button(c.Key("all"), "Run all").Tooltip("⇧⌘↩").Clicked() {
+			if kit.IconButton(c, "all", "Run all (⇧⌘↩)", kit.PlayAll, false).Clicked() {
 				b.runFromUI(x, true)
 			}
 		}
@@ -139,12 +140,12 @@ func (b *Bench) toolbar(c *ui.Context, x *tab) {
 		ui.Switch(c.Key("limit"), &x.limit).Label("Limit 500")
 		ui.Text(c, "Timeout").FontSize(12).TextColor(th.TextMuted)
 		ui.NumberInput(c.Key("timeout"), &x.timeout, 1, 3600, 5).Width(120).Shrink(0)
-		ui.Box(c).Width(16).Shrink(0)
-		if ui.Button(c.Key("hist"), "History").Background(ui.Transparent).Clicked() {
+		ui.Box(c).Width(8).Shrink(0)
+		if kit.IconButton(c, "hist", "History", kit.History, x.history).Clicked() {
 			x.history = !x.history
 		}
 		if x.doc.String() != x.saved || d.File == "" {
-			if ui.Button(c.Key("save"), "Save").Tooltip("⌘S").Background(ui.Transparent).Clicked() {
+			if kit.IconButton(c, "save", "Save (⌘S)", kit.Save, false).Clicked() {
 				b.Save(x.t)
 			}
 		}
@@ -177,7 +178,7 @@ func (b *Bench) results(c *ui.Context, x *tab) {
 			r := x.results[x.shown]
 			ui.Text(c, fmt.Sprintf("%d rows, %d ms", len(r.Rows), r.Ms)).FontSize(12).TextColor(th.TextMuted)
 			ui.Box(c).Grow(1)
-			ui.Button(c.Key("export"), "Export").Background(ui.Transparent).Menu(func(m *ui.Menu) {
+			kit.IconButton(c, "export", "Export", kit.Download, false).Menu(func(m *ui.Menu) {
 				for _, f := range []string{"CSV", "JSON", "SQL INSERTs"} {
 					if m.Item(f).Chosen() {
 						b.export(x, strings.ToLower(strings.Fields(f)[0]))
@@ -216,7 +217,7 @@ func (b *Bench) results(c *ui.Context, x *tab) {
 				})
 				ui.Row(c).Gap(8).Children(func() {
 					ui.Box(c).Grow(1)
-					if ui.Button(c, "Copy").Clicked() {
+					if kit.IconButton(c, "copy", "Copy", kit.Copy, false).Clicked() {
 						mygo.Clipboard.WriteText(*x.cell)
 					}
 					if ui.PrimaryButton(c, "Close").Clicked() {

@@ -101,6 +101,8 @@ func (s *Shell) menu() *mygo.Menu {
 		s.item("Save As…", "CmdOrCtrl+Shift+S", !cmd, func() { s.command("saveAs") }),
 		s.item("Save All", "CmdOrCtrl+Alt+S", !cmd, func() { s.command("saveAll") }),
 		s.item("Revert", "", !cmd, func() { s.command("revert") }),
+		mygo.Separator(),
+		s.item("Print…", "CmdOrCtrl+Alt+P", !cmd, func() { s.command("print") }),
 	}}
 	edit := &mygo.MenuItem{Label: "Edit", Submenu: []*mygo.MenuItem{
 		{Role: mygo.RoleUndo}, {Role: mygo.RoleRedo},
@@ -134,6 +136,11 @@ func (s *Shell) menu() *mygo.Menu {
 		s.item("Go to…", "CmdOrCtrl+K", false, s.OpenSwitcher),
 		s.item("Go to File…", "CmdOrCtrl+P", s.GoToFile == nil || noBench, func() { s.GoToFile(s.bench().EffectiveRoot(s.Home)) }),
 		s.item("Reload", "CmdOrCtrl+R", !cmd, func() { s.command("reload") }),
+		s.item("Reload Without Cache", "CmdOrCtrl+Shift+R", !cmd, func() { s.command("hardReload") }),
+		s.item("Open Location", "CmdOrCtrl+L", !cmd, func() { s.command("location") }),
+		s.item("Bookmark Page", "CmdOrCtrl+Shift+B", !cmd, func() { s.command("bookmark") }),
+		s.item("Developer Console", "CmdOrCtrl+Alt+J", !cmd, func() { s.command("console") }),
+		s.item("Web Inspector", "CmdOrCtrl+Alt+I", !cmd, func() { s.command("inspector") }),
 		s.item("Toggle Preview", "CmdOrCtrl+E", !cmd, func() { s.command("preview") }),
 		s.item("Diff Against HEAD", "CmdOrCtrl+Alt+G", !cmd, func() { s.command("diff") }),
 		s.item("Show Hidden Files", "CmdOrCtrl+Shift+.", !cmd, func() { s.command("toggleHidden") }),

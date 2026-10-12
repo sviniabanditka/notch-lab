@@ -34,6 +34,10 @@ func (s *Shell) View(c *ui.Context) {
 		c.Toast(msg)
 	}
 	s.toasts = nil
+	for _, a := range s.actions {
+		c.ToastAction(a.msg, a.label, a.fn)
+	}
+	s.actions = nil
 	if c.Vibrancy() {
 		c.Root().Background(ui.Transparent)
 	}

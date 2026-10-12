@@ -212,7 +212,7 @@ func sameState(a, b State) bool {
 func lastLines(text string, n int) string {
 	text = strings.TrimRight(text, "\n ")
 	i := len(text)
-	for ; n > 0 && i > 0; n-- {
+	for ; n > 0; n-- {
 		i = strings.LastIndexByte(text[:i], '\n')
 		if i < 0 {
 			return text

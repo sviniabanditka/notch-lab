@@ -25,7 +25,7 @@ type Store struct {
 // ErrNewer means the database was written by a newer notch-lab (R-MODEL-055).
 var ErrNewer = errors.New("This state was written by a newer notch-lab")
 
-const schemaVersion = 1
+const schemaVersion = 2
 
 var migrations = []string{
 	// 0 → 1
@@ -39,6 +39,9 @@ var migrations = []string{
 	 CREATE TABLE closed_tab (bench TEXT NOT NULL, closed_at INTEGER NOT NULL, tab TEXT NOT NULL);
 	 CREATE TABLE window (key TEXT PRIMARY KEY, lab TEXT, bench TEXT, focused_tab TEXT, frame TEXT, sidebar INTEGER);
 	 CREATE TABLE kv    (key TEXT PRIMARY KEY, value TEXT NOT NULL);`,
+	// 1 → 2: browser history (R-WEB-080)
+	`CREATE TABLE browser_history (url TEXT PRIMARY KEY, title TEXT, visited_at INTEGER NOT NULL, count INTEGER NOT NULL DEFAULT 1, profile TEXT NOT NULL);
+	 CREATE INDEX browser_history_visited ON browser_history(visited_at);`,
 }
 
 // Open opens or creates the database at path and loads the State. fresh
@@ -63,6 +66,10 @@ func Open(path string) (store *Store, st *State, fresh bool, err error) {
 	}
 	return s, st, fresh, nil
 }
+
+// DB is the state database, for tables a Bench keeps itself (browser
+// history); the State's own tables are the Store's.
+func (s *Store) DB() *sql.DB { return s.db }
 
 // Close closes the database.
 func (s *Store) Close() error { return s.db.Close() }

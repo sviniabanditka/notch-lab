@@ -43,6 +43,7 @@ type Shell struct {
 
 	hist      history
 	toasts    []string
+	actions   []toastAction
 	tabList   ui.ListState
 	resizing  bool // the sidebar edge is dragged
 	sw        switcher
@@ -152,6 +153,17 @@ func New(st *model.State, set *settings.Store, key, home string) *Shell {
 func (s *Shell) win() *model.Window  { return s.St.Window(s.Key) }
 func (s *Shell) lab() *model.Lab     { return s.win().Lab }
 func (s *Shell) bench() *model.Bench { return s.win().Bench }
+
+// ToastAction queues a Toast with one button (R-SHELL-122).
+func (s *Shell) ToastAction(msg, label string, fn func()) {
+	s.actions = append(s.actions, toastAction{msg, label, fn})
+	s.redraw()
+}
+
+type toastAction struct {
+	msg, label string
+	fn         func()
+}
 
 // Toast queues a message for the next frame (R-SHELL-120).
 func (s *Shell) Toast(msg string) {

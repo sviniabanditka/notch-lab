@@ -141,6 +141,12 @@ func TestScreenStatus(t *testing.T) {
 			t.Errorf("%q: %s, want %s", text, got, want)
 		}
 	}
+	if got := lastLines("", 40); got != "" {
+		t.Errorf("empty screen %q", got)
+	}
+	if got := lastLines("one", 40); got != "one" {
+		t.Errorf("one line %q", got)
+	}
 	if got := lastLines("a\nb\nc\nd\n", 2); got != "c\nd" {
 		t.Errorf("lastLines %q", got)
 	}

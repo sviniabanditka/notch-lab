@@ -39,6 +39,8 @@ type Bench struct {
 	// OpenPath opens a file or a folder a Cmd+click found, at a line
 	// (R-TERM-103, R-TERM-104); URLs go to the system.
 	OpenPath func(l *model.Lab, path string, line, col int)
+	// OpenURL opens a URL in the Lab's browser Bench (R-TERM-102).
+	OpenURL func(l *model.Lab, url string)
 
 	client *daemon.Client
 	known  map[string]bool // Session ids the Daemon had at connect
@@ -197,6 +199,10 @@ func (b *Bench) options(x *tab) vt.Options {
 // Session's folder, then the Bench's root (R-TERM-103). URLs and mailto
 // go to the system until the browser Bench (R-TERM-102).
 func (b *Bench) openLink(x *tab, link string) bool {
+	if (strings.HasPrefix(link, "http://") || strings.HasPrefix(link, "https://")) && b.OpenURL != nil && !b.Set.S.Terminal.LinksExternal {
+		b.OpenURL(x.t.Bench.Lab, link)
+		return true
+	}
 	if strings.Contains(link, "://") || strings.HasPrefix(link, "mailto:") || b.OpenPath == nil {
 		return false
 	}

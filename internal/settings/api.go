@@ -63,6 +63,7 @@ type Terminal struct {
 	ConfirmClose    bool    `json:"confirmClose"`
 	OSCTitle        bool    `json:"oscTitle"`
 	BellUnread      bool    `json:"bellUnread"`
+	LinksExternal   bool    `json:"linksExternal"`
 }
 type Browser struct {
 	SearchEngine   string `json:"searchEngine"`
@@ -71,6 +72,13 @@ type Browser struct {
 	AskWhereToSave bool   `json:"askWhereToSave"`
 	BlockPopups    bool   `json:"blockPopups"`
 	DefaultProfile string `json:"defaultProfile"`
+	Inspectable    bool   `json:"inspectable"`
+	BookmarksBar   bool   `json:"bookmarksBar"`
+	// Permissions, Zoom and Schemes are remembered per origin (R-WEB-051,
+	// R-WEB-091, R-WEB-037).
+	Permissions map[string]map[string]string `json:"permissions"`
+	Zoom        map[string]float64           `json:"zoom"`
+	Schemes     map[string]map[string]bool   `json:"schemes"`
 }
 type Editor struct {
 	FontFamily        string  `json:"fontFamily"`
@@ -107,6 +115,8 @@ func Defaults() Settings {
 	s.Browser = Browser{SearchEngine: "https://duckduckgo.com/?q=%s", HomePage: "about:blank", DownloadFolder: "~/Downloads", BlockPopups: true, DefaultProfile: "shared"}
 	s.Editor = Editor{FontFamily: "Menlo", FontSize: 13, TabWidth: 4, InsertSpaces: true, Autosave: "off", LineNumbers: true,
 		External: "cursor --goto {path}:{line}:{col}", HideDots: true}
+	s.Browser.Inspectable = true
+	s.Browser.Permissions, s.Browser.Zoom, s.Browser.Schemes = map[string]map[string]string{}, map[string]float64{}, map[string]map[string]bool{}
 	s.MCP = MCP{Access: "off", Domains: map[string]string{}, ToastOnWrite: true}
 	s.Advanced = Advanced{LogLevel: "info"}
 	return s
@@ -164,6 +174,15 @@ func Load(path string) (st *Store, problems []string, err error) {
 			b, _ := json.Marshal(defaults[k])
 			_ = json.Unmarshal(b, dst)
 		}
+	}
+	if st.S.Browser.Permissions == nil {
+		st.S.Browser.Permissions = map[string]map[string]string{}
+	}
+	if st.S.Browser.Zoom == nil {
+		st.S.Browser.Zoom = map[string]float64{}
+	}
+	if st.S.Browser.Schemes == nil {
+		st.S.Browser.Schemes = map[string]map[string]bool{}
 	}
 	if st.S.MCP.Domains == nil {
 		st.S.MCP.Domains = map[string]string{}

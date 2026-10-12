@@ -14,6 +14,9 @@ type SettingsView struct {
 	Section int
 	// ResetState deletes the State and relaunches the app.
 	ResetState func()
+	// Browser and Extensions draw the browser's own controls of those
+	// sections: default browser, history, permissions, Extensions.
+	Browser, Extensions func(c *ui.Context)
 }
 
 // Open selects a section by name; "" keeps the current one.
@@ -150,14 +153,38 @@ func (v *SettingsView) section(c *ui.Context) {
 		sw("Bell marks the Tab unread", &set.Terminal.BellUnread)
 		note("Font and cursor apply to Tabs opened after the change.")
 	case "Browser":
-		text("Search engine (%s is the query)", &set.Browser.SearchEngine)
+		engines := map[string]string{
+			"DuckDuckGo": "https://duckduckgo.com/?q=%s", "Google": "https://www.google.com/search?q=%s",
+			"Bing": "https://www.bing.com/search?q=%s", "Kagi": "https://kagi.com/search?q=%s",
+		}
+		engine := "Custom"
+		for name, u := range engines {
+			if u == set.Browser.SearchEngine {
+				engine = name
+			}
+		}
+		ui.Row(c.Key("engine")).Gap(12).Children(func() {
+			ui.Text(c, "Search engine").Grow(1)
+			if ui.Select(c, &engine, []string{"DuckDuckGo", "Google", "Bing", "Kagi", "Custom"}).Width(180).Changed() && engine != "Custom" {
+				set.Browser.SearchEngine = engines[engine]
+				v.changed()
+			}
+		})
+		text("Search address (%s is the query)", &set.Browser.SearchEngine)
 		text("Home page", &set.Browser.HomePage)
 		text("Download folder", &set.Browser.DownloadFolder)
 		sw("Ask where to save", &set.Browser.AskWhereToSave)
 		sw("Block popups", &set.Browser.BlockPopups)
-		note("Browser Benches, Profiles and “Set as default browser” arrive in M4.")
+		sw("Allow the Web Inspector", &set.Browser.Inspectable)
+		if v.Browser != nil {
+			v.Browser(c)
+		}
 	case "Extensions":
-		note("Extensions arrive with the browser in M4.")
+		if v.Extensions != nil {
+			v.Extensions(c)
+		} else {
+			note("Extensions arrive in M4 stage B.")
+		}
 	case "Editor":
 		text("Font family", &set.Editor.FontFamily)
 		num("Font size", &set.Editor.FontSize, 8, 32, 1)

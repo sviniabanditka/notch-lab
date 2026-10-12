@@ -9,11 +9,13 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
+	browserbench "github.com/sviniabanditka/notch-lab/internal/bench/browser"
 	editorbench "github.com/sviniabanditka/notch-lab/internal/bench/editor"
 	filesbench "github.com/sviniabanditka/notch-lab/internal/bench/files"
 	"github.com/sviniabanditka/notch-lab/internal/bench/terminal"
@@ -22,6 +24,7 @@ import (
 	"github.com/sviniabanditka/notch-lab/internal/model"
 	"github.com/sviniabanditka/notch-lab/internal/settings"
 	"github.com/sviniabanditka/notch-lab/internal/shell"
+	"github.com/sviniabanditka/notch-lab/internal/webkit"
 )
 
 // version is the content of VERSION; the build may set it with -ldflags.
@@ -68,6 +71,7 @@ type app struct {
 	term     *terminal.Bench
 	ed       *editorbench.Bench
 	files    *filesbench.Bench
+	web      *browserbench.Bench
 	active   bool
 }
 
@@ -129,7 +133,24 @@ func (a *app) start() {
 	a.files.Confirm, a.files.AskText = a.sh.Confirm, a.sh.AskText
 	a.files.OpenFile = func(l *model.Lab, path string) { a.ed.OpenPath(l, path, 0, 0) }
 	a.files.OpenTerminal = a.ed.OpenTerminal
-	a.sh.Types = map[model.BenchType]shell.TabType{model.Terminal: a.term, model.Editor: a.ed, model.Files: a.files}
+	a.web = browserbench.New(st, set, userHome, a.dir, &browserbench.History{DB: store.DB()})
+	a.web.Post, a.web.Show, a.web.Toast, a.web.Confirm = a.term.Post, a.ed.Show, a.sh.Toast, a.sh.Confirm
+	a.web.ToastAction = a.sh.ToastAction
+	a.sv.Browser = a.browserSettings
+	a.term.OpenURL = func(l *model.Lab, u string) {
+		if t := a.web.OpenURL(l, u); t != nil {
+			a.sh.Show(t)
+		}
+	}
+	mygo.App.OnOpenURL(func(u string) { // R-WEB-121
+		a.main.Update(func() {
+			if t := a.web.OpenURL(a.st.Window("main").Lab, u); t != nil {
+				a.sh.Show(t)
+				a.sh.ShowWindow()
+			}
+		})
+	})
+	a.sh.Types = map[model.BenchType]shell.TabType{model.Terminal: a.term, model.Editor: a.ed, model.Files: a.files, model.Browser: a.web}
 	a.sh.DaemonOK = a.term.Connected
 	a.sh.RestartDaemon = func() { go a.connect() }
 	mygo.App.OnDidBecomeActive(func() { a.active = true })
@@ -150,6 +171,7 @@ func (a *app) start() {
 	a.sh.Win = a.main
 	a.ed.Win = a.main
 	a.files.Win = a.main
+	a.web.Win = a.main
 	// The red button and Cmd+W with no Tab hide the window (R-SHELL-007).
 	a.main.OnClose(func(e *mygo.CloseEvent) {
 		e.PreventDefault()
@@ -312,6 +334,67 @@ func (a *app) openSettings(section string) {
 		Vibrancy:      mygo.VibrancySidebar,
 		Content:       ui.View(a.sv.View),
 	})
+}
+
+// browserSettings draws the browser's part of Settings › Browser: the
+// default browser, history and the remembered permissions (R-WEB-051,
+// R-WEB-083, R-WEB-120).
+func (a *app) browserSettings(c *ui.Context) {
+	t := c.Theme()
+	bundle := ""
+	if exe, err := os.Executable(); err == nil {
+		bundle = filepath.Dir(filepath.Dir(filepath.Dir(exe)))
+	}
+	ui.Row(c.Key("default")).Gap(12).Children(func() {
+		if webkit.IsDefaultBrowser(bundle) {
+			ui.Text(c, "notch-lab is the default browser").Grow(1)
+			return
+		}
+		ui.Text(c, "Default browser").Grow(1)
+		if ui.Button(c, "Make notch-lab the Default Browser").Disabled(!strings.HasSuffix(bundle, ".app")).Clicked() {
+			webkit.SetDefaultBrowser(bundle, func(err error) {
+				if err != nil {
+					a.main.Update(func() { a.sh.Toast(err.Error()) })
+				}
+			})
+		}
+	})
+	ui.Row(c.Key("history")).Gap(8).Children(func() {
+		ui.Text(c, "Clear history").Grow(1)
+		for _, opt := range []struct {
+			label string
+			since time.Duration
+		}{{"Last Hour", time.Hour}, {"Today", 24 * time.Hour}, {"All", 0}} {
+			opt := opt
+			if ui.Button(c.Key(opt.label), opt.label).Clicked() {
+				since := time.Time{}
+				if opt.since > 0 {
+					since = time.Now().Add(-opt.since)
+				}
+				a.web.History.Clear(since)
+				a.sh.Toast("History cleared")
+			}
+		}
+	})
+	perms := a.set.S.Browser.Permissions
+	if len(perms) > 0 {
+		ui.Text(c, "Site permissions").Bold()
+	}
+	for origin, kinds := range perms {
+		origin := origin
+		ui.Row(c.Key("p" + origin)).Gap(8).Children(func() {
+			var parts []string
+			for k, v := range kinds {
+				parts = append(parts, k+": "+v)
+			}
+			ui.Text(c, origin).Grow(1).SingleLine()
+			ui.Text(c, strings.Join(parts, ", ")).FontSize(12).TextColor(t.TextMuted)
+			if ui.Button(c, "Remove").Clicked() {
+				delete(a.set.S.Browser.Permissions, origin)
+				a.set.Changed(nil)
+			}
+		})
+	}
 }
 
 // resetState deletes state.db and relaunches the app (Settings › Advanced).

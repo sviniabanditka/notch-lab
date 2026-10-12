@@ -147,19 +147,24 @@ func nsArray(objs []id) id {
 	return arr
 }
 
-// toJSON writes an Objective-C property list as JSON.
+// toJSON writes an Objective-C property list as JSON; a string, a number
+// or a boolean alone too, through a one-item array.
 func toJSON(obj id) []byte {
-	if obj == 0 || !objc.Send[bool](class("NSJSONSerialization"), sel("isValidJSONObject:"), obj) {
-		if isKind(obj, "NSString") {
-			b, _ := json.Marshal(goString(obj))
-			return b
-		}
+	if obj == 0 || isKind(obj, "NSNull") {
 		return []byte("null")
 	}
-	data := send(class("NSJSONSerialization"), "dataWithJSONObject:options:error:", obj, uint(0), uintptr(0))
+	wrapped := send(class("NSArray"), "arrayWithObject:", obj)
+	if !objc.Send[bool](class("NSJSONSerialization"), sel("isValidJSONObject:"), wrapped) {
+		return []byte("null")
+	}
+	data := send(class("NSJSONSerialization"), "dataWithJSONObject:options:error:", wrapped, uint(0), uintptr(0))
 	n := int(objc.Send[uint](data, sel("length")))
 	p := objc.Send[unsafe.Pointer](data, sel("bytes"))
-	return append([]byte(nil), unsafe.Slice((*byte)(p), n)...)
+	b := unsafe.Slice((*byte)(p), n)
+	if n < 2 {
+		return []byte("null")
+	}
+	return append([]byte(nil), b[1:n-1]...)
 }
 
 // fromJSON makes an Objective-C object of JSON (fragments allowed).

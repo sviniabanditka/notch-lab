@@ -21,6 +21,7 @@ import (
 	"github.com/sviniabanditka/notch-lab/internal/bench/terminal"
 	"github.com/sviniabanditka/notch-lab/internal/daemon"
 	"github.com/sviniabanditka/notch-lab/internal/home"
+	"github.com/sviniabanditka/notch-lab/internal/mcp"
 	"github.com/sviniabanditka/notch-lab/internal/model"
 	"github.com/sviniabanditka/notch-lab/internal/settings"
 	"github.com/sviniabanditka/notch-lab/internal/shell"
@@ -32,7 +33,16 @@ var version = "0.1.0"
 
 func main() {
 	showVersion := flag.Bool("version", false, "print the version and exit")
+	bridge := flag.Bool("mcp", false, "run the MCP Bridge on stdio (13-mcp.md)")
 	flag.Parse()
+	if *bridge { // R-MCP-005, R-MCP-006: no window, no State, no Settings
+		dir, err := home.Dir()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		os.Exit((&mcp.Bridge{Home: dir, Version: version, Launch: mcp.LaunchApp}).Run())
+	}
 	if *showVersion {
 		fmt.Printf("notch-lab %s (%s)\n", version, commit())
 		return
@@ -74,6 +84,14 @@ type app struct {
 	web      *browserbench.Bench
 	active   bool
 	notch    *notch
+	mcp      *mcp.Server
+	agents   agentsUI
+	// lastToast counts repeats of an agent's Toast (R-MCP-044).
+	lastToast struct {
+		key string
+		at  time.Time
+		n   int
+	}
 }
 
 func (a *app) start() {
@@ -144,6 +162,8 @@ func (a *app) start() {
 	a.web.ToastAction = a.sh.ToastAction
 	a.sv.Browser = a.browserSettings
 	a.sv.Extensions = func(c *ui.Context) { a.web.ExtensionSettings(c, a.settings) }
+	a.sv.Agents = a.agentsSettings
+	a.sh.AgentStatus = a.agentStatus
 	a.term.OpenURL = func(l *model.Lab, u string) {
 		if t := a.web.OpenURL(l, u); t != nil {
 			a.sh.Show(t)
@@ -182,6 +202,7 @@ func (a *app) start() {
 	a.web.CloseTab = a.sh.CloseTab
 	a.web.StartExtensions() // R-WEB-130
 	a.newNotch(userHome)
+	a.startMCP()
 	// The red button and Cmd+W with no Tab hide the window (R-SHELL-007).
 	a.main.OnClose(func(e *mygo.CloseEvent) {
 		e.PreventDefault()
@@ -209,6 +230,9 @@ func (a *app) start() {
 	}
 	go a.connect()
 	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) {
+		if a.mcp != nil {
+			a.mcp.Close()
+		}
 		a.term.CloseAll()
 		if err := a.store.Flush(a.st); err != nil {
 			logf("error", "state write at quit: %v", err)

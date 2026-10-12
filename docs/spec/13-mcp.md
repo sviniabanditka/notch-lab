@@ -2,6 +2,8 @@
 
 Coding agents control the app through MCP. The app is the MCP server. Each agent client starts a Bridge that speaks MCP on stdio and forwards to the app over a Unix socket. The design follows the MCP spec of Search (`notch-browser/docs/mcp.md`): a stdio Bridge over a 0600 socket, one Client per Bridge process, Access levels, hard lines that no setting lifts.
 
+> M6 status (2026-10-12). Done: the socket server and the Bridge (go-sdk v1.8.0), Access levels with domain overrides, the Full sheet, Pause and Stop, the Audit log, Toasts, own Tabs, resources, Settings › Agents with "Connect to Claude Code", the status bar mark, the tools of the domains `lab`, `terminal`, `browser` and `editor`, `tools/mcp-smoke` and `nl mcp`. `[later]` in M6: Access overrides per Client (R-MCP-030), calls that wait while the Bridge reconnects (R-MCP-009: they fail at once with "notch-lab is not running"), the cursor and `alt_screen` of `terminal.read_screen`. The domain `notes` comes with M10, the others with their milestones.
+
 ## Processes
 
 R-MCP-001. The app listens on `$NOTCH_LAB_HOME/mcp.sock`. The socket file has mode 0600. The app reads the peer's uid with `getpeereid` and closes a connection whose uid is not the app's uid.
@@ -101,7 +103,7 @@ R-MCP-052. Settings › Agents › Audit log shows the rows newest first with a 
 
 ## Resources
 
-R-MCP-060. `resources/list` returns `notch://lab/<id>` for each Lab and `notch://tab/<id>` for each visible Tab. `resources/read` returns the Lab (name, root, Benches) or the Tab (Bench, type, title, type data without secrets) as `application/json`.
+R-MCP-060. The server offers two resource templates, `notch://lab/{id}` and `notch://tab/{id}`; ids come from `lab.list` and `lab.tabs`. `resources/read` returns the Lab (name, root, Benches) or the Tab (Bench, type, title, type data with secrets masked) as `application/json`. A list of every Lab and Tab as resources is `[later]`.
 
 R-MCP-061. Resource subscriptions. `[later]`
 
@@ -133,13 +135,15 @@ Owner: `01-model.md`, `02-shell.md`.
 
 ### Domain `terminal`
 
+A terminal's id is the id of its Tab.
+
 | Tool | Level | Params | Result |
 |---|---|---|---|
 | `terminal.list` | Read | `bench?` | `[{id, tab, title, cwd, pid, agent?: {kind, status}, rows, cols}]` |
 | `terminal.create` | Full | `bench?`, `cwd?`, `command?: string[]` | `{id, tab}` (a new terminal Tab; `command` runs in place of the shell) |
 | `terminal.write` | Full | `id`, `text` | `{ok}` (writes bytes to the Session; no Enter is added) |
 | `terminal.key` | Full | `id`, `key` (`Enter`, `Tab`, `Escape`, `Up`, `ctrl+c`, `ctrl+d`, …) | `{ok}` |
-| `terminal.read_screen` | Read | `id` | `{text, cursor: {row, col}, rows, cols, alt_screen: bool}` |
+| `terminal.read_screen` | Read | `id` | `{text, rows, cols}` (the last `rows` lines of the text; `cursor` and `alt_screen` are `[later]`) |
 | `terminal.read_scrollback` | Read | `id`, `lines?: int` (default 200, max 5000) | `{text, total: int}` |
 | `terminal.wait_idle` | Read | `id`, `timeout?` (default 30) | `{idle: bool, screen: text}` (idle = no output for 500 ms and no foreground process other than the shell, or an Agent in status idle or blocked) |
 | `terminal.cwd` | Read | `id` | `{cwd}` |
@@ -185,7 +189,7 @@ R-MCP-080. A tool failure is a JSON-RPC error with these codes:
 | `-32011` | the Daemon is not running |
 | `-32603` | internal error |
 
-R-MCP-081. The error `data` holds `{domain, tool, detail}`.
+R-MCP-081. On the socket the app answers a failure with a JSON-RPC error of that code. The Bridge gives the agent a tool result with `isError: true` and the text `error <code>: <message>`, which every client shows to its model.
 
 ## Limits
 
@@ -231,6 +235,6 @@ R-MCP-103. The text under the buttons says: "A test home: add `NOTCH_LAB_HOME=/t
 
 ## Verify
 
-R-MCP-110. `tools/mcp-smoke` is a Go program. It starts `notch-lab --mcp` with `NOTCH_LAB_HOME` from its environment, sends `initialize`, `tools/list`, then `terminal.create`, `terminal.write` with `echo ok`, `terminal.key` `Enter`, `terminal.wait_idle`, `terminal.read_screen`, and expects `ok` on a line of its own in the Screen. It then calls `terminal.close` and exits 0. Any other outcome exits 1 with the step that failed.
+R-MCP-110. `tools/mcp-smoke` is a Go program. `-browser` adds a local page: open, `wait_for`, `snapshot`, `type` and `click` by ref, `eval`, `console.read` (the click is trusted), `screenshot`, `tabs.close`. `-call <tool> <json>` makes one call (`nl mcp`). It starts `notch-lab --mcp` with `NOTCH_LAB_HOME` from its environment, sends `initialize`, `tools/list`, then `terminal.create`, `terminal.write` with `echo ok`, `terminal.key` `Enter`, `terminal.wait_idle`, `terminal.read_screen`, and expects `ok` on a line of its own in the Screen. It then calls `terminal.close` and exits 0. Any other outcome exits 1 with the step that failed.
 
 R-MCP-111. Unit tests in `internal/mcp`: the socket refuses another uid (simulated); a message without `_client` is ignored; levels and overrides resolve as the table says; `-32001` and `-32002` messages match; secrets mask; the rate limit; `params` cut at 4 KB; a Bridge against a fake socket: `initialize`, `tools/list`, EOF sends `client.end`, `client.rejected` exits with 2.

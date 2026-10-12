@@ -84,6 +84,9 @@ type Tab struct {
 	Pinned      bool
 	Unread      bool
 	Data        string // type data as JSON
+	// Owner is the MCP Client that made the Tab, while it is connected
+	// (13-mcp.md, R-MCP-032). Not saved.
+	Owner string
 }
 
 // DisplayTitle is the custom title, else the type's title (R-MODEL-025).

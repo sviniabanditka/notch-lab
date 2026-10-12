@@ -94,7 +94,7 @@ func (d *Daemon) Serve(ctx context.Context) error {
 			}
 			return err
 		}
-		if !sameUser(nc) {
+		if !SameUser(nc) {
 			nc.Close() // R-TERM-003: before a byte is read
 			continue
 		}
@@ -103,7 +103,8 @@ func (d *Daemon) Serve(ctx context.Context) error {
 	}
 }
 
-func sameUser(nc net.Conn) bool {
+// SameUser reports whether the peer of a Unix socket runs as this user.
+func SameUser(nc net.Conn) bool {
 	uc, ok := nc.(*net.UnixConn)
 	if !ok {
 		return false

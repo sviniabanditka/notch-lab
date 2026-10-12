@@ -318,6 +318,9 @@ func (s *Shell) tabs(c *ui.Context, b *model.Bench) {
 		row.Children(func() {
 			ui.Icon(c, TypeIcon(b.Type)).FontSize(13).TextColor(fg)
 			ui.Text(c, tab.DisplayTitle()).TextColor(fg).SingleLine().Grow(1).Shrink(1).MinWidth(0)
+			if tab.Owner != "" { // R-MCP-032: an agent made it
+				ui.Text(c, "✦").FontSize(11).TextColor(t.Accent).Tooltip("Opened by an agent")
+			}
 			if tt := s.typeOf(b); tt != nil {
 				if g, alert := tt.Glyph(tab); g != "" {
 					col := fg
@@ -578,6 +581,9 @@ func (s *Shell) statusBar(c *ui.Context) {
 		})
 		if d.Clicked() && !ok && s.RestartDaemon != nil {
 			s.RestartDaemon()
+		}
+		if s.AgentStatus != nil {
+			s.AgentStatus(c)
 		}
 		if n := s.St.UnreadCount(); n > 0 {
 			u := ui.Text(c, fmt.Sprintf("%d unread", n)).FontSize(11).TextColor(t.Accent).Cursor(ui.CursorPointer)

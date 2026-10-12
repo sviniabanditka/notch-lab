@@ -25,7 +25,7 @@ type Store struct {
 // ErrNewer means the database was written by a newer notch-lab (R-MODEL-055).
 var ErrNewer = errors.New("This state was written by a newer notch-lab")
 
-const schemaVersion = 2
+const schemaVersion = 3
 
 var migrations = []string{
 	// 0 → 1
@@ -42,6 +42,10 @@ var migrations = []string{
 	// 1 → 2: browser history (R-WEB-080)
 	`CREATE TABLE browser_history (url TEXT PRIMARY KEY, title TEXT, visited_at INTEGER NOT NULL, count INTEGER NOT NULL DEFAULT 1, profile TEXT NOT NULL);
 	 CREATE INDEX browser_history_visited ON browser_history(visited_at);`,
+	// 2 → 3: the MCP Audit log (R-MCP-050)
+	`CREATE TABLE audit (id INTEGER PRIMARY KEY, time INTEGER NOT NULL, client TEXT NOT NULL, client_name TEXT,
+	                     tool TEXT NOT NULL, params TEXT, result_bytes INTEGER, duration_ms INTEGER, error TEXT);
+	 CREATE INDEX audit_time ON audit(time);`,
 }
 
 // Open opens or creates the database at path and loads the State. fresh

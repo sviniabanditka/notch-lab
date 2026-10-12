@@ -10,7 +10,7 @@ Each milestone ends with a build the user can run every day. The order is fixed.
 | M3 | Editor and files (done 2026-10-12) | editor Bench with Explorer and Preview, Go to File, files Bench, git status and diff | M1 |
 | M4 | Browser (done 2026-10-12) | browser Bench, Profiles, Extensions, Store install, Probe, default browser | M1 |
 | M5 | Notch panel (done 2026-10-12) | notch panel on the fork's window patches, same State as the main window | M1 |
-| M6 | MCP | the server, the Bridge, Access levels, Audit log, tools for lab, terminal, browser, editor, notes | M2, M3, M4 |
+| M6 | MCP (done 2026-10-12) | the server, the Bridge, Access levels, Audit log, tools for lab, terminal, browser, editor, notes | M2, M3, M4 |
 | M7 | HTTP | http Bench, Collections, Environments, Keychain secrets, MCP tools | M3 (editor for bodies) |
 | M8 | Database | db Bench, Connections, Queries, Results, Tunnels, MCP tools | M7 |
 | M9 | SSH | ssh Bench, Hosts, `~/.ssh/config` import, MCP tools | M2 |

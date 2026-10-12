@@ -1,10 +1,22 @@
 #!/bin/zsh
-# smoke — the live check of a build: up, a shot of the window, down.
-# M1 adds a Lab and a Bench; M6 adds the MCP round trip (15-build-test.md R-BUILD-054).
+# smoke — the live check of a build: up, a shot of the window, the MCP
+# round trip through the Bridge, down (15-build-test.md R-BUILD-054).
 set -e
 NL=${0:A:h}/nl
+ROOT=${0:A:h}/../..
+export NOTCH_LAB_HOME=${NOTCH_LAB_HOME:-/tmp/notch-lab-dev}
+# The test home's agents get Full access, so the round trip can type.
+mkdir -p $NOTCH_LAB_HOME
+python3 - $NOTCH_LAB_HOME/settings.json <<'PY'
+import json, os, sys
+p = sys.argv[1]
+d = json.load(open(p)) if os.path.exists(p) else {}
+d.setdefault('mcp', {}).update({'access': 'full', 'fullAgreed': True})
+json.dump(d, open(p, 'w'), indent=2)
+PY
 $NL up
-sleep 1
+sleep 2
 $NL shot smoke
+(cd $ROOT && go run ./tools/mcp-smoke $(ls -d build/darwin-*/notch-lab.app | head -1)/Contents/MacOS/notch-lab)
 $NL down
 echo "smoke ok"

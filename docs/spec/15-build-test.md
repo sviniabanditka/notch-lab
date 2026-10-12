@@ -115,7 +115,7 @@ R-BUILD-050. `tools/verify/nl` is the handle for a live run, ported from herdr-g
 | `nl panel` | toggles the notch panel (SIGUSR1, dev runs only) |
 | `nl pshot <name>` | captures the notch panel only to `$NOTCH_LAB_HOME/shots/<name>.png` |
 | `nl mem [secs]` | samples RSS and CPU of the app and the Daemon |
-| `nl mcp <tool> <json>` | one tool call through the Bridge against the dev home |
+| `nl mcp <tool> <json>` | one tool call through the Bridge against the dev home (`tools/mcp-smoke -call`) |
 
 R-BUILD-051. Input goes to the app's pid only. The user's cursor and front app stay. Text and keys without Cmd bring the app to the front for the send and hand the front back. `NL_FOREGROUND=1` restores global events.
 
@@ -123,7 +123,7 @@ R-BUILD-052. The Mac's Cyrillic layout types Cyrillic through `osascript keystro
 
 R-BUILD-053. `nl shot` captures the window only. A context menu is a window of its own and is absent from the shot. A window on another Space, or hidden behind a full-screen app, draws no frames: mygo pauses an occluded window, so posted input waits until the window shows. `ui.Tester` covers pointer drags.
 
-R-BUILD-054. The smoke run `tools/verify/smoke` does: `nl up`; `nl shot smoke`; `nl down`. Exit 0 on success. M1 adds: create a Lab and a terminal Bench. M6 adds: `nl mcp terminal.create`; `nl mcp terminal.write '{"text":"echo ok"}'`; `nl mcp terminal.key Enter`; read the Screen and expect `ok`.
+R-BUILD-054. The smoke run `tools/verify/smoke` does: `nl up`; `nl shot smoke`; `nl down`. Exit 0 on success. M1 adds: create a Lab and a terminal Bench. M6 adds: the test home's agents get Full access, then `tools/mcp-smoke` runs the terminal round trip (R-MCP-110).
 
 R-BUILD-055. Two live checks run real WebKit in a window of their own, without the app: `go run ./tools/webcheck` (data store, Probe, titles, navigation) and `go run ./tools/extcheck` (a fixture Extension: load, content script, worker message, native message). `extcheck -store` also installs uBlock Origin Lite from the Chrome Web Store (network). `extcheck -install <home>/extensions` puts uBlock Origin Lite, pinned, into a dev home.
 

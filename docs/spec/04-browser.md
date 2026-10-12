@@ -366,7 +366,9 @@ R-WEB-196. WebSocket frames `[later]`. Worker console `[later]`.
 
 R-WEB-200. A snapshot is an outline of the page built in the listener's world from the DOM: one line per element that has a role, a name, is focusable, is a link, a form control, a heading, an image with alt, or a landmark. Each line has: a ref `e<n>`, the role, the name cut at 120 characters, the state (checked, disabled, expanded, selected), the value of a form control (masked for password fields), the bounds in page coordinates, and a depth. Hidden elements (`display:none`, `visibility:hidden`, `aria-hidden`, zero size) are left out. The outline is at most 2 000 lines; the app cuts it and adds a last line "… <n> more".
 
-R-WEB-201. A ref maps to its element through a `WeakRef` in the listener's world. Refs expire on navigation. An action with an expired ref answers "ref expired, take a new snapshot".
+R-WEB-201. A ref maps to its element in the agents' own content world, which the app makes at launch and keeps alive. The map holds the elements strongly until the next snapshot: a `WeakRef` there holds that world's wrapper, which nothing else holds, and loses it at the next collection. Refs expire on navigation. An action with an expired ref answers "ref expired, take a new snapshot".
+
+R-WEB-205. A Web view that no Leaf placed (a Tab no Leaf shows, or a window that draws no frames) gets a 1280 x 800 pt frame before a tool acts on it, so its page lays out and takes input.
 
 R-WEB-202. Actions are sent as trusted events through the mygo fork's input injection into the Web view, at the element's center in window coordinates, never as JavaScript `dispatchEvent`:
 
@@ -376,7 +378,7 @@ R-WEB-202. Actions are sent as trusted events through the mygo fork's input inje
 | type (ref, text) | click the element, select all when asked, then key events per character; Enter when asked |
 | select (ref, value) | click, then set the option through the page world and fire `input` and `change` |
 | press (key, modifiers) | key down and up to the Web view |
-| scroll (ref or x, y, dx, dy) | wheel events at the point |
+| scroll (ref, or dx, dy) | the page scrolls the element into view, or scrolls by dx, dy (wheel events `[later]`) |
 | hover (ref) | mouse move to the point |
 
 R-WEB-203. The app refuses an action while a permission sheet or a `beforeunload` sheet is up: "the page waits for the user".
@@ -407,7 +409,7 @@ Every tool takes `tab` (a Tab id) unless noted. `R` = Read, `F` = Full. A tool w
 | `browser.network.read` | `tab`, `since?`, `url_filter?` | R | entries |
 | `browser.find` | `tab`, `text` | R | the count and the first 20 refs that hold the text |
 | `browser.wait_for` | `tab`, `load?`, `selector?`, `text?`, `timeout?` (default 10 s, max 60 s) | R | ok or "timeout" |
-| `browser.cookies.list` | `tab`, `domain?` | F | name, domain, path, expires; values masked at Read, shown at Full |
+| `browser.cookies.list` | `tab`, `domain?` | F | name and value of the page's `document.cookie`; HttpOnly cookies from `WKHTTPCookieStore` are `[later]` |
 | `browser.downloads.list` | — | R | the downloads list |
 
 R-WEB-210. A Client sees the Tabs of a browser Bench with an isolated Profile only when the Bench setting `agentsMayUse` is on. Default off. The shared Profile's Benches are visible by default.
@@ -416,7 +418,7 @@ R-WEB-211. A snapshot, a screenshot, `eval`, console and network entries never r
 
 R-WEB-212. Every tool call goes to the Audit log with the Tab, the params with secrets masked, and the result's size.
 
-R-WEB-213. A Tab a Client opened closes when the Client disconnects, unless the user interacted with the Tab after the Client opened it.
+R-WEB-213. A Tab a Client opened closes when the Client disconnects and Settings › Agents "Close an agent's own Tabs" is on. Keeping a Tab the user interacted with is `[later]`.
 
 ## Performance
 

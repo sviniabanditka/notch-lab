@@ -39,6 +39,7 @@ func (a *app) newNotch(userHome string) {
 	sh.Types, sh.DaemonOK, sh.RestartDaemon = a.sh.Types, a.sh.DaemonOK, a.sh.RestartDaemon
 	sh.GoToFile, sh.Overlays = a.sh.GoToFile, a.sh.Overlays
 	sh.ShowMain = a.sh.ShowWindow
+	sh.AgentStatus = a.sh.AgentStatus
 	sh.ToggleNotch = n.toggle
 	sh.Strip = n.stripView
 	sh.BeforeFrame = func() { a.drawingIn(n.win) }

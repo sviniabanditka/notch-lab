@@ -14,9 +14,9 @@ type SettingsView struct {
 	Section int
 	// ResetState deletes the State and relaunches the app.
 	ResetState func()
-	// Browser and Extensions draw the browser's own controls of those
-	// sections: default browser, history, permissions, Extensions.
-	Browser, Extensions func(c *ui.Context)
+	// Browser, Extensions and Agents draw the app's own controls of those
+	// sections: default browser, history, permissions, Extensions, MCP.
+	Browser, Extensions, Agents func(c *ui.Context)
 }
 
 // Open selects a section by name; "" keeps the current one.
@@ -182,7 +182,7 @@ func (v *SettingsView) section(c *ui.Context) {
 		if v.Extensions != nil {
 			v.Extensions(c)
 		} else {
-			note("Extensions arrive in M4 stage B.")
+			note("Extensions need macOS 15.4 or later.")
 		}
 	case "Editor":
 		text("Font family", &set.Editor.FontFamily)
@@ -193,11 +193,10 @@ func (v *SettingsView) section(c *ui.Context) {
 		sw("Trim trailing space on save", &set.Editor.TrimTrailingSpace)
 		sw("Show line numbers", &set.Editor.LineNumbers)
 		sw("Wrap lines", &set.Editor.Wrap)
-		note("Editor Benches arrive in M3.")
 	case "Agents/MCP":
-		sel("Access for agents", &set.MCP.Access, "off", "read", "full")
-		sw("Toast on every change an agent makes", &set.MCP.ToastOnWrite)
-		note("The MCP server, per-domain access, the Client list and the Audit log arrive in M6.")
+		if v.Agents != nil {
+			v.Agents(c)
+		}
 	case "Advanced":
 		ui.Row(c.Key("home")).Gap(12).Children(func() {
 			ui.Text(c, "State folder").Grow(1)

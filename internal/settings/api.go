@@ -96,6 +96,10 @@ type MCP struct {
 	Access       string            `json:"access"`
 	Domains      map[string]string `json:"domains"`
 	ToastOnWrite bool              `json:"toastOnWrite"`
+	// CloseOwnTabs closes a Client's own Tabs when it leaves (R-MCP-030).
+	CloseOwnTabs bool `json:"closeOwnTabs"`
+	// FullAgreed is the answer to the first Full sheet (R-MCP-043).
+	FullAgreed bool `json:"fullAgreed"`
 }
 type Advanced struct {
 	LogLevel string `json:"logLevel"`
@@ -117,7 +121,7 @@ func Defaults() Settings {
 		External: "cursor --goto {path}:{line}:{col}", HideDots: true}
 	s.Browser.Inspectable = true
 	s.Browser.Permissions, s.Browser.Zoom, s.Browser.Schemes = map[string]map[string]string{}, map[string]float64{}, map[string]map[string]bool{}
-	s.MCP = MCP{Access: "off", Domains: map[string]string{}, ToastOnWrite: true}
+	s.MCP = MCP{Access: "read", Domains: map[string]string{"ssh": "off"}, ToastOnWrite: true, CloseOwnTabs: true}
 	s.Advanced = Advanced{LogLevel: "info"}
 	return s
 }

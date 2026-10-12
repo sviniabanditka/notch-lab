@@ -101,6 +101,6 @@ case $1 in
     local pids=$(app_pid); local d=$(pgrep -f "^$DAEMON" | head -1); [[ -n $d ]] && pids="$pids,$d"
     for i in $(seq 1 ${2:-5}); do ps -o rss=,%cpu=,comm= -p $pids; sleep 1; done |
       awk '{r[$3]+=$1/1024; c[$3]+=$2; n[$3]++} END {for (k in r) printf "%s: rss avg %.1f MB, cpu avg %.0f%%\n", k, r[k]/n[k], c[k]/n[k]}' ;;
-  mcp) echo "nl mcp: the Bridge arrives in M6" >&2; exit 2 ;;
+  mcp) cd $ROOT/../.. && go run ./tools/mcp-smoke $(ls -d build/darwin-*/notch-lab.app | head -1)/Contents/MacOS/notch-lab -call "$2" "${3:-{\}}" ;;
   *) echo "usage: nl up|down|front|text S|key CODE [cmd shift ctrl alt]|click|rclick|cclick|dclick|move|cmdclick X Y|scroll X Y N|drag X1 Y1 X2 Y2|shot NAME|panel|pshot NAME|mem [SECS]|mcp TOOL JSON" >&2; exit 2 ;;
 esac

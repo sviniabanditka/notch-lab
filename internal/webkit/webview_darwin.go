@@ -26,11 +26,20 @@ func SetDataStore(cfg uintptr, uuid string) {
 	send(id(cfg), "setWebsiteDataStore:", st)
 }
 
+// worlds keeps named content worlds alive: WebKit gives a new world, with
+// new globals, once the last reference to one with that name is gone.
+var worlds = map[string]id{}
+
 func world(name string) id {
 	if name == "" {
 		return send(class("WKContentWorld"), "pageWorld")
 	}
-	return send(class("WKContentWorld"), "worldWithName:", nsString(name))
+	if w := worlds[name]; w != 0 {
+		return w
+	}
+	w := retain(send(class("WKContentWorld"), "worldWithName:", nsString(name)))
+	worlds[name] = w
+	return w
 }
 
 func controller(web uintptr) id {

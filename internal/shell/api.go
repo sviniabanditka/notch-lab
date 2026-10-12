@@ -51,6 +51,8 @@ type Shell struct {
 	// Elsewhere names the window that shows a Tab live now, or "": this
 	// Shell then draws a placeholder in its Leaf (R-SHELL-017).
 	Elsewhere func(t *model.Tab) string
+	// AgentStatus draws the agents' part of the status bar (R-MCP-034).
+	AgentStatus func(c *ui.Context)
 	// MenuOwner reports whether this Shell's window owns the menu bar now;
 	// nil means always.
 	MenuOwner func() bool

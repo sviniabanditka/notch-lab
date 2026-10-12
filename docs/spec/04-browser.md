@@ -300,9 +300,9 @@ R-WEB-153. Screen capture from an Extension (`tabCapture`, `desktopCapture`) ask
 
 ### Popups and pages
 
-R-WEB-160. Each enabled Extension with an action shows a 24 pt button at the right end of the address bar, in the Extensions' pinned order; unpinned ones sit in the "more" menu. The button shows the action's icon and badge text on the action's badge color. The button is disabled when the action is disabled for the Tab.
+R-WEB-160. The address bar has one Extensions button (a puzzle icon). A click opens a popover: a row per enabled Extension with an action, with the action's icon, label and badge, and "Manage Extensions…", which opens the Library on Extensions. A click on a row presses that action. A row of a disabled action is dimmed.
 
-R-WEB-161. A click on the button opens the action's popup in a popover anchored to the button. The popup is a Web view made from the Extension's web view configuration, not WebKit's own popover: for some Extensions WebKit's popup never reaches the worker. The popover sizes to the page's content between 25 and 800 pt wide and up to 600 pt tall, measured after load and on every change through a 100 ms timer. `window.close()` closes it. Esc closes it. A click outside closes it. A click on the same button within 300 ms after a close does not reopen it.
+R-WEB-161. A click on the button opens the action's popup in a popover anchored to the button. The popup is a Web view made from the Extension's web view configuration, not WebKit's own popover: for some Extensions WebKit's popup never reaches the worker. The popover sizes to the page's content between 25 and 800 pt wide and up to 600 pt tall, measured after load and on every change through a 100 ms timer. `window.close()` closes it. Esc closes it. A click outside closes it. A click on the same button within 300 ms after a close does not reopen it. When WebKit does not ask for the popup within 400 ms of the press (Bitwarden), the app opens the manifest's `default_popup` itself. The popup hangs from the window that shows the Tab (the notch panel or the main window), one level above it.
 
 R-WEB-162. The popup's `WKWebExtensionTab` has no window of its own: "the current window" from a popup is the window that holds the button.
 

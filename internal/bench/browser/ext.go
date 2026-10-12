@@ -35,6 +35,10 @@ type Ext struct {
 	popup   *mygo.Window
 	storeH  string
 	storeW  string
+	// menu shows the list of Extensions under the address bar's button.
+	menu bool
+	// presented is when a popup last opened; see act.
+	presented time.Time
 	// openPopupFor is the button the popup hangs from.
 	openPopupFor ui.Rect
 	link         string // Settings › Extensions field
@@ -450,58 +454,83 @@ func (e *Ext) ActionChanged(cx *webkit.Context) {
 
 // buttons draws a button per pinned, loaded Extension in the address bar.
 func (e *Ext) buttons(c *ui.Context, x *tab) {
-	for _, en := range e.M.List {
-		cx := e.ctl.Contexts[en.ID]
-		if cx == nil || !en.Pinned {
-			continue
-		}
-		a, ok := cx.Action(x.ext)
-		if !ok {
-			continue
-		}
-		h := e.anchors[en.ID]
-		if h == nil {
-			h = &ui.Handle{}
-			e.anchors[en.ID] = h
-		}
-		sum := string(a.Icon)
-		if e.iconPNG[en.ID] != sum {
-			e.iconPNG[en.ID] = sum
-			e.icons[en.ID], _ = ui.DecodeBitmap(a.Icon)
-		}
-		label := a.Label
-		if label == "" {
-			label = en.Name
-		}
-		row := ui.Row(c.Key("ext-"+en.ID)).Height(kit.Size).MinWidth(kit.Size).Shrink(0).Padding(0, 6).Gap(2).Radius(6).
-			AlignItems(ui.Center).Justify(ui.Center).Label(label).Tooltip(label).Role(ui.RoleButton).
-			Cursor(ui.CursorPointer).Transition(kit.Motion).Bind(h)
-		switch {
-		case row.Pressed():
-			row.Background(kit.Pressed(c.Theme()))
-		case row.Hovered():
-			row.Background(kit.Hover(c.Theme()))
-		}
-		row.Children(func() {
-			if bmp := e.icons[en.ID]; bmp != nil {
-				ui.Image(c, bmp).Width(16).Height(16)
-			} else {
-				ui.Icon(c, kit.Puzzle).FontSize(15).TextColor(c.Theme().TextMuted)
+	th := c.Theme()
+	h := e.anchors[""]
+	if h == nil {
+		h = &ui.Handle{}
+		e.anchors[""] = h
+	}
+	btn := kit.IconButton(c, "extensions", "Extensions", kit.Puzzle, e.menu).Bind(h)
+	if btn.Clicked() {
+		e.menu = !e.menu
+	}
+	ui.Popover(c.Key("extmenu"), btn, &e.menu, func() {
+		ui.Column(c).Width(260).Gap(2).AlignItems(ui.Stretch).Children(func() {
+			shown := 0
+			for _, en := range e.M.List {
+				cx := e.ctl.Contexts[en.ID]
+				if cx == nil {
+					continue
+				}
+				a, ok := cx.Action(x.ext)
+				if !ok {
+					continue
+				}
+				shown++
+				sum := string(a.Icon)
+				if e.iconPNG[en.ID] != sum {
+					e.iconPNG[en.ID] = sum
+					e.icons[en.ID], _ = ui.DecodeBitmap(a.Icon)
+				}
+				label := a.Label
+				if label == "" {
+					label = en.Name
+				}
+				row := kit.Row(c, "ext-"+en.ID, 0, false).Height(32).Gap(10).Label(label).Role(ui.RoleButton).Cursor(ui.CursorPointer)
+				if !a.Enabled {
+					row.Opacity(0.45)
+				}
+				row.Children(func() {
+					if bmp := e.icons[en.ID]; bmp != nil {
+						ui.Image(c, bmp).Width(18).Height(18)
+					} else {
+						ui.Icon(c, kit.Puzzle).FontSize(16).TextColor(th.TextMuted)
+					}
+					ui.Text(c, label).SingleLine().Grow(1).Shrink(1).MinWidth(0)
+					if a.Badge != "" {
+						ui.Text(c, a.Badge).FontSize(10).FontWeight(600).Padding(0, 5).Radius(5).Background(th.Accent).TextColor(th.AccentText)
+					}
+				})
+				if row.Clicked() {
+					log.Printf("extensions: %s: action clicked, enabled %v, popup %v", en.ID, a.Enabled, a.Popup)
+					if a.Enabled {
+						e.menu = false
+						e.openPopupFor = h.Bounds(c)
+						e.act(cx, x)
+					}
+				}
 			}
-			if a.Badge != "" {
-				ui.Text(c, a.Badge).FontSize(9).Padding(0, 3).Radius(4).Background(c.Theme().Accent).TextColor(c.Theme().AccentText)
+			if shown == 0 {
+				ui.Text(c, "No Extensions").FontSize(12).TextColor(kit.Faint(th)).Padding(6, 8)
+			}
+			ui.Box(c).Height(1).Margin(4, 0).Background(kit.Stroke(th))
+			if kit.Row(c, "manage", 0, false).Height(30).Children(func() {
+				ui.Icon(c, kit.Gear).FontSize(14).TextColor(th.TextMuted)
+				ui.Text(c, "Manage Extensions…")
+			}).Clicked() {
+				e.menu = false
+				e.b.OpenLibrary(x.t.Bench, 3)
 			}
 		})
-		if row.Clicked() && a.Enabled {
-			e.openPopupFor = h.Bounds(c)
-			cx.PerformAction(x.ext)
-		}
-	}
+	})
 }
 
 func (e *Ext) PresentPopup(cx *webkit.Context, t *webkit.ExtTab) {
+	e.presented = time.Now()
 	u := cx.PopupURL()
-	if u == "" || e.b.Win == nil {
+	win := e.windowOf(t)
+	log.Printf("extensions: %s: popup %q", cx.Name, u)
+	if u == "" || win == nil {
 		return
 	}
 	if e.popup != nil {
@@ -510,7 +539,7 @@ func (e *Ext) PresentPopup(cx *webkit.Context, t *webkit.ExtTab) {
 	r := e.openPopupFor
 	var wv *mygo.WebView
 	fly := mygo.NewFlyout(mygo.FlyoutOptions{
-		Parent:    e.b.Win,
+		Parent:    win,
 		Anchor:    mygo.Rectangle{X: int(r.X), Y: int(r.Y), Width: int(r.W), Height: int(r.H)},
 		Placement: mygo.PlacementBottomEnd,
 		Width:     380, Height: 520,
@@ -531,6 +560,8 @@ func (e *Ext) PresentPopup(cx *webkit.Context, t *webkit.ExtTab) {
 	_ = wv.Page().LoadURL(u)
 	wv.Page().OnPageTitleUpdated(func(ev *mygo.TitleEvent) { ev.PreventDefault() })
 	e.popup = fly
+	// Over its window, as over the notch panel above the menu bar.
+	webkit.Above(fly.NativeHandle(), win.NativeHandle())
 	fly.OnClosed(func() {
 		if e.popup == fly {
 			e.popup = nil
@@ -550,4 +581,35 @@ func liveURL(x *tab) string {
 		}
 	}
 	return readData(x.t).URL
+}
+
+// act presses an Extension's button. WebKit asks for the popup through
+// its delegate; for some Extensions (Bitwarden) it does not, so the popup
+// of the manifest opens here when no request comes soon (R-WEB-161).
+func (e *Ext) act(cx *webkit.Context, x *tab) {
+	asked := time.Now()
+	cx.PerformAction(x.ext)
+	time.AfterFunc(400*time.Millisecond, func() {
+		e.b.Post(func() {
+			if e.presented.Before(asked) && cx.PopupURL() != "" {
+				log.Printf("extensions: %s: no popup request from WebKit; opening it", cx.Name)
+				e.PresentPopup(cx, x.ext)
+			}
+		})
+	})
+}
+
+// windowOf is the window that shows an Extension's Tab, which a popup
+// hangs from: the notch panel or the main window, not the one that drew
+// last.
+func (e *Ext) windowOf(t *webkit.ExtTab) *mygo.Window {
+	for _, x := range e.b.tabs {
+		if x.ext == t && t != nil && x.wv != nil && x.wv.Window() != nil {
+			return x.wv.Window()
+		}
+	}
+	if f := e.b.focus; f != nil && f.wv != nil && f.wv.Window() != nil {
+		return f.wv.Window()
+	}
+	return e.b.Win
 }

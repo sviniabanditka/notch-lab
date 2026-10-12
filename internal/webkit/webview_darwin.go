@@ -148,3 +148,15 @@ func messageBody(body id) string {
 	}
 	return goString(send(body, "description"))
 }
+
+// Above puts window w one level above window parent, so that a popup of a
+// window over the menu bar (the notch panel) shows over it.
+func Above(w, parent uintptr) {
+	if w == 0 || parent == 0 {
+		return
+	}
+	lvl := send(id(parent), "level")
+	if cur := send(id(w), "level"); cur <= lvl {
+		send(id(w), "setLevel:", uintptr(lvl)+1)
+	}
+}

@@ -80,10 +80,6 @@ func (b *Bench) ExtensionSettings(c *ui.Context, parent *mygo.Window) {
 					}
 					ui.Text(c, en.Version+" · "+source).FontSize(11).TextColor(th.TextMuted).SingleLine()
 				})
-				if kit.IconButton(c, "pin", "Show in the toolbar", kit.Pin, en.Pinned).Clicked() {
-					en.Pinned = !en.Pinned
-					e.M.Save()
-				}
 				if cx != nil && cx.OptionsURL() != "" && kit.IconButton(c, "opts", "Options", kit.Gear, false).Clicked() {
 					e.OpenOptions(cx)
 				}

@@ -2,6 +2,8 @@
 
 The notes Bench keeps markdown Notes. A Tab is one Note. The Panel lists the Notes with search. The Note editor is the editor Bench's native editor in markdown mode (`05-editor.md`), with the Preview on Cmd+E.
 
+> M10 status (2026-10-12). Done: the Lab and Global folders, the index with polling and search, the Panel with groups and its menu, new Notes, titles from `# `, autosave, the Preview through the editor Bench, image paste, the MCP tools. The notes Bench is the editor Bench with its own Panel, new Tab and title (package `internal/bench/notes`). `[later]` in M10: soft wrap (R-NOTES-014: the native editor does not wrap yet), the dimmed frontmatter (R-NOTES-016), `renameOnTitle` (R-NOTES-013), Undo of a delete (R-NOTES-018: the file goes to the Trash), Cmd+Shift+F to the search field (R-NOTES-033). Rename asks in a sheet, not inline (R-NOTES-038). An image pastes when the clipboard holds a PNG (R-NOTES-020).
+
 ## Storage
 
 R-NOTES-001. The Bench's notes folder is `$NOTCH_LAB_HOME/notes/<lab id>/` by default. The Bench setting `folder` replaces it with any folder. The user can point it at an Obsidian vault folder.

@@ -31,6 +31,9 @@ type View struct {
 	Marks map[int]byte
 	// OpenLink opens a path under the pointer of a Cmd+click (R-EDIT-104).
 	OpenLink func(path string) bool
+	// OnPaste takes a paste before the text paste, as a Note's image
+	// (R-NOTES-020); true means it did.
+	OnPaste func() bool
 
 	ScrollX, ScrollY float32
 	h                ui.Handle
@@ -574,7 +577,7 @@ func (v *View) command(name string) bool {
 		}
 		mygo.Clipboard.WriteText(d.Cut())
 	case "paste":
-		if !v.ReadOnly {
+		if !v.ReadOnly && (v.OnPaste == nil || !v.OnPaste()) {
 			d.Paste(mygo.Clipboard.ReadText())
 		}
 	case "undo":

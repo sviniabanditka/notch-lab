@@ -12,3 +12,4 @@
 - M7: http Bench. Requests in `.http` files (VS Code REST Client format, exact round trip), Environments with Keychain secrets, curl import and export, timings, redirects, cookie jar, streaming and large bodies, history; MCP tools `http.*`.
 - M8: db Bench. PostgreSQL, MySQL and SQLite Connections with Keychain passwords and an SSH tunnel; schema tree, Query Tabs with SQL highlight, read-only rules and confirmations, LIMIT and Load more, server-side cancel, sortable and filterable Results, export, history; MCP tools `db.*`.
 - M9: ssh Bench. Hosts with tags, the `~/.ssh/config` import, SSH session Tabs on the terminal Daemon with reconnect, MCP tools `ssh.*`; db Connections tunnel through a Host.
+- M10: notes Bench. Markdown Notes per Lab and Global, search over an in-memory index, the native editor with autosave and Preview, image paste into `assets/`, MCP tools `notes.*`.

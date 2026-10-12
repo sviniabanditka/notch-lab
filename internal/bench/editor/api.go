@@ -48,6 +48,13 @@ type Bench struct {
 	// AskText asks for a text in a sheet; check returns "" to accept the
 	// text, or why it does not (the sheet stays open).
 	AskText func(title, current string, check func(string) string)
+	// For Benches that show Files in editor Tabs, as the notes Bench:
+	// TitleFor names a Tab from its text ("" keeps the file name),
+	// AutosaveFor overrides the autosave setting, and Prepare gets each
+	// new View (07-notes.md).
+	TitleFor    func(t *model.Tab, text string) string
+	AutosaveFor func(bench *model.Bench) (on, set bool)
+	Prepare     func(t *model.Tab, v *ed.View)
 
 	tabs      map[*model.Tab]*tab
 	explorers map[*model.Bench]*filetree.View
@@ -298,6 +305,9 @@ func (b *Bench) setTextDark(x *tab, f *ed.File, dark bool) {
 	x.view.LineNumbers = s.LineNumbers
 	x.view.HL = x.hl
 	x.view.OpenLink = func(p string) bool { return b.openLink(x, p) }
+	if b.Prepare != nil {
+		b.Prepare(x.t, x.view)
+	}
 	t := x.t
 	x.doc.Changed = func() {
 		b.St.Changed()
@@ -321,7 +331,13 @@ func (b *Bench) setTextDark(x *tab, f *ed.File, dark bool) {
 
 // edited runs after every edit: autosave (R-EDIT-113) and gutter marks.
 func (b *Bench) edited(x *tab) {
-	if b.Set.S.Editor.Autosave == "1s" && x.file != nil && x.file.Path != "" {
+	auto := b.Set.S.Editor.Autosave == "1s"
+	if b.AutosaveFor != nil {
+		if on, set := b.AutosaveFor(x.t.Bench); set {
+			auto = on
+		}
+	}
+	if auto && x.file != nil && x.file.Path != "" {
 		if x.saveAt != nil {
 			x.saveAt.Stop()
 		}
@@ -426,6 +442,11 @@ func (b *Bench) keep(x *tab) {
 		title = filepath.Base(x.file.Path)
 		if b.sameName(x.t, title) {
 			title += " — " + filepath.Base(filepath.Dir(x.file.Path)) // R-EDIT-004
+		}
+		if b.TitleFor != nil && x.doc != nil {
+			if named := b.TitleFor(x.t, x.doc.String()); named != "" {
+				title = named
+			}
 		}
 		if x.deleted {
 			title += " (deleted)"

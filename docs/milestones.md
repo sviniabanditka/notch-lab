@@ -14,7 +14,7 @@ Each milestone ends with a build the user can run every day. The order is fixed.
 | M7 | HTTP (done 2026-10-12) | http Bench, Collections, Environments, Keychain secrets, MCP tools | M3 (editor for bodies) |
 | M8 | Database (done 2026-10-12) | db Bench, Connections, Queries, Results, Tunnels, MCP tools | M7 |
 | M9 | SSH (done 2026-10-12) | ssh Bench, Hosts, `~/.ssh/config` import, MCP tools | M2 |
-| M10 | Notes | notes Bench, search, MCP tools | M3 |
+| M10 | Notes (done 2026-10-12) | notes Bench, search, MCP tools | M3 |
 | M11 | Pull requests and agents | pull-requests Bench, agents Bench, Chat, Tasks, MCP tools | M2, M4 |
 
 ## Done means

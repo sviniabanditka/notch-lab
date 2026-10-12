@@ -80,12 +80,7 @@ func AddMessageHandler(web uintptr, worldName, name string, fn func(body string)
 				if f == nil {
 					return
 				}
-				body := send(msg, "body")
-				if isKind(body, "NSString") {
-					f(goString(body))
-				} else {
-					f(goString(send(body, "description")))
-				}
+				f(messageBody(send(msg, "body")))
 			}}})
 		if err != nil {
 			panic(fmt.Sprintf("webkit: %v", err))
@@ -134,4 +129,22 @@ func IsDefaultBrowser(bundlePath string) bool {
 	ws := send(class("NSWorkspace"), "sharedWorkspace")
 	u := send(ws, "URLForApplicationToOpenURL:", send(class("NSURL"), "URLWithString:", nsString("https://example.com")))
 	return strings.TrimSuffix(goString(send(u, "path")), "/") == strings.TrimSuffix(bundlePath, "/")
+}
+
+// messageBody is a script message's body as text: a string as it is, an
+// object or an array as JSON, which the Go side reads. Its description is
+// not JSON ("{ add = 1; }") and parses to nothing.
+func messageBody(body id) string {
+	if isKind(body, "NSString") {
+		return goString(body)
+	}
+	js := class("NSJSONSerialization")
+	if sendBool(js, "isValidJSONObject:", body) {
+		if data := send(js, "dataWithJSONObject:options:error:", body, uint64(0), uintptr(0)); data != 0 {
+			str := send(send(class("NSString"), "alloc"), "initWithData:encoding:", data, uint64(4)) // NSUTF8StringEncoding
+			defer send(str, "release")
+			return goString(str)
+		}
+	}
+	return goString(send(body, "description"))
 }

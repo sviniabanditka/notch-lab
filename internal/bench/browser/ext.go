@@ -141,6 +141,7 @@ func (e *Ext) finish(en *extensions.Entry, err error) {
 	e.busy = ""
 	defer e.tellStores()
 	if err != nil {
+		log.Printf("extensions: could not add: %v", err)
 		e.b.Toast("Could not add the Extension: " + err.Error())
 		return
 	}
@@ -239,6 +240,7 @@ func (e *Ext) wireStore(x *tab) {
 		e.b.Post(func() {
 			var m map[string]any
 			_ = json.Unmarshal([]byte(body), &m)
+			log.Printf("extensions: store page says %s at %s", body, liveURL(x))
 			if _, ok := m["placed"]; ok {
 				e.tellStore(x)
 			}
@@ -249,7 +251,10 @@ func (e *Ext) wireStore(x *tab) {
 					e.b.Toast("Open the Extension's own page in the Store to add it")
 					return
 				}
-				e.b.confirm("Add this Extension to notch-lab? It can read and change the sites it asks for.", "Add", func() { e.Install(id) })
+				e.b.confirm("Add this Extension to notch-lab? It can read and change the sites it asks for.", "Add", func() {
+					log.Printf("extensions: %s: adding from the Store page", id)
+					e.Install(id)
+				})
 			}
 		})
 	})

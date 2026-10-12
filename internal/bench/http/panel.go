@@ -37,7 +37,7 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 				b.writeSettings(bench, set)
 			}
 			if kit.IconButton(c, "gear", "Environments", kit.Gear, false).Clicked() {
-				s.envEdit = !s.envEdit
+				b.env.open, b.env.win, b.env.bench = true, b.Win, bench
 			}
 			kit.IconButton(c, "more", "New", kit.Plus, false).Menu(func(m *ui.Menu) {
 				if m.Item("New Collection…").Chosen() {
@@ -74,9 +74,6 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 		})
 		if s.envErr != "" {
 			ui.Text(c, s.envErr).FontSize(11).TextColor(th.Danger)
-		}
-		if s.envEdit {
-			b.envEditor(c, bench, s, set.Environment)
 		}
 		ui.TextInput(c.Key("q"), &s.query).Placeholder("Search requests")
 		ui.Scroll(c.Key("tree")).Grow(1).Basis(0).MinHeight(0).Children(func() {
@@ -304,7 +301,7 @@ func (b *Bench) importCurl(bench *model.Bench, s *store) {
 // a secret goes to the Keychain (R-HTTP-033).
 func (b *Bench) envEditor(c *ui.Context, bench *model.Bench, s *store, active string) {
 	th := c.Theme()
-	ui.Column(c.Key("envs")).Gap(4).Padding(6).Radius(6).Background(th.Surface).Children(func() {
+	ui.Column(c.Key("envs")).Gap(4).Padding(2).Children(func() {
 		for _, name := range []string{active, "$shared"} {
 			if name == "" {
 				continue
@@ -393,5 +390,19 @@ func (b *Bench) confirm(q, yes string, then func()) {
 		if ok {
 			then()
 		}
+	})
+}
+
+// Overlay draws the Environment editor over the window that opened it
+// (R-HTTP-033).
+func (b *Bench) Overlay(c *ui.Context) {
+	if !b.env.open || b.env.win != b.Win || b.env.bench == nil {
+		return
+	}
+	bench := b.env.bench
+	kit.Sheet(c, "envs", "Environments", 560, 440, &b.env.open, func() {
+		ui.Scroll(c.Key("envscroll")).Grow(1).Basis(0).MinHeight(0).Children(func() {
+			b.envEditor(c, bench, b.store(bench), readSettings(bench).Environment)
+		})
 	})
 }

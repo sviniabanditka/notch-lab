@@ -38,6 +38,12 @@ type Bench struct {
 
 	benches map[*model.Bench]*store
 	tabs    map[*model.Tab]*tab
+	// env is the Environment editor: open in the window win, for a Bench.
+	env struct {
+		open  bool
+		win   *mygo.Window
+		bench *model.Bench
+	}
 }
 
 // store is one Bench's files, Environments and cookie jar.
@@ -52,7 +58,6 @@ type store struct {
 	query   string
 	sel     string // the selected Collection's path
 	open    map[string]bool
-	envEdit bool
 }
 
 // benchSettings are an http Bench's own (R-HTTP-001, R-HTTP-031).

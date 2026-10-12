@@ -79,7 +79,7 @@ R-WEB-040. A download goes to `~/Downloads`. When a file with that name exists, 
 
 R-WEB-041. The app shows a Toast "Downloading <name>" at the start and "Downloaded <name>" at the end. A click on the Toast reveals the file in Finder.
 
-R-WEB-042. The Panel has a Downloads section: name, size, progress, state (running, done, failed). Each row has "Show in Finder", "Open" and "Remove from list". "Clear" removes done rows. The app keeps the last 200 downloads in `downloads.json` in `$NOTCH_LAB_HOME`.
+R-WEB-042. The Library has a Downloads section: name, size, progress, state (running, done, failed). Each row has "Show in Finder", "Open" and "Remove from list". "Clear" removes done rows. The app keeps the last 200 downloads in `downloads.json` in `$NOTCH_LAB_HOME`.
 
 R-WEB-043. A download that the app cannot finish shows "failed" with the reason. "Retry" starts it again.
 
@@ -115,11 +115,13 @@ R-WEB-070. Cmd+Shift+B bookmarks the focused Page: a popover with the title, the
 
 R-WEB-071. Bookmarks live in `$NOTCH_LAB_HOME/bookmarks.json`: a tree of folders and bookmarks, each with id, title, url, created time. The file is written at most once per 500 ms.
 
-R-WEB-072. The Panel's Bookmarks section shows the tree. Folders open and close. A click opens the bookmark in the focused Leaf. Cmd+click opens it in a new Tab. Drag reorders and moves between folders. The context menu has Open, Open in new Tab, Rename, Delete, New folder.
+R-WEB-072. The Library's Bookmarks section shows the tree. Folders open and close. A click opens the bookmark in the focused Leaf. Cmd+click opens it in a new Tab. Drag reorders and moves between folders. The context menu has Open, Open in new Tab, Rename, Delete, New folder.
 
 R-WEB-073. The bookmarks bar shows the folder named "Bar" under the address bar when the Settings value `browser.bookmarksBar` is on. Default off.
 
 R-WEB-074. Import from Chrome, Arc and Safari `[later]`.
+
+R-WEB-075. The browser Bench has no Panel: its sidebar is the Tab list. The Library button in the address bar opens the Library, a sheet over the window: Bookmarks, History, Downloads and Extensions (the controls of Settings › Extensions), and the "Isolated profile" switch (R-WEB-062). Opening an item closes the sheet; Esc and a click outside close it.
 
 ## History
 
@@ -134,7 +136,7 @@ A new visit of a known URL updates `title`, `visited_at` and `count`.
 
 R-WEB-081. The app does not write a visit from an isolated Profile when the Bench's setting `history` is off. Default on.
 
-R-WEB-082. The Panel's History section lists visits grouped by day, newest first, with a search field that matches URL and title. A click opens the visit. The context menu has Open in new Tab, Copy link, Remove.
+R-WEB-082. The Library's History section lists visits grouped by day, newest first, with a search field that matches URL and title. A click opens the visit. The context menu has Open in new Tab, Copy link, Remove.
 
 R-WEB-083. Settings › Browser has "Clear history" with the choices last hour, today, all. The app also removes the favicon cache of removed URLs.
 

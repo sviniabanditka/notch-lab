@@ -39,6 +39,8 @@ func writeData(t *model.Tab, d data) {
 
 // tab is a Query Tab's live part.
 type tab struct {
+	// opts shows the popover of the run options: limit and timeout.
+	opts     bool
 	t        *model.Tab
 	doc      *ed.Doc
 	view     *ed.View

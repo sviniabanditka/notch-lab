@@ -136,11 +136,26 @@ func (b *Bench) toolbar(c *ui.Context, x *tab) {
 			ui.Text(c, "read-only").FontSize(11).Padding(1, 6).Radius(4).Background(th.Accent.Alpha(0.15)).TextColor(th.Accent)
 		}
 		ui.Box(c).Grow(1)
-		ui.Text(c, "Limit 500").FontSize(12).TextColor(th.TextMuted)
-		ui.Switch(c.Key("limit"), &x.limit).Label("Limit 500")
-		ui.Text(c, "Timeout").FontSize(12).TextColor(th.TextMuted)
-		ui.NumberInput(c.Key("timeout"), &x.timeout, 1, 3600, 5).Width(120).Shrink(0)
-		ui.Box(c).Width(8).Shrink(0)
+		limit := "off"
+		if x.limit {
+			limit = "500 rows"
+		}
+		opts := kit.IconButton(c, "opts", fmt.Sprintf("Run options: limit %s, timeout %d s", limit, int(x.timeout)), kit.Sliders, x.opts)
+		if opts.Clicked() {
+			x.opts = !x.opts
+		}
+		ui.Popover(c.Key("optspop"), opts, &x.opts, func() {
+			ui.Column(c).Width(250).Gap(10).Padding(4).AlignItems(ui.Stretch).Children(func() {
+				ui.Row(c.Key("l")).Gap(8).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, "Limit 500 rows").Grow(1)
+					ui.Switch(c.Key("limit"), &x.limit).Label("Limit 500")
+				})
+				ui.Row(c.Key("t")).Gap(8).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, "Timeout, s").Grow(1)
+					ui.NumberInput(c.Key("timeout"), &x.timeout, 1, 3600, 5).Width(120).Shrink(0)
+				})
+			})
+		})
 		if kit.IconButton(c, "hist", "History", kit.History, x.history).Clicked() {
 			x.history = !x.history
 		}

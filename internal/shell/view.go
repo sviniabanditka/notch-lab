@@ -63,10 +63,10 @@ func (s *Shell) View(c *ui.Context) {
 		ui.Row(c).Fill().AlignItems(ui.Stretch).Children(func() { s.body(c) })
 	}
 	s.switcherView(c)
-	s.dialogView(c)
 	for _, o := range s.Overlays {
 		o(c)
 	}
+	s.dialogView(c) // over a Bench's sheet that asks for a text
 	s.q.View(c)
 	s.syncMenu()
 }

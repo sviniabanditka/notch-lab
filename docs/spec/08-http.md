@@ -83,7 +83,7 @@ R-HTTP-031. The Panel header has an Environment select. "No environment" is the 
 
 R-HTTP-032. A variable whose name starts with `secret.` is a secret. The file holds `"secret.token": ""`. The value lives in the Keychain under the service `dev.sviniabanditka.notch-lab` with the account `http/env/<environment>/<name>` (R-SHELL-165). The app talks to `/usr/bin/security` over its standard input, so a value never shows in a process's arguments.
 
-R-HTTP-033. The Environment editor (Panel header, gear button) shows variables of the selected Environment and of `$shared` in a table. A secret shows as dots with a "Set" button. Setting a secret writes the Keychain and writes the empty string to the file.
+R-HTTP-033. The Environment editor is a sheet over the window that the gear button of the Panel header opens. It shows variables of the selected Environment and of `$shared` in a table. A secret shows as dots with a "Set" button. Setting a secret writes the Keychain and writes the empty string to the file.
 
 R-HTTP-034. The app never writes a secret value to a file, to the history, to the log or to an MCP result. A sent header or body that held a secret shows the secret as `••••` in the Response's request view.
 

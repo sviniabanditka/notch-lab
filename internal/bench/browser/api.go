@@ -56,6 +56,12 @@ type Bench struct {
 		section int
 		query   string
 	}
+	// lib is the Library sheet: open in the window win, for a Bench.
+	lib struct {
+		open  bool
+		win   *mygo.Window
+		bench *model.Bench
+	}
 }
 
 // tab is a Tab's live part; wv is nil while the Tab sleeps (R-WEB-003).
@@ -668,6 +674,9 @@ func (b *Bench) addressBar(c *ui.Context, x *tab, focused bool) bool {
 			if b.Ext != nil {
 				b.Ext.buttons(c, x)
 			}
+			if kit.IconButton(c, "library", "Library: bookmarks, history, downloads, extensions", kit.Library, b.lib.open).Clicked() {
+				b.OpenLibrary(x.t.Bench, b.panel.section)
+			}
 			bm, _ := b.Marks.Find(d.URL)
 			if kit.Off(kit.IconButton(c, "bookmark", "Bookmark (⇧⌘B)", kit.Star, bm != nil), d.URL == "").Clicked() {
 				b.toggleBookmark(x)
@@ -1033,9 +1042,24 @@ func (b *Bench) OpenURL(l *model.Lab, u string) *model.Tab {
 }
 
 // Panel shows Bookmarks, History and Downloads (R-WEB-042, R-WEB-072, R-WEB-082).
-func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
+// OpenLibrary opens the Library of a Bench in the window that draws:
+// Bookmarks, History, Downloads and Extensions (R-WEB-075).
+func (b *Bench) OpenLibrary(bench *model.Bench, section int) {
+	b.lib.open, b.lib.win, b.lib.bench = true, b.Win, bench
+	b.panel.section = section
+}
+
+// Overlay draws the Library over the window that opened it.
+func (b *Bench) Overlay(c *ui.Context) {
+	if b.lib.open && b.lib.win == b.Win && b.lib.bench != nil {
+		kit.Sheet(c, "library", "Library", 680, 520, &b.lib.open, func() { b.library(c, b.lib.bench) })
+	}
+}
+
+func (b *Bench) library(c *ui.Context, bench *model.Bench) {
 	th := c.Theme()
 	open := func(u string, newTab bool) {
+		b.lib.open = false
 		t := bench.FocusedTab()
 		if t == nil || newTab {
 			t = &model.Tab{ID: model.NewID(), Bench: bench, Title: Host(u), Data: "{}"}
@@ -1048,28 +1072,12 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 		b.Show(t)
 		b.load(b.live(t), u)
 	}
-	ui.Column(c.Key("bpanel")).Grow(1).Basis(0).MinHeight(0).Padding(4, 6).Gap(4).AlignItems(ui.Stretch).Children(func() {
-		ui.Segmented(c.Key("sec"), &b.panel.section, "Bookmarks", "History", "Downloads")
-		iso := readBench(bench).Isolated
-		if ui.Switch(c.Key("iso"), &iso).Label("Isolated profile").Tooltip("Cookies and sign-ins of its own").Changed() {
-			b.confirm("Cookies and sign-ins of this Bench change. Continue?", "Continue", func() {
-				var s map[string]any
-				_ = json.Unmarshal([]byte(bench.Settings), &s)
-				if s == nil {
-					s = map[string]any{}
-				}
-				s["isolated"] = iso
-				raw, _ := json.Marshal(s)
-				bench.Settings = string(raw)
-				b.St.Changed()
-				for t, x := range b.tabs { // R-WEB-062: reload in the new Profile
-					if t.Bench == bench && x.wv != nil {
-						x.wv.Destroy()
-						x.wv = nil
-					}
-				}
-			})
-		}
+	ui.Column(c.Key("bpanel")).Grow(1).Basis(0).MinHeight(0).Gap(8).AlignItems(ui.Stretch).Children(func() {
+		ui.Row(c.Key("top")).Gap(8).AlignItems(ui.Center).Children(func() {
+			ui.Segmented(c.Key("sec"), &b.panel.section, "Bookmarks", "History", "Downloads", "Extensions")
+			ui.Box(c).Grow(1)
+			b.isolatedSwitch(c, bench)
+		})
 		switch b.panel.section {
 		case 0:
 			var walk func(f *Bookmark, depth int)
@@ -1183,6 +1191,37 @@ func (b *Bench) Panel(c *ui.Context, bench *model.Bench) {
 					})
 				}
 			})
+		case 3:
+			ui.Scroll(c.Key("exts")).Grow(1).Basis(0).MinHeight(0).Children(func() {
+				ui.Column(c).Gap(10).Padding(0, 2).AlignItems(ui.Stretch).Children(func() { b.ExtensionSettings(c, b.Win) })
+			})
+		}
+	})
+}
+
+// isolatedSwitch gives the Bench a Profile of its own, after a question
+// (R-WEB-062).
+func (b *Bench) isolatedSwitch(c *ui.Context, bench *model.Bench) {
+	iso := readBench(bench).Isolated
+	ui.Text(c, "Isolated profile").FontSize(12).TextColor(c.Theme().TextMuted)
+	if !ui.Switch(c.Key("iso"), &iso).Label("Isolated profile").Tooltip("Cookies and sign-ins of its own").Changed() {
+		return
+	}
+	b.confirm("Cookies and sign-ins of this Bench change. Continue?", "Continue", func() {
+		var s map[string]any
+		_ = json.Unmarshal([]byte(bench.Settings), &s)
+		if s == nil {
+			s = map[string]any{}
+		}
+		s["isolated"] = iso
+		raw, _ := json.Marshal(s)
+		bench.Settings = string(raw)
+		b.St.Changed()
+		for t, x := range b.tabs { // R-WEB-062: reload in the new Profile
+			if t.Bench == bench && x.wv != nil {
+				x.wv.Destroy()
+				x.wv = nil
+			}
 		}
 	})
 }

@@ -177,6 +177,7 @@ func (a *app) start() {
 	a.web = browserbench.New(st, set, userHome, a.dir, &browserbench.History{DB: store.DB()})
 	a.web.Post, a.web.Show, a.web.Toast, a.web.Confirm = a.term.Post, a.ed.Show, a.sh.Toast, a.confirm
 	a.web.ToastAction = a.sh.ToastAction
+	a.sh.Overlays = append(a.sh.Overlays, a.web.Overlay)
 	a.sv.Browser = a.browserSettings
 	a.sv.Extensions = func(c *ui.Context) { a.web.ExtensionSettings(c, a.settings) }
 	a.sv.Agents = a.agentsSettings
@@ -195,6 +196,7 @@ func (a *app) start() {
 		})
 	})
 	a.http = httpbench.New(st, userHome, a.dir)
+	a.sh.Overlays = append(a.sh.Overlays, a.http.Overlay)
 	a.http.Post, a.http.Show, a.http.Toast = a.term.Post, a.ed.Show, a.sh.Toast
 	a.http.Confirm, a.http.AskText, a.http.Visible = a.confirm, a.askText, a.visible
 	a.db = dbbench.New(st, userHome, a.dir)

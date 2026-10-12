@@ -5,6 +5,7 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/sviniabanditka/notch-lab/internal/kit"
 )
 
 // WebStore is where "Open the Store" goes (R-WEB-147).
@@ -28,37 +29,37 @@ func (b *Bench) ExtensionSettings(c *ui.Context, parent *mygo.Window) {
 		ui.Text(c, "Extensions need macOS 15.4 or later.").TextColor(th.TextMuted)
 		return
 	}
-	ui.Row(c.Key("add")).Gap(8).AlignItems(ui.Center).Children(func() {
+	pick := func(dir bool) {
+		opts := mygo.OpenDialogOptions{Parent: parent, Directory: dir, Title: "Load an Extension"}
+		if !dir {
+			opts.Filters = []mygo.FileFilter{{Name: "Chrome extension", Extensions: []string{"crx"}}}
+		}
+		if paths, err := mygo.Dialog.Open(opts); err == nil && len(paths) == 1 {
+			e.InstallPath(paths[0])
+		}
+	}
+	ui.Row(c.Key("add")).Gap(6).AlignItems(ui.Center).Children(func() {
 		ui.TextInput(c.Key("link"), &e.link).Placeholder("Paste a link to an extension, or its id").Grow(1)
+		if e.busy != "" {
+			ui.Spinner(c).Size(14, 14)
+		}
 		if ui.Button(c, "Add").Disabled(strings.TrimSpace(e.link) == "" || e.busy != "").Clicked() {
 			e.Install(strings.TrimSpace(e.link))
 			e.link = ""
 		}
-	})
-	ui.Row(c.Key("more")).Gap(8).Children(func() {
-		if ui.Button(c, "Open the Store").Clicked() {
-			if t := b.OpenURL(b.St.Window("main").Lab, WebStore); t != nil {
-				b.Show(t)
+		kit.IconButton(c, "more", "More ways to add", kit.More, false).Menu(func(m *ui.Menu) {
+			if m.Item("Open the Store").Chosen() {
+				if t := b.OpenURL(b.St.Window("main").Lab, WebStore); t != nil {
+					b.Show(t)
+				}
 			}
-		}
-		pick := func(dir bool) {
-			opts := mygo.OpenDialogOptions{Parent: parent, Directory: dir, Title: "Load an Extension"}
-			if !dir {
-				opts.Filters = []mygo.FileFilter{{Name: "Chrome extension", Extensions: []string{"crx"}}}
+			if m.Item("Load from Folder…").Chosen() {
+				pick(true)
 			}
-			if paths, err := mygo.Dialog.Open(opts); err == nil && len(paths) == 1 {
-				e.InstallPath(paths[0])
+			if m.Item("Load from File…").Chosen() {
+				pick(false)
 			}
-		}
-		if ui.Button(c, "Load from folder…").Clicked() {
-			pick(true)
-		}
-		if ui.Button(c, "Load from file…").Clicked() {
-			pick(false)
-		}
-		if e.busy != "" {
-			ui.Text(c, "Adding…").TextColor(th.TextMuted)
-		}
+		})
 	})
 	if len(e.M.List) == 0 {
 		ui.Text(c, "No Extensions yet.").TextColor(th.TextMuted)
@@ -67,11 +68,11 @@ func (b *Bench) ExtensionSettings(c *ui.Context, parent *mygo.Window) {
 		en := en
 		cx := e.ctl.Contexts[en.ID]
 		ui.Column(c.Key("x"+en.ID)).Gap(4).Padding(8, 10).Radius(8).Background(th.Surface).Children(func() {
-			ui.Row(c.Key("head")).Gap(8).AlignItems(ui.Center).Children(func() {
+			ui.Row(c.Key("head")).Gap(4).AlignItems(ui.Center).Children(func() {
 				if bmp := e.icons[en.ID]; bmp != nil {
 					ui.Image(c, bmp).Width(20).Height(20)
 				}
-				ui.Column(c.Key("name")).Grow(1).MinWidth(0).Children(func() {
+				ui.Column(c.Key("name")).Grow(1).MinWidth(0).Padding(0, 0, 0, 4).Children(func() {
 					ui.Text(c, en.Name).Bold().SingleLine()
 					source := "Chrome Web Store"
 					if en.Local != "" {
@@ -79,26 +80,23 @@ func (b *Bench) ExtensionSettings(c *ui.Context, parent *mygo.Window) {
 					}
 					ui.Text(c, en.Version+" · "+source).FontSize(11).TextColor(th.TextMuted).SingleLine()
 				})
-				on := en.Enabled
-				if ui.Switch(c.Key("on"), &on).Tooltip("Turn on or off").Changed() {
-					e.SetEnabled(en.ID, on)
-				}
-			})
-			ui.Row(c.Key("acts")).Gap(6).Children(func() {
-				pin := en.Pinned
-				if ui.Switch(c.Key("pin"), &pin).Label("In the toolbar").Changed() {
-					en.Pinned = pin
+				if kit.IconButton(c, "pin", "Show in the toolbar", kit.Pin, en.Pinned).Clicked() {
+					en.Pinned = !en.Pinned
 					e.M.Save()
 				}
-				if cx != nil && cx.OptionsURL() != "" && ui.Button(c, "Options").Clicked() {
+				if cx != nil && cx.OptionsURL() != "" && kit.IconButton(c, "opts", "Options", kit.Gear, false).Clicked() {
 					e.OpenOptions(cx)
 				}
-				if en.Local != "" && ui.Button(c, "Reload").Clicked() {
+				if en.Local != "" && kit.IconButton(c, "reload", "Reload", kit.Refresh, false).Clicked() {
 					e.Reload(en.ID)
 				}
-				if ui.Button(c, "Remove").Clicked() {
+				if kit.IconButton(c, "remove", "Remove", kit.Trash, false).Clicked() {
 					id := en.ID
 					b.confirm("Remove "+en.Name+" and its data?", "Remove", func() { e.Remove(id) })
+				}
+				on := en.Enabled
+				if ui.Switch(c.Key("on"), &on).Label("Turn on or off").Tooltip("Turn on or off").Changed() {
+					e.SetEnabled(en.ID, on)
 				}
 			})
 			if cx != nil {
@@ -113,8 +111,17 @@ func (b *Bench) ExtensionSettings(c *ui.Context, parent *mygo.Window) {
 			}
 		})
 	}
-	ui.Text(c, "What does not work").Bold()
+	more := "What does not work ▸"
+	if e.limits {
+		more = "What does not work ▾"
+	}
+	if ui.Text(c.Key("limits"), more).FontSize(12).TextColor(th.TextMuted).Cursor(ui.CursorPointer).Clicked() {
+		e.limits = !e.limits
+	}
 	for _, l := range limits {
+		if !e.limits {
+			break
+		}
 		ui.Row(c.Key("l" + l[0])).Gap(8).Children(func() {
 			ui.Text(c, l[0]).Grow(1).Basis(0)
 			ui.Text(c, l[1]).Grow(1).Basis(0).TextColor(th.TextMuted)

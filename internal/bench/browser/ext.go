@@ -21,9 +21,11 @@ const extStore = "4E4F5443-484C-4142-0000-0000000000E7"
 // Ext is the Extensions part of the browser (R-WEB-130 … R-WEB-185). It
 // belongs to the main goroutine; nil before macOS 15.4.
 type Ext struct {
-	b       *Bench
-	M       *extensions.Manager
-	ctl     *webkit.Controller
+	b   *Bench
+	M   *extensions.Manager
+	ctl *webkit.Controller
+	// limits shows the list of what does not work in Settings.
+	limits  bool
 	win     *webkit.ExtWindow
 	busy    string // the id an install is fetching
 	icons   map[string]*ui.Bitmap

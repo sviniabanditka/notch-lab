@@ -44,6 +44,9 @@ type Bench struct {
 	// ToastAction shows a Toast with one button.
 	ToastAction func(msg, label string, fn func())
 	Confirm     func(q, yes string, then func(ok bool))
+	// LayoutButtons draws the Shell's Split, Zoom and Go to Tab in the
+	// focused Tab's address bar: the browser has no card toolbar.
+	LayoutButtons func(c *ui.Context)
 	// CloseTab closes a Tab through the Shell.
 	CloseTab func(t *model.Tab)
 	// Ext is nil before macOS 15.4 and until the first Web view.
@@ -681,6 +684,10 @@ func (b *Bench) addressBar(c *ui.Context, x *tab, focused bool) bool {
 			if kit.Off(kit.IconButton(c, "bookmark", "Bookmark (⇧⌘B)", kit.Star, bm != nil), d.URL == "").Clicked() {
 				b.toggleBookmark(x)
 			}
+			if focused && b.LayoutButtons != nil {
+				ui.Box(c).Size(1, 18).Shrink(0).Margin(0, 2).Background(kit.Stroke(th))
+				b.LayoutButtons(c)
+			}
 		})
 		if x.note != "" {
 			ui.Row(c.Key("note")).Padding(4, 10).Background(th.Warning.Alpha(0.15)).Children(func() {
@@ -981,6 +988,10 @@ func (b *Bench) Zoom(bench *model.Bench, step int) {
 		b.Set.Changed(nil)
 	}
 }
+
+// OwnsToolbar tells the Shell to draw no toolbar over the address bar
+// (R-SHELL-160).
+func (b *Bench) OwnsToolbar() {}
 
 // Status shows the address, and the load (R-SHELL-071).
 func (b *Bench) Status(t *model.Tab) string {

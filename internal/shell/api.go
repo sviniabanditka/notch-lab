@@ -58,17 +58,19 @@ type Shell struct {
 	// nil means always.
 	MenuOwner func() bool
 
-	hist      history
-	toasts    []string
-	actions   []toastAction
-	tabList   ui.ListState
-	resizing  bool // the sidebar edge is dragged
-	sw        switcher
-	dlg       dialog
-	q         Questions
-	menuSig   string
-	panelH    map[*model.Bench]float32
-	panelDrag bool
+	hist     history
+	toasts   []string
+	actions  []toastAction
+	tabList  ui.ListState
+	resizing bool // the sidebar edge is dragged
+	sw       switcher
+	dlg      dialog
+	// toolbarShown is set while the card draws its toolbar this frame.
+	toolbarShown bool
+	q            Questions
+	menuSig      string
+	panelH       map[*model.Bench]float32
+	panelDrag    bool
 	// splits keeps a handle per Split node for its last frame's box.
 	splits map[*model.Node]*ui.Handle
 }
@@ -112,6 +114,13 @@ type Commander interface {
 // the sidebar, as an SSH session's remote folder (R-SSH-027).
 type Subtitler interface {
 	Subtitle(t *model.Tab) string
+}
+
+// ToolbarOwner is a TabType whose Tab draws its own bar in place of the
+// card's toolbar, with the Shell's LayoutButtons in it, as the browser's
+// address bar (R-SHELL-160).
+type ToolbarOwner interface {
+	OwnsToolbar()
 }
 
 // Closer is a TabType that asks its own question before a Tab closes, as

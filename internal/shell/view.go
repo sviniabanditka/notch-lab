@@ -98,7 +98,13 @@ func (s *Shell) card(c *ui.Context) {
 	}
 	ui.Column(c.Key("card")).Grow(1).Basis(0).MinWidth(0).MinHeight(0).AlignItems(ui.Stretch).
 		Radius(s.cardRadius()).Background(card(t)).Border(1, stroke(t)).Shadow(0, 1, 10, 0, shadow).Clip().Children(func() {
-		s.toolbar(c)
+		// A Bench that owns the toolbar draws LayoutButtons in its own bar;
+		// the toolbar stays while the window's buttons need its room.
+		_, owner := s.typeOf(s.bench()).(ToolbarOwner)
+		s.toolbarShown = !owner || (!s.win().Sidebar && s.Strip == nil)
+		if s.toolbarShown {
+			s.toolbar(c)
+		}
 		ui.Column(c.Key("layout")).Grow(1).Basis(0).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
 			s.layout(c)
 		})
@@ -151,28 +157,46 @@ func (s *Shell) toolbar(c *ui.Context) {
 			ui.Text(c, b.Name).FontSize(12).TextColor(faint(t)).SingleLine().Shrink(2).MinWidth(0)
 		}
 		ui.Box(c).Grow(1)
-		has := b.FocusedTab() != nil
-		if has {
-			if iconBtn(c, "split-right", "Split Right (⌘D)", iconSplitR, false).Clicked() {
+		s.layoutButtons(c)
+	})
+}
+
+// LayoutButtons draws the Layout's buttons for a Bench that owns the
+// toolbar (ToolbarOwner), in its own bar; nothing while the toolbar shows.
+func (s *Shell) LayoutButtons(c *ui.Context) {
+	if !s.toolbarShown {
+		s.layoutButtons(c)
+	}
+}
+
+// layoutButtons are Split (one button with a menu), Zoom and Go to Tab.
+func (s *Shell) layoutButtons(c *ui.Context) {
+	b := s.bench()
+	if b == nil {
+		return
+	}
+	if b.FocusedTab() != nil {
+		iconBtn(c, "split", "Split", iconSplitR, false).Menu(func(m *ui.Menu) {
+			if m.Item("Split Right").Shortcut(ui.Cmd, ui.KeyD).Chosen() {
 				s.Split(model.Row)
 			}
-			if iconBtn(c, "split-down", "Split Down (⇧⌘D)", iconSplitD, false).Clicked() {
+			if m.Item("Split Down").Shortcut(ui.Cmd|ui.Shift, ui.KeyD).Chosen() {
 				s.Split(model.Column)
 			}
-			if !b.Layout.IsLeaf() {
-				icon, label := iconZoomIn, "Zoom Pane (⇧⌘↩)"
-				if b.Zoomed {
-					icon, label = iconZoomOut, "Show All Panes (⇧⌘↩)"
-				}
-				if iconBtn(c, "zoom", label, icon, b.Zoomed).Clicked() {
-					s.ToggleZoom()
-				}
+		})
+		if !b.Layout.IsLeaf() {
+			icon, label := iconZoomIn, "Zoom Pane (⇧⌘↩)"
+			if b.Zoomed {
+				icon, label = iconZoomOut, "Show All Panes (⇧⌘↩)"
+			}
+			if iconBtn(c, "zoom", label, icon, b.Zoomed).Clicked() {
+				s.ToggleZoom()
 			}
 		}
-		if iconBtn(c, "switcher", "Go to Tab (⌘K)", iconSearch, false).Clicked() {
-			s.OpenSwitcher()
-		}
-	})
+	}
+	if iconBtn(c, "switcher", "Go to Tab (⌘K)", iconSearch, false).Clicked() {
+		s.OpenSwitcher()
+	}
 }
 
 func (s *Shell) titleStrip(c *ui.Context) { s.toolbar(c) }

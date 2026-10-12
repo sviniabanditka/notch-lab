@@ -179,6 +179,7 @@ func (a *app) start() {
 	a.web.Post, a.web.Show, a.web.Toast, a.web.Confirm = a.term.Post, a.ed.Show, a.sh.Toast, a.confirm
 	a.web.ToastAction = a.sh.ToastAction
 	a.sh.Overlays = append(a.sh.Overlays, a.web.Overlay)
+	a.web.LayoutButtons = func(c *ui.Context) { a.cur.LayoutButtons(c) }
 	a.sv.Browser = a.browserSettings
 	a.sv.Extensions = func(c *ui.Context) { a.web.ExtensionSettings(c, a.settings) }
 	a.sv.Agents = a.agentsSettings

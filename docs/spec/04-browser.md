@@ -225,7 +225,7 @@ R-WEB-132. The app implements `WKWebExtensionTab` for every browser Tab and `WKW
 
 R-WEB-133. The app tells the controller about every Tab change: `didOpenTab`, `didCloseTab`, `didActivateTab`, `didSelectTabs`, `didMoveTab`, `didChangeTabProperties`, and about windows with `didOpenWindow`, `didCloseWindow`, `didFocusWindow`. The app sends these from the model events of `01-model.md`.
 
-R-WEB-134. At start the app loads enabled Extensions one after another, 400 ms apart when the previous one has background content: WebKit fails some workers when all start at once. The app starts loading after the first frame. A Page that loads before every Extension is loaded waits at most 2 s for them, then loads.
+R-WEB-134. When the first Web view is made, or Settings › Extensions opens, the app makes the controller and loads enabled Extensions one after another (WebKit's Extension parts cost about 190 MB, which an app with no browser Tab awake does not pay), 400 ms apart when the previous one has background content: WebKit fails some workers when all start at once. The app starts loading after the first frame. A Page that loads before every Extension is loaded waits at most 2 s for them, then loads.
 
 R-WEB-135. An Extension that fails to load shows in Settings › Extensions with the error text and stays disabled.
 

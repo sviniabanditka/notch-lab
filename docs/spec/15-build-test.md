@@ -112,6 +112,8 @@ R-BUILD-050. `tools/verify/nl` is the handle for a live run, ported from herdr-g
 | `nl click\|rclick\|dclick\|move X Y` | mouse at window-relative points |
 | `nl drag X1 Y1 X2 Y2` | a drag |
 | `nl scroll X Y N` | N wheel steps |
+| `nl panel` | toggles the notch panel (SIGUSR1, dev runs only) |
+| `nl pshot <name>` | captures the notch panel only to `$NOTCH_LAB_HOME/shots/<name>.png` |
 | `nl mem [secs]` | samples RSS and CPU of the app and the Daemon |
 | `nl mcp <tool> <json>` | one tool call through the Bridge against the dev home |
 

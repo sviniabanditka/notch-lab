@@ -141,7 +141,7 @@ func (s *Shell) dialogView(c *ui.Context) {
 					{"⌘D, ⇧⌘D", "split right, split down"},
 					{"⌘⌥ arrows", "move between Splits"},
 					{"⌘B", "hide or show the sidebar"},
-					{"⌥Space", "the notch panel (from M5)"},
+					{"⌥Space", "the notch panel"},
 				} {
 					ui.Row(c).Gap(12).Children(func() {
 						ui.Text(c, line[0]).Bold().Width(96)

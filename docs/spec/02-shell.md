@@ -22,7 +22,9 @@ R-SHELL-008. The main window has one focused Leaf. Keyboard input goes to the Ta
 
 ## Notch panel
 
-R-SHELL-009. The notch panel (R-SHELL-010 … R-SHELL-021) arrives in M5. Until then the tray's "Show Panel" and the Window menu's "Show Notch Panel" are disabled.
+> M5 status (2026-10-12). The notch panel is a second Shell (window key `notch`) in a screen flyout with `KeyOnClick`, at window level 25 (`NSStatusWindowLevel`), so AppKit keeps its top at the top of the display. The click trigger is an `NSEvent` global monitor of primary presses in notch-lab, not a fork patch. `[later]` in M5: the MCP trigger (M6), the static Snapshot of a Page in the other window (R-SHELL-017), the sidebar over the Layout in size S (R-SHELL-018). Dev runs: `nl panel` toggles the panel, `nl pshot <name>` captures it.
+
+R-SHELL-009. While the notch panel shows a Tab in its Layout, the main window's Leaf of that Tab shows the Tab's title and "Shown in the notch panel", and the Tab's view draws in the panel only. A browser Tab's Web view moves to the window that draws the Tab (R-SHELL-017). The main window shows the Tab again when the panel hides.
 
 R-SHELL-010. The notch panel is a non-activating panel window (`Panel: true`, `Level: floating`, `CollectionBehavior: canJoinAllSpaces | fullScreenAuxiliary | stationary`). The front app keeps keyboard focus until the user clicks or types inside the notch panel.
 
@@ -41,7 +43,7 @@ R-SHELL-012. The notch panel hides when one of these occurs:
 | Trigger |
 |---|
 | the user clicks outside the notch panel |
-| the user presses Esc while the notch panel has focus and no Tab consumes Esc |
+| the user presses Esc while the notch panel has focus and the focused Bench is not a terminal or an editor Bench, which use Esc |
 | the user presses Alt+Space while the notch panel shows |
 | the user clicks the "Move to window" button in the notch panel's title strip |
 | the display with the notch is removed |
@@ -62,13 +64,15 @@ R-SHELL-015. On a Mac with no notch (`Screen.Notch()` false, also on an external
 
 R-SHELL-016. The notch panel shows the same State as the main window. It has its own selected Lab, Bench and focused Tab, stored in State row `window` with key `notch`. A change made in one window shows in the other within one frame.
 
-R-SHELL-017. The same Tab can be in a Leaf of the notch panel and in a Leaf of the main window. The Tab's view is shared: a terminal Tab draws the same Session, a browser Tab shows the same Page. A Page can be in one Web view only: the window that showed it last owns the Web view, the other window shows a static Snapshot of the Page with a "Show here" button.
+R-SHELL-017. The same Tab can be in a Leaf of the notch panel and in a Leaf of the main window. The Tab's view is shared: a terminal Tab draws the same Session, a browser Tab shows the same Page. While the panel shows the Tab, the main window shows a placeholder (R-SHELL-009). A Page can be in one Web view only: the window that draws it owns the Web view. A static Snapshot of the Page in the other window, with a "Show here" button, is `[later]`.
 
 R-SHELL-018. The notch panel's title strip holds: the Lab menu, the S/M/L control, the "Move to window" button, the focused Tab's title. The rail and the sidebar are present in sizes M and L. In size S the sidebar is hidden by default and Cmd+B shows it over the Layout.
 
 R-SHELL-019. The "Move to window" button opens the main window, selects the notch panel's Lab, Bench and Tab there, and hides the notch panel.
 
-R-SHELL-020. While the notch panel shows, the app's activation policy stays as it was. The policy switches to regular when the user types into the notch panel and the main window is closed. The policy never switches while any window is in full screen (`14-mygo-fork.md`, R-MYGO-016).
+R-SHELL-020. While the notch panel shows, the app's activation policy stays as it was. The app keeps the regular policy (a Dock icon, R-SHELL-030), so typing into the panel needs no switch. The policy never switches while any window is in full screen (`14-mygo-fork.md`, R-MYGO-016).
+
+R-SHELL-022. The menu bar belongs to the window with the keyboard: while the notch panel is the key window, the menus act on the panel's Shell. Cmd+N opens the main window from either.
 
 R-SHELL-021. The hover trigger is off while a drag with the primary button is in progress, and for 1000 ms after the notch panel hid.
 

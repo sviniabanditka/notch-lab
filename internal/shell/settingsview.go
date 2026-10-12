@@ -118,7 +118,6 @@ func (v *SettingsView) section(c *ui.Context) {
 		sw("Confirm before closing a Tab with unsaved changes", &set.General.ConfirmCloseUnsaved)
 		sw("Show the notch panel on hover", &set.Notch.HoverShows)
 		sel("Notch panel size", &set.Notch.Size, "S", "M", "L")
-		note("The notch panel arrives in M5.")
 	case "Appearance":
 		ui.Row(c.Key("theme")).Gap(12).Children(func() {
 			ui.Text(c, "Theme").Grow(1)

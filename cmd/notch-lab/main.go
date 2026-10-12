@@ -73,6 +73,7 @@ type app struct {
 	files    *filesbench.Bench
 	web      *browserbench.Bench
 	active   bool
+	notch    *notch
 }
 
 func (a *app) start() {
@@ -112,7 +113,12 @@ func (a *app) start() {
 	}
 	a.sv = &shell.SettingsView{S: a.sh, ResetState: a.resetState}
 	a.term = terminal.New(st, set, userHome)
-	a.term.Post = func(fn func()) { a.main.Update(fn) }
+	a.term.Post = func(fn func()) {
+		a.main.Update(fn)
+		if a.notch != nil && a.notch.win != nil {
+			a.notch.win.Invalidate() // the panel shows the same State (R-SHELL-016)
+		}
+	}
 	a.term.Toast = a.sh.Toast
 	a.term.Active = func() bool { return a.active }
 	a.term.Visible = a.visible
@@ -175,6 +181,7 @@ func (a *app) start() {
 	a.web.Win = a.main
 	a.web.CloseTab = a.sh.CloseTab
 	a.web.StartExtensions() // R-WEB-130
+	a.newNotch(userHome)
 	// The red button and Cmd+W with no Tab hide the window (R-SHELL-007).
 	a.main.OnClose(func(e *mygo.CloseEvent) {
 		e.PreventDefault()
@@ -302,7 +309,7 @@ func (a *app) syncTray() {
 	}
 	if a.tray != nil {
 		items := []*mygo.MenuItem{
-			{Label: "Show Panel", Disabled: true},
+			{Label: "Show Panel", Click: func(*mygo.MenuItem, *mygo.Window) { a.sh.Do(a.notch.show) }},
 			{Label: "Show Window", Click: func(*mygo.MenuItem, *mygo.Window) { a.sh.Do(a.sh.ShowWindow) }},
 			mygo.Separator(),
 		}

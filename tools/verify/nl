@@ -91,10 +91,16 @@ case $1 in
     local n rest; read n rest <<< "$(main_window)"
     [[ -n $n ]] || { echo "no notch-lab window" >&2; exit 1 }
     screencapture -o -x -l $n $NOTCH_LAB_HOME/shots/$2.png && echo $NOTCH_LAB_HOME/shots/$2.png ;;
+  panel) kill -USR1 $(app_pid) ;;
+  pshot)
+    # The notch panel: the app's window whose top is at the top of the screen.
+    local n=$($(tool mouse) bounds $(app_pid) | awk '$3 == 0 {print $4*$5, $1}' | sort -k1,1nr | head -1 | cut -d' ' -f2)
+    [[ -n $n ]] || { echo "no notch panel" >&2; exit 1 }
+    screencapture -o -x -l $n $NOTCH_LAB_HOME/shots/$2.png && echo $NOTCH_LAB_HOME/shots/$2.png ;;
   mem)
     local pids=$(app_pid); local d=$(pgrep -f "^$DAEMON" | head -1); [[ -n $d ]] && pids="$pids,$d"
     for i in $(seq 1 ${2:-5}); do ps -o rss=,%cpu=,comm= -p $pids; sleep 1; done |
       awk '{r[$3]+=$1/1024; c[$3]+=$2; n[$3]++} END {for (k in r) printf "%s: rss avg %.1f MB, cpu avg %.0f%%\n", k, r[k]/n[k], c[k]/n[k]}' ;;
   mcp) echo "nl mcp: the Bridge arrives in M6" >&2; exit 2 ;;
-  *) echo "usage: nl up|down|front|text S|key CODE [cmd shift ctrl alt]|click|rclick|cclick|dclick|move|cmdclick X Y|scroll X Y N|drag X1 Y1 X2 Y2|shot NAME|mem [SECS]|mcp TOOL JSON" >&2; exit 2 ;;
+  *) echo "usage: nl up|down|front|text S|key CODE [cmd shift ctrl alt]|click|rclick|cclick|dclick|move|cmdclick X Y|scroll X Y N|drag X1 Y1 X2 Y2|shot NAME|panel|pshot NAME|mem [SECS]|mcp TOOL JSON" >&2; exit 2 ;;
 esac

@@ -175,3 +175,27 @@ func TestSidebarEdgeDrag(t *testing.T) {
 		t.Fatal("sidebar width clamps at 480")
 	}
 }
+
+// Two Shells on one State: the notch panel's own selection, its strip, and
+// the main window's placeholder for a Tab the panel shows (R-SHELL-016 … 018).
+func TestNotchShell(t *testing.T) {
+	s, term, ed := fixture(t)
+	n := New(s.St, s.Set, "notch", t.TempDir())
+	n.St.Window("notch").SelectBench(ed)
+	n.Strip = func(c *ui.Context) { ui.Text(c, "notch strip") }
+	shown := term.FocusedTab()
+	s.Elsewhere = func(tab *model.Tab) string {
+		if tab == shown {
+			return "the notch panel"
+		}
+		return ""
+	}
+	nt := ui.NewTester(n.View, 1000, 640)
+	if !nt.HasText("notch strip") || s.St.Window("main").Bench != term {
+		t.Fatalf("own strip and selection: %q", nt.Texts())
+	}
+	mt := ui.NewTester(s.View, 1200, 800)
+	if !mt.HasText("Shown in the notch panel") {
+		t.Fatalf("placeholder: %q", mt.Texts())
+	}
+}

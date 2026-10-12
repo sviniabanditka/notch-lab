@@ -40,6 +40,20 @@ type Shell struct {
 	GoToFile func(root string)
 	// Overlays draw over the window after the Shell, as the Go to File palette.
 	Overlays []func(c *ui.Context)
+	// Strip replaces the title strip: the notch panel's own (R-SHELL-018).
+	Strip func(c *ui.Context)
+	// BeforeFrame runs first in every frame of this Shell's window.
+	BeforeFrame func()
+	// ShowMain opens the main window (Cmd+N); nil shows this Shell's window.
+	ShowMain func()
+	// ToggleNotch shows or hides the notch panel; nil until it exists.
+	ToggleNotch func()
+	// Elsewhere names the window that shows a Tab live now, or "": this
+	// Shell then draws a placeholder in its Leaf (R-SHELL-017).
+	Elsewhere func(t *model.Tab) string
+	// MenuOwner reports whether this Shell's window owns the menu bar now;
+	// nil means always.
+	MenuOwner func() bool
 
 	hist      history
 	toasts    []string

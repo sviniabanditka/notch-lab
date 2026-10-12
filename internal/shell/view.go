@@ -28,6 +28,9 @@ func (s *Shell) ApplyTheme(c *ui.Context) {
 
 // View draws the main window.
 func (s *Shell) View(c *ui.Context) {
+	if s.BeforeFrame != nil {
+		s.BeforeFrame()
+	}
 	s.ApplyTheme(c)
 	t := c.Theme()
 	for _, msg := range s.toasts {
@@ -47,7 +50,11 @@ func (s *Shell) View(c *ui.Context) {
 			s.sidebar(c)
 		}
 		ui.Column(c).Grow(1).Basis(0).MinWidth(0).Background(t.Background).Children(func() {
-			s.titleStrip(c)
+			if s.Strip != nil {
+				s.Strip(c)
+			} else {
+				s.titleStrip(c)
+			}
 			ui.Column(c).Grow(1).Basis(0).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
 				s.layout(c)
 			})
@@ -64,8 +71,8 @@ func (s *Shell) View(c *ui.Context) {
 	s.syncMenu()
 }
 
-func (s *Shell) titleStrip(c *ui.Context) {
-	t := c.Theme()
+// Title is the focused Tab's title and its Bench's name.
+func (s *Shell) Title() string {
 	title := "notch-lab"
 	if b := s.bench(); b != nil {
 		title = b.Name
@@ -73,6 +80,12 @@ func (s *Shell) titleStrip(c *ui.Context) {
 			title = tab.DisplayTitle() + " — " + b.Name
 		}
 	}
+	return title
+}
+
+func (s *Shell) titleStrip(c *ui.Context) {
+	t := c.Theme()
+	title := s.Title()
 	ui.Row(c).Height(titleH).Shrink(0).Center().DragWindow().Children(func() {
 		ui.Text(c, title).FontSize(13).TextColor(t.TextMuted).SingleLine()
 	})
@@ -123,7 +136,13 @@ func (s *Shell) labButton(c *ui.Context) {
 			ui.Box(c).Size(6, 6).Radius(3).Background(t.Accent).Absolute().Top(3).Right(3)
 		}
 	})
-	btn.Menu(func(m *ui.Menu) {
+	btn.Menu(s.LabMenu)
+}
+
+// LabMenu fills the Lab menu: the Labs, New Lab…, Lab Settings…
+func (s *Shell) LabMenu(m *ui.Menu) {
+	l := s.lab()
+	{
 		for _, x := range s.St.Labs {
 			label := x.Name
 			if x.AnyUnread() {
@@ -140,7 +159,7 @@ func (s *Shell) labButton(c *ui.Context) {
 		if m.Item("Lab Settings…").Chosen() {
 			s.OpenLabSettings(l)
 		}
-	})
+	}
 }
 
 // benchIcon draws one Bench of the rail (R-SHELL-042 … R-SHELL-047).
@@ -483,6 +502,17 @@ func (s *Shell) leaf(c *ui.Context, b *model.Bench, n *model.Node, key string) {
 	t := c.Theme()
 	focused := n == b.Focus
 	many := !b.Layout.IsLeaf() && !b.Zoomed
+	if n.Tab != nil && s.Elsewhere != nil {
+		if where := s.Elsewhere(n.Tab); where != "" { // R-SHELL-017
+			box := ui.Column(c.Key(key)).Grow(1).Basis(0).MinWidth(0).MinHeight(0).Center().Gap(8).Padding(16)
+			box.Children(func() {
+				ui.Icon(c, TypeIcon(b.Type)).FontSize(36).TextColor(t.TextMuted.Alpha(0.6))
+				ui.Text(c, n.Tab.DisplayTitle()).FontSize(15).Bold().SingleLine()
+				ui.Text(c, "Shown in "+where).TextColor(t.TextMuted).FontSize(12)
+			})
+			return
+		}
+	}
 	if tt := s.typeOf(b); tt != nil && n.Tab != nil {
 		box := ui.Column(c.Key(key)).Grow(1).Basis(0).MinWidth(0).MinHeight(0).AlignItems(ui.Stretch)
 		if focused && many {

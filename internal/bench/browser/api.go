@@ -45,8 +45,9 @@ type Bench struct {
 	Confirm     func(q, yes string) bool
 	// CloseTab closes a Tab through the Shell.
 	CloseTab func(t *model.Tab)
-	// Ext is nil before macOS 15.4 and until StartExtensions.
-	Ext *Ext
+	// Ext is nil before macOS 15.4 and until the first Web view.
+	Ext       *Ext
+	extWanted bool
 
 	tabs  map[*model.Tab]*tab
 	focus *tab
@@ -167,6 +168,7 @@ func (b *Bench) wake(x *tab, native uintptr) *mygo.WebView {
 	if x.wv != nil || b.Win == nil {
 		return x.wv
 	}
+	b.ensureExt()
 	d := readData(x.t)
 	profile := Profile(x.t.Bench)
 	opts := mygo.WebViewOptions{Native: native, BackgroundColor: "light-dark(#ffffff, #1e1e1e)"}
@@ -554,6 +556,9 @@ func (b *Bench) View(c *ui.Context, t *model.Tab, focused bool) bool {
 	x := b.live(t)
 	x.shown = time.Now()
 	d := readData(t)
+	if x.wv != nil && b.Win != nil && x.wv.Window() != b.Win {
+		b.sleep(x) // a Page is in one Web view: it moves to the window that shows it (R-SHELL-017)
+	}
 	if d.URL != "" && x.wv == nil {
 		b.wake(x, 0)
 	}

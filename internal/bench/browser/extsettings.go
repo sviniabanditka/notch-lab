@@ -22,6 +22,7 @@ var limits = [][2]string{
 // ExtensionSettings draws Settings › Extensions (R-WEB-180 … R-WEB-182).
 func (b *Bench) ExtensionSettings(c *ui.Context, parent *mygo.Window) {
 	th := c.Theme()
+	b.ensureExt()
 	e := b.Ext
 	if e == nil {
 		ui.Text(c, "Extensions need macOS 15.4 or later.").TextColor(th.TextMuted)

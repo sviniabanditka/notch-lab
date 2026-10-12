@@ -31,16 +31,17 @@ var Shortcuts = [][2]string{
 	{"⌘R", "Reload the focused Tab (from M2)"},
 	{"⌘,", "Settings"},
 	{"⌘Q", "Quit"},
-	{"⌥Space", "Show / hide the notch panel (M5)"},
+	{"⌥Space", "Show / hide the notch panel"},
 }
 
 // syncMenu sets the app's menu bar again when what it lists changed: the
 // Labs, the Benches, the Tabs, or what applies (R-SHELL-140, R-SHELL-141).
 func (s *Shell) syncMenu() {
-	if s.Win == nil {
+	if s.Win == nil || s.MenuOwner != nil && !s.MenuOwner() {
 		return
 	}
 	var sig strings.Builder
+	sig.WriteString(s.Key)
 	for _, l := range s.St.Labs {
 		fmt.Fprintf(&sig, "L%s%s%v|", l.ID, l.Name, l == s.lab())
 	}
@@ -55,12 +56,15 @@ func (s *Shell) syncMenu() {
 	}
 	_, isCmd := s.typeOf(s.bench()).(Commander)
 	fmt.Fprintf(&sig, "s%v%v%v", s.win().Sidebar, isCmd, s.GoToFile != nil)
-	if sig.String() == s.menuSig {
+	if sig.String() == s.menuSig && menuKey == s.Key {
 		return
 	}
-	s.menuSig = sig.String()
+	s.menuSig, menuKey = sig.String(), s.Key
 	mygo.App.SetMenu(s.menu())
 }
+
+// menuKey is the window key whose Shell set the menu bar last.
+var menuKey string
 
 func (s *Shell) item(label, acc string, disabled bool, fn func()) *mygo.MenuItem {
 	return &mygo.MenuItem{Label: label, Accelerator: acc, Disabled: disabled, Click: func(*mygo.MenuItem, *mygo.Window) { s.Do(fn) }}
@@ -226,7 +230,7 @@ func (s *Shell) menu() *mygo.Menu {
 	window := &mygo.MenuItem{Label: "Window", Submenu: []*mygo.MenuItem{
 		{Role: mygo.RoleMinimize}, {Role: mygo.RoleZoom},
 		s.item("Main Window", "CmdOrCtrl+N", false, s.ShowWindow),
-		s.item("Show Notch Panel", "", true, func() {}),
+		s.item("Show Notch Panel (⌥Space)", "", s.ToggleNotch == nil, func() { s.ToggleNotch() }),
 		mygo.Separator(),
 		{Role: mygo.RoleFront},
 	}}
@@ -251,6 +255,10 @@ func (s *Shell) zoom(step int) {
 
 // ShowWindow shows the main window and brings it to the front (Cmd+N).
 func (s *Shell) ShowWindow() {
+	if s.ShowMain != nil {
+		s.ShowMain()
+		return
+	}
 	if s.Win != nil {
 		s.Win.Show()
 		s.Win.Focus()

@@ -37,9 +37,15 @@ type Ext struct {
 	link         string // Settings › Extensions field
 }
 
-// StartExtensions makes the controller and loads the enabled Extensions.
-func (b *Bench) StartExtensions() {
-	if !webkit.Supported() || b.Ext != nil {
+// StartExtensions lets the browser load Extensions: the controller is
+// made when the first Web view is (ensureExt). WebKit's Extension parts
+// cost about 190 MB, so an app with no browser Tab awake does not pay
+// them (00-overview.md, memory at idle).
+func (b *Bench) StartExtensions() { b.extWanted = true }
+
+// ensureExt makes the controller and loads the enabled Extensions.
+func (b *Bench) ensureExt() {
+	if !b.extWanted || b.Ext != nil || !webkit.Supported() {
 		return
 	}
 	e := &Ext{b: b, M: extensions.Load(filepath.Join(b.Dir, "extensions")),
@@ -54,6 +60,10 @@ func (b *Bench) StartExtensions() {
 	e.win = webkit.NewWindow(e)
 	b.Ext = e
 	ctl.DidOpenWindow(e.win)
+	for _, x := range b.tabs { // Tabs made before the controller
+		x.ext = webkit.NewTab(tabHost{b, x})
+		ctl.DidOpenTab(x.ext)
+	}
 	// One after another, 400 ms apart: WebKit fails some workers when all
 	// start at once (R-WEB-134).
 	var queue []*extensions.Entry

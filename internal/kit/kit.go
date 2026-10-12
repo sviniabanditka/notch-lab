@@ -46,6 +46,7 @@ var (
 	Trash        = Lucide(`<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>`)
 	Star         = Lucide(`<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>`)
 	Globe        = Lucide(`<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>`)
+	Info         = Lucide(`<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>`)
 	Lock         = Lucide(`<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>`)
 	Warning      = Lucide(`<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>`)
 	Folder       = Lucide(`<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>`)
@@ -66,7 +67,7 @@ func IconButton(c *ui.Context, key, label string, icon *ui.SVG, active bool) ui.
 		name = label[:i]
 	}
 	b := ui.Box(c.Key(key)).Size(Size, Size).Shrink(0).Center().Radius(6).Label(name).Tooltip(label).
-		Cursor(ui.CursorPointer).Transition(motion)
+		Role(ui.RoleButton).Focusable().FocusRing(true).Cursor(ui.CursorPointer).Transition(motion)
 	fg := t.TextMuted
 	switch {
 	case active:
@@ -126,7 +127,11 @@ var appeared = map[string]bool{}
 // Modal is a dialog over the window in the app's look: a dimmed backdrop,
 // a rounded panel with a hairline and a deep soft shadow, which comes in
 // with a small zoom. Escape and a click on the backdrop close it.
-func Modal(c *ui.Context, key string, open *bool, fn func()) {
+func Modal(c *ui.Context, key string, open *bool, fn func()) { modal(c, key, open, 0, 0, fn) }
+
+// modal is Modal with a panel of width x height, which shrinks to fit a
+// small window, as the notch panel's size S; 0 sizes it to its content.
+func modal(c *ui.Context, key string, open *bool, width, height float32, fn func()) {
 	if !*open {
 		delete(appeared, key)
 		return
@@ -139,7 +144,10 @@ func Modal(c *ui.Context, key string, open *bool, fn func()) {
 		}
 		back.Background(ui.RGBA(0, 0, 0, dim))
 		panel.Padding(20).Gap(12).Radius(16).Background(t.Background).Border(1, t.Text.Alpha(0.10)).
-			Shadow(0, 24, 60, 0, ui.RGBA(0, 0, 0, shade)).Clip()
+			Shadow(0, 24, 60, 0, ui.RGBA(0, 0, 0, shade)).Clip().MaxWidthPercent(92).MaxHeightPercent(90)
+		if width > 0 {
+			panel.Width(width).Height(height).AlignItems(ui.Stretch)
+		}
 		if appeared[key] {
 			panel.AnimatePose(ui.Pose{}, ui.Snappy)
 		} else {
@@ -203,8 +211,8 @@ func Nav(c *ui.Context, items []NavItem, chosen *int) {
 // Sheet is a Modal with a header: a tile, a title and a close button.
 // fn's content fills the rest and scrolls on its own.
 func Sheet(c *ui.Context, key, title string, icon *ui.SVG, col ui.Color, width, height float32, open *bool, fn func()) {
-	Modal(c, key, open, func() {
-		ui.Column(c).Width(width).Height(height).Gap(14).AlignItems(ui.Stretch).Children(func() {
+	modal(c, key, open, width, height, func() {
+		ui.Column(c).Grow(1).Basis(0).MinHeight(0).Gap(14).AlignItems(ui.Stretch).Children(func() {
 			ui.Row(c.Key("head")).Shrink(0).Gap(10).AlignItems(ui.Center).Children(func() {
 				if icon != nil {
 					Tile(c, icon, col, 28)

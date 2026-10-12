@@ -20,9 +20,7 @@ import (
 // View draws a Query Tab (R-DB-042).
 func (b *Bench) View(c *ui.Context, t *model.Tab, focused bool) bool {
 	x := b.liveTab(c.Theme().Dark, t)
-	if p := b.palette(c.Theme().Dark); x.hl.Pal != p {
-		x.hl.Pal = p
-	}
+	x.hl.SetPalette(b.palette(c.Theme().Dark))
 	has := false
 	ui.Column(c.Key("db-" + t.ID)).Grow(1).Basis(0).MinHeight(0).MinWidth(0).AlignItems(ui.Stretch).Children(func() {
 		b.toolbar(c, x)
@@ -221,7 +219,7 @@ func (b *Bench) results(c *ui.Context, x *tab) {
 	if x.cell != nil {
 		open := true
 		kit.Modal(c, "cell", &open, func() {
-			ui.Column(c).Width(560).Gap(8).Padding(12).Children(func() {
+			ui.Column(c).Width(560).Gap(8).Children(func() {
 				text := *x.cell
 				var buf bytes.Buffer
 				if json.Indent(&buf, []byte(text), "", "  ") == nil {

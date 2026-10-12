@@ -3,6 +3,9 @@
 package syntax
 
 import (
+	"maps"
+	"slices"
+
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/egoist/mygo/ui"
@@ -24,7 +27,7 @@ func NewPalette(styleName string, plain ui.Color) *Palette {
 	text := st.Get(chroma.Text).Colour
 	p := &Palette{index: map[chroma.TokenType]uint16{}, Colors: []ui.Color{plain}}
 	byRGB := map[chroma.Colour]uint16{}
-	for tt := range chroma.StandardTypes {
+	for _, tt := range slices.Sorted(maps.Keys(chroma.StandardTypes)) { // the same order each run
 		c := st.Get(tt).Colour
 		if !c.IsSet() || c == text {
 			continue

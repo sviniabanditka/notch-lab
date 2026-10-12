@@ -55,7 +55,7 @@ func (b *Bench) Overlay(c *ui.Context) {
 	th := c.Theme()
 	open := true
 	kit.Modal(c, "dbsheet", &open, func() {
-		ui.Column(c).Width(480).Gap(8).Padding(16).Children(func() {
+		ui.Column(c).Width(480).Gap(8).Children(func() {
 			title := "Edit Connection"
 			if s.isNew {
 				title = "New Connection"

@@ -142,9 +142,13 @@ func (s *Shell) switcherView(c *ui.Context) {
 	}
 	t := c.Theme()
 	ui.DialogBase(c, &s.sw.open, func(backdrop, panel ui.Element) {
-		backdrop.Background(ui.RGBA(0, 0, 0, 0.12)).Justify(ui.Start)
-		panel.Width(620).Margin(80, 0, 0, 0).Radius(14).Background(card(t)).Border(1, stroke(t)).
-			Shadow(0, 18, 50, 0, ui.RGBA(0, 0, 0, 0.30)).Padding(6).Gap(4)
+		dim, shade := float32(0.18), float32(0.28) // the look of kit.Modal (R-SHELL-159)
+		if t.Dark {
+			dim, shade = 0.45, 0.55
+		}
+		backdrop.Background(ui.RGBA(0, 0, 0, dim)).Justify(ui.Start)
+		panel.Width(620).MaxWidthPercent(92).Margin(80, 0, 0, 0).Radius(16).Background(card(t)).Border(1, t.Text.Alpha(0.10)).
+			Shadow(0, 24, 60, 0, ui.RGBA(0, 0, 0, shade)).Padding(6).Gap(4)
 		res := s.results()
 		var field ui.Element
 		ui.Row(c.Key("switcher-bar")).Height(44).Padding(0, 12).Gap(10).AlignItems(ui.Center).

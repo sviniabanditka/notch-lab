@@ -175,6 +175,7 @@ func (b *Bench) Prepare(t *model.Tab, v *ed.View) {
 		Path string `json:"path"`
 	}
 	_ = json.Unmarshal([]byte(t.Data), &d)
+	v.LineNumbers = false // a note is prose (R-NOTES-026)
 	v.OnPaste = func() bool {
 		data, err := mygo.Clipboard.ReadFormat(transfer.PNG)
 		if err != nil || len(data) == 0 {
@@ -458,5 +459,5 @@ func (b *Bench) chooseFolder(bench *model.Bench) {
 func (b *Bench) Status(t *model.Tab) string {
 	var d struct{ Path string }
 	_ = json.Unmarshal([]byte(t.Data), &d)
-	return "Note · " + d.Path
+	return "Note · " + filepath.Base(d.Path)
 }

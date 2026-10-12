@@ -70,15 +70,17 @@ func (s *Questions) View(c *ui.Context) {
 	answer := -1
 	open := true
 	kit.Modal(c, fmt.Sprint("ask", len(s.asks)), &open, func() {
-		ui.Column(c).Width(300).Padding(6, 4, 2, 4).Gap(10).AlignItems(ui.Stretch).Children(func() {
+		ui.Column(c).Width(360).Padding(6, 4, 2, 4).Gap(10).AlignItems(ui.Stretch).Children(func() {
 			col := t.Accent
 			if q.danger {
 				col = t.Danger
 			}
 			ui.Row(c).Justify(ui.Center).Children(func() {
-				ui.Box(c).Size(44, 44).Center().Radius(12).Gradient(col, col.Alpha(0.75), 135).Children(func() {
-					ui.Text(c, "!").FontSize(22).FontWeight(700).TextColor(ui.RGB(255, 255, 255))
-				})
+				icon := kit.Info
+				if q.danger {
+					icon = kit.Warning
+				}
+				kit.Tile(c, icon, col, 44)
 			})
 			ui.Text(c, q.message).FontWeight(600).FontSize(14).TextAlign(ui.Center)
 			if q.detail != "" {

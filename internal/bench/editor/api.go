@@ -394,9 +394,7 @@ func (b *Bench) View(c *ui.Context, t *model.Tab, focused bool) bool {
 				x.diff.Build(c)
 			}
 		case text:
-			if p := b.palette(c.Theme().Dark); x.hl != nil && x.hl.Pal != p {
-				x.hl.Pal = p // the colors follow a switch of light and dark
-			}
+			x.hl.SetPalette(b.palette(c.Theme().Dark)) // the colors follow a switch of light and dark
 			if d := readData(t); d.Preview && x.prev != nil {
 				x.prev.Build(c, 0)
 				return

@@ -301,7 +301,7 @@ R-SHELL-152. A theme change applies to every open window within one frame, inclu
 
 R-SHELL-153. The 16 ANSI colors for terminal Tabs are part of the theme.
 
-R-SHELL-154. The look tokens are in `internal/shell/style.go`: corner radii 6, 8 and 11 pt; 6 pt gaps between Splits; a hairline of the text color at 9 %; hover and press tints of the text color. A selected row has a tint of the accent color, not a solid fill. Each Split is a rounded pane; the focused pane has an accent border. Icon buttons in the toolbar are 28 x 28 pt. Each Bench type has a color (`TypeColor`) for its tile in the New Bench sheet.
+R-SHELL-154. The look tokens are in `internal/shell/style.go`: corner radii 6, 8 and 11 pt; 6 pt gaps between Splits; a hairline of the text color at 9 %; hover and press tints of the text color. A selected row has a tint of the accent color, not a solid fill. Muted small text is the text color at 55 % (about 4.6:1, WCAG AA). Icon buttons are buttons for VoiceOver and take the keyboard focus with a ring. Each Split is a rounded pane; the focused pane has an accent border. Icon buttons in the toolbar are 28 x 28 pt. Each Bench type has a color (`TypeColor`) for its tile in the New Bench sheet.
 
 R-SHELL-155. Syntax colors in the editor and the db Bench follow a change of the theme between dark and light.
 
@@ -309,7 +309,7 @@ R-SHELL-156. The card's corners are concentric with the window's: their radius i
 
 R-SHELL-158. Toolbar actions are icon buttons (Lucide shapes, `internal/kit`), 28 x 28 pt, borderless, with a tooltip that names the action and its shortcut and an accessibility label: back, forward, reload, stop, bookmark, history, save, export, copy, format, run all, replace, new (+), close (×), refresh, move to window. A toolbar's main action (Run, Send) is an accent button with an icon and a short word. Buttons in dialogs, sheets and Settings keep their words.
 
-R-SHELL-159. Every modal of the app (questions, the Shell's sheets, Bench sheets) has one look (`kit.Modal`): a backdrop of black at 18 % (light) or 45 % (dark); a panel with a 16 pt radius, the card's background, a hairline border and a deep soft shadow; an entrance from 96 % scale with a fade (none with Reduce motion). A sheet with sections (the Library) has a side navigation as Settings has: a color tile and a title per section, the chosen one tinted with the accent. A sheet's header has a color tile, the title and a close button.
+R-SHELL-159. Every modal of the app (questions, the Shell's sheets, Bench sheets) has one look (`kit.Modal`): a backdrop of black at 18 % (light) or 45 % (dark); a panel with a 16 pt radius, the card's background, a hairline border and a deep soft shadow; an entrance from 96 % scale with a fade (none with Reduce motion). A modal never takes more than 92 % of the window's width and 90 % of its height, so that it fits the notch panel in size S; the Switcher has the same backdrop, radius and shadow. A sheet with sections (the Library) has a side navigation as Settings has: a color tile and a title per section, the chosen one tinted with the accent. A sheet's header has a color tile, the title and a close button.
 
 ## Questions
 

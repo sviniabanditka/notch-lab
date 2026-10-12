@@ -191,7 +191,7 @@ func (b *Bench) hostRow(c *ui.Context, bench *model.Bench, group string, h *sshh
 		}
 		ui.Text(c, who).FontSize(11).TextColor(th.TextMuted).SingleLine().Grow(1).Shrink(1).MinWidth(0)
 		if h.Imported {
-			ui.Text(c, "config").FontSize(9).TextColor(th.TextMuted)
+			ui.Text(c, "config").FontSize(10).Padding(0, 5).Radius(5).Background(th.Text.Alpha(0.06)).TextColor(th.TextMuted)
 		}
 	})
 	if r.Clicked() {

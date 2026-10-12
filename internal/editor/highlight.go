@@ -77,11 +77,15 @@ type Highlighter struct {
 	Post  func(func())
 
 	lines [][]Span // main goroutine
-	mu    sync.Mutex
-	want  ui.TextSnapshot
-	have  bool
-	busy  bool
-	timer *time.Timer
+	// linesPal is the palette lines were lexed with: their color indexes
+	// are into it, not into a Pal set since.
+	linesPal *syntax.Palette
+	mu       sync.Mutex
+	want     ui.TextSnapshot
+	asked    bool // want holds a snapshot
+	have     bool
+	busy     bool
+	timer    *time.Timer
 }
 
 // Lines are the spans of each line from the last lexing; a line past the
@@ -99,7 +103,7 @@ func (h *Highlighter) Changed(s ui.TextSnapshot, now bool) {
 		return
 	}
 	h.mu.Lock()
-	h.want, h.have = s, true
+	h.want, h.have, h.asked = s, true, true
 	if h.timer != nil {
 		h.timer.Stop()
 	}
@@ -117,11 +121,11 @@ func (h *Highlighter) run() {
 		h.mu.Unlock()
 		return
 	}
-	s := h.want
+	s, pal := h.want, h.Pal
 	h.have, h.busy = false, true
 	h.mu.Unlock()
-	lines := h.lex(s.String(), s.LineCount())
-	h.Post(func() { h.lines = lines })
+	lines := h.lex(s.String(), s.LineCount(), pal)
+	h.Post(func() { h.lines, h.linesPal = lines, pal })
 	h.mu.Lock()
 	h.busy = false
 	again := h.have
@@ -131,7 +135,30 @@ func (h *Highlighter) run() {
 	}
 }
 
-func (h *Highlighter) lex(text string, n int) (out [][]Span) {
+// SetPalette changes the colors, as for a switch of light and dark, and
+// lexes the text again with them. Main goroutine.
+func (h *Highlighter) SetPalette(p *syntax.Palette) {
+	if h == nil || h.Pal == p {
+		return
+	}
+	h.mu.Lock()
+	h.Pal = p
+	s, asked := h.want, h.asked
+	h.mu.Unlock()
+	if asked {
+		h.Changed(s, true)
+	}
+}
+
+// Palette is the palette of the lines Line returns.
+func (h *Highlighter) Palette() *syntax.Palette {
+	if h.linesPal != nil {
+		return h.linesPal
+	}
+	return h.Pal
+}
+
+func (h *Highlighter) lex(text string, n int, pal *syntax.Palette) (out [][]Span) {
 	out = make([][]Span, n)
 	defer func() {
 		if r := recover(); r != nil { // a lexer that panics leaves the text plain
@@ -144,7 +171,7 @@ func (h *Highlighter) lex(text string, n int) (out [][]Span) {
 	}
 	line, col := 0, 0
 	for t := it(); t != chroma.EOF; t = it() {
-		c := h.Pal.Of(t.Type)
+		c := pal.Of(t.Type)
 		v := t.Value
 		for len(v) > 0 && line < n {
 			seg, rest, more := strings.Cut(v, "\n")

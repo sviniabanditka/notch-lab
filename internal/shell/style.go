@@ -50,7 +50,7 @@ func chosen(t *ui.Theme) ui.Color {
 }
 
 // faint is text that labels: section titles, counts, shortcuts.
-func faint(t *ui.Theme) ui.Color { return t.Text.Alpha(0.45) }
+func faint(t *ui.Theme) ui.Color { return t.Text.Alpha(0.55) } // about 4.6:1, AA for small text
 
 // chrome is the window's own fill where the material would be, for a
 // window without vibrancy (Reduce transparency, tests).

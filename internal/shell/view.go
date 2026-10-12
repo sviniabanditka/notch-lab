@@ -186,8 +186,10 @@ func (s *Shell) rail(c *ui.Context) {
 			top = 2
 		}
 		ui.Row(c).Height(top).Shrink(0).FillWidth().DragWindow()
-		s.labButton(c)
-		ui.Box(c).Size(20, 1).Shrink(0).Margin(2, 0).Background(stroke(t))
+		if s.Strip == nil { // the notch panel's band has the Lab menu
+			s.labButton(c)
+			ui.Box(c).Size(20, 1).Shrink(0).Margin(2, 0).Background(stroke(t))
+		}
 		l := s.lab()
 		for i, b := range l.Benches {
 			s.benchIcon(c, b, i)
@@ -684,7 +686,6 @@ func (s *Shell) leaf(c *ui.Context, b *model.Bench, n *model.Node, key string) {
 			return
 		}
 		ui.Text(c, n.Tab.DisplayTitle()).FontSize(15).Bold().SingleLine()
-		ui.Text(c, fmt.Sprintf("The %s Bench arrives in %s.", b.Type.Title(), arrives(b.Type))).TextColor(t.TextMuted).FontSize(12)
 	})
 }
 

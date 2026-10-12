@@ -140,7 +140,7 @@ func sameSpans(a, b []Span) bool {
 
 // shape lays out the display text with the spans' colors.
 func (v *View) shape(disp string, runes []rune, toDisp []int, spans []Span) *ui.TextLayout {
-	if len(spans) == 0 || v.HL == nil || v.HL.Pal == nil {
+	if len(spans) == 0 || v.HL == nil || v.HL.Palette() == nil {
 		return ui.ShapeText(disp, v.Font, 0)
 	}
 	// The spans count runes of the line; the display text counts UTF-16
@@ -160,15 +160,15 @@ func (v *View) shape(disp string, runes []rune, toDisp []int, spans []Span) *ui.
 	for _, sp := range spans {
 		a, z := at(sp.Start), at(sp.End)
 		if a > prev {
-			out = append(out, ui.Span{Text: string(units[prev:a]), Color: v.HL.Pal.Colors[0]})
+			out = append(out, ui.Span{Text: string(units[prev:a]), Color: v.HL.Palette().Colors[0]})
 		}
 		if z > a {
-			out = append(out, ui.Span{Text: string(units[a:z]), Color: v.HL.Pal.Colors[sp.Color]})
+			out = append(out, ui.Span{Text: string(units[a:z]), Color: v.HL.Palette().Colors[sp.Color]})
 		}
 		prev = max(prev, z)
 	}
 	if prev < len(units) {
-		out = append(out, ui.Span{Text: string(units[prev:]), Color: v.HL.Pal.Colors[0]})
+		out = append(out, ui.Span{Text: string(units[prev:]), Color: v.HL.Palette().Colors[0]})
 	}
 	return ui.ShapeRichText(out, v.Font, 0)
 }

@@ -42,6 +42,8 @@ R-NOTES-018. Deleting a Note from the Panel moves the file to the Trash and clos
 
 R-NOTES-020. Pasting an image from the clipboard into a Note writes it to `<notes folder>/assets/<yyyy-mm-dd-hhmmss>.png` and inserts `![](assets/<name>.png)` at the cursor. The folder is created when missing. A Note in a folder below the notes folder uses a relative path from the Note's folder.
 
+R-NOTES-026. A Note shows without line numbers, whatever the editor setting. The status bar shows "Note · <file name>", not the full path.
+
 R-NOTES-021. Dropping an image file on a Note copies it to the assets folder in the same way `[later]`.
 
 ## Panel

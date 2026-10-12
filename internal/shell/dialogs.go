@@ -75,7 +75,7 @@ func (s *Shell) dialogView(c *ui.Context) {
 	kit.Modal(c, "dialog", &d.open, func() {
 		width := float32(420)
 		if d.kind == dlgNewBench {
-			width = 560
+			width = 620
 		}
 		ui.Column(c).Width(width).Gap(12).Children(func() {
 			switch d.kind {

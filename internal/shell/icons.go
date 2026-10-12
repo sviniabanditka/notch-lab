@@ -90,23 +90,3 @@ func TypeIcon(t model.BenchType) *ui.SVG {
 	return iconAgents
 }
 
-// arrives names the milestone that brings a Bench type (docs/milestones.md).
-func arrives(t model.BenchType) string {
-	switch t {
-	case model.Terminal:
-		return "M2"
-	case model.Editor, model.Files:
-		return "M3"
-	case model.Browser:
-		return "M4"
-	case model.HTTP:
-		return "M7"
-	case model.DB:
-		return "M8"
-	case model.SSH:
-		return "M9"
-	case model.Notes:
-		return "M10"
-	}
-	return "M11"
-}

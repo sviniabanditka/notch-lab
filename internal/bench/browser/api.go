@@ -778,14 +778,14 @@ func (b *Bench) findBar(c *ui.Context, x *tab) {
 			count = fmt.Sprintf("%d of %d", x.find.res.Active, x.find.res.Matches)
 		}
 		ui.Text(c, count).FontSize(12).TextColor(th.TextMuted)
-		if ui.Button(c, "↑").Label("Previous").Clicked() {
+		if kit.IconButton(c, "prev", "Previous (⇧↩)", kit.Up, false).Clicked() {
 			run(true, true)
 		}
-		if ui.Button(c, "↓").Label("Next").Clicked() {
+		if kit.IconButton(c, "next", "Next (↩)", kit.Down, false).Clicked() {
 			run(false, true)
 		}
 		ui.Spacer(c)
-		if ui.Button(c, "Done").Clicked() || in.Shortcut(0, ui.KeyEscape) {
+		if kit.IconButton(c, "done", "Done (esc)", kit.Close, false).Clicked() || in.Shortcut(0, ui.KeyEscape) {
 			x.find.open = false
 			if x.wv != nil {
 				x.wv.Page().StopFindInPage()

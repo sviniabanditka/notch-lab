@@ -291,13 +291,13 @@ func verbose() string {
 	return "false"
 }
 
-// prologue, in dev runs, makes a worker tell that it starts, and any error
-// as it starts, before the shim can: a worker that dies there says
-// nothing otherwise.
+// prologue goes before the shim in a worker in dev runs: it tells that
+// the worker starts, and any error as it starts, before the shim can: a
+// worker that dies there says nothing otherwise.
 func prologue() string {
 	if verbose() != "true" {
 		return ""
 	}
-	return `self.addEventListener("error",function(e){try{chrome.runtime.sendNativeMessage("search",{api:"debug.error",args:["worker error: "+e.message+" @ "+e.filename+":"+e.lineno]})}catch(x){}});` +
-		`try{chrome.runtime.sendNativeMessage("search",{api:"debug.error",args:["worker started"]})}catch(x){}` + "\n"
+	return `self.addEventListener("error",function(e){try{chrome.runtime.sendNativeMessage("` + Application + `",{api:"debug.error",args:["worker error: "+e.message+" @ "+e.filename+":"+e.lineno]})}catch(x){}});` +
+		`try{chrome.runtime.sendNativeMessage("` + Application + `",{api:"debug.error",args:["worker started"]})}catch(x){}` + "\n"
 }

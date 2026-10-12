@@ -676,3 +676,28 @@ func pngOf(img id) []byte {
 	p := objc.Send[unsafe.Pointer](data, sel("bytes"))
 	return append([]byte(nil), unsafe.Slice((*byte)(p), n)...)
 }
+
+// BackgroundView is the hidden Web view that runs the Extension's
+// background, from WebKit's private _backgroundWebView; 0 when WebKit has
+// none or hides it. For dev diagnostics only.
+func (cx *Context) BackgroundView() uintptr {
+	if !objc.Send[bool](cx.obj, sel("respondsToSelector:"), sel("_backgroundWebView")) {
+		return 0
+	}
+	return uintptr(send(cx.obj, "_backgroundWebView"))
+}
+
+// DropWorker drops the Extension's service worker registration: WebKit
+// keeps the script of a worker as it first registered it and does not
+// update it, so a worker without the app's prologue (EnsureWorker) never
+// answers. The context must load again (unload, load) to register the
+// worker afresh from the files. done gets the error, if any.
+func (cx *Context) DropWorker(done func(error)) {
+	bv := cx.BackgroundView()
+	if bv == 0 {
+		done(errors.New("no background view"))
+		return
+	}
+	CallAsync(bv, `for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); return true;`, nil, "",
+		func(_ []byte, err error) { done(err) })
+}

@@ -106,6 +106,7 @@ func (e *Ext) load(en *extensions.Entry) {
 			en.Name = cx.Name
 			e.M.Save()
 		}
+		e.renewWorker(cx, en)
 	})
 }
 
@@ -559,6 +560,7 @@ func (e *Ext) PresentPopup(cx *webkit.Context, t *webkit.ExtTab) {
 	}
 	webkit.SetInspectable(wv.NativeHandle(), true) // Safari › Develop shows the popup's console
 	if os.Getenv("NOTCH_LAB_HOME") != "" {
+		probeBackground(cx)
 		probePopup(cx.Name, wv)
 	}
 	_ = wv.Page().LoadURL(u)
@@ -589,8 +591,7 @@ func liveURL(x *tab) string {
 
 // act presses an Extension's button. WebKit asks for the popup through
 // its delegate; for some Extensions it does not, so the popup of the
-// manifest opens here when no request comes soon (R-WEB-161). The worker
-// is not woken here: waking a worker that runs starts it over.
+// manifest opens here when no request comes soon (R-WEB-161).
 func (e *Ext) act(cx *webkit.Context, x *tab) { e.press(cx, x) }
 
 func (e *Ext) press(cx *webkit.Context, x *tab) {
@@ -638,4 +639,48 @@ func probePopup(name string, wv *mygo.WebView) {
 			log.Printf("extensions: %s: popup probe %d: %v %v", name, i, v, err)
 		}
 	}()
+}
+
+// probeBackground logs, in dev runs, the service workers of an
+// Extension's background: which script runs, and in what state.
+func probeBackground(cx *webkit.Context) {
+	bv := cx.BackgroundView()
+	if bv == 0 {
+		log.Printf("extensions: %s: no background view", cx.Name)
+		return
+	}
+	webkit.CallAsync(bv, `const regs = await navigator.serviceWorker.getRegistrations();
+return {at: location.href, ctl: !!navigator.serviceWorker.controller, regs: regs.map(r => ({scope: r.scope,
+  active: r.active && {url: r.active.scriptURL, state: r.active.state}, waiting: !!r.waiting, installing: !!r.installing}))};`,
+		nil, "", func(res []byte, err error) {
+			log.Printf("extensions: %s: background view: %s %v", cx.Name, res, err)
+		})
+}
+
+// workerFile holds, in an Extension's folder, the Shim version its service
+// worker was registered with.
+const workerFile = ".notch-worker"
+
+// renewWorker registers an Extension's service worker afresh once the
+// Shim in its files changed: WebKit keeps the script a worker first
+// registered with and never updates it, so the worker would run without
+// the Shim's fixes (Bitwarden's then never took a popup's connect).
+func (e *Ext) renewWorker(cx *webkit.Context, en *extensions.Entry) {
+	stamp := filepath.Join(e.M.Folder(en), workerFile)
+	if b, _ := os.ReadFile(stamp); string(b) == extensions.ShimVersion {
+		return
+	}
+	cx.DropWorker(func(err error) {
+		e.b.Post(func() {
+			if err != nil { // no background view: nothing to renew
+				log.Printf("extensions: %s: worker not renewed: %v", en.ID, err)
+			} else {
+				log.Printf("extensions: %s: worker renewed for Shim %s", en.ID, extensions.ShimVersion)
+			}
+			_ = os.WriteFile(stamp, []byte(extensions.ShimVersion), 0o600)
+			if err == nil {
+				e.Reload(en.ID)
+			}
+		})
+	})
 }

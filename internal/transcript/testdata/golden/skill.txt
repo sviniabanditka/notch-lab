@@ -1,0 +1,9 @@
+state ready, at start true, meta version "2.1.268" model "claude-fable-5-1" branch "main" title ""
+6ae7714b-2813-457d-b158-a1a44debd947 r1 command "resume-handoff" args="args"
+msg_011CewM1xqz51UMo4A4E3B8o/thinking r1 thinking ""
+msg_011CewM1xqz51UMo4A4E3B8o/answer r1 answer "answer text"
+toolu_0127SkrAFRhizevFphJJQHtD r2 tool shell Bash "x" state=done result="result text"
+toolu_01CxFZk4RZqXSYxGV4aPQg75 r2 tool shell Bash "x" state=done result="result text"
+toolu_01YNVkjupFmt4LtAGvJxJi8M r2 tool shell Bash "x" state=done result="result text"
+msg_011CewM3FT9J4AMnEE2CvdFb/answer r1 answer "answer text"
+8545e3c5-65d6-46c7-ad62-f39182af0773 r1 turn end 30.295s

@@ -15,12 +15,14 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
+	agentsbench "github.com/sviniabanditka/notch-lab/internal/bench/agents"
 	browserbench "github.com/sviniabanditka/notch-lab/internal/bench/browser"
 	dbbench "github.com/sviniabanditka/notch-lab/internal/bench/db"
 	editorbench "github.com/sviniabanditka/notch-lab/internal/bench/editor"
 	filesbench "github.com/sviniabanditka/notch-lab/internal/bench/files"
 	httpbench "github.com/sviniabanditka/notch-lab/internal/bench/http"
 	notesbench "github.com/sviniabanditka/notch-lab/internal/bench/notes"
+	prbench "github.com/sviniabanditka/notch-lab/internal/bench/pullrequests"
 	sshbench "github.com/sviniabanditka/notch-lab/internal/bench/ssh"
 	"github.com/sviniabanditka/notch-lab/internal/bench/terminal"
 	"github.com/sviniabanditka/notch-lab/internal/daemon"
@@ -90,10 +92,12 @@ type app struct {
 	db       *dbbench.Bench
 	ssh      *sshbench.Bench
 	notes    *notesbench.Bench
+	prs      *prbench.Bench
+	agents   *agentsbench.Bench
 	active   bool
 	notch    *notch
 	mcp      *mcp.Server
-	agents   agentsUI
+	agentsUI agentsUI
 	// lastToast counts repeats of an agent's Toast (R-MCP-044).
 	lastToast struct {
 		key string
@@ -194,11 +198,33 @@ func (a *app) start() {
 	a.sh.Overlays = append(a.sh.Overlays, a.db.Overlay)
 	a.notes = notesbench.New(a.ed, a.dir)
 	a.ed.TitleFor, a.ed.AutosaveFor, a.ed.Prepare = notesbench.Title, notesbench.Autosave, a.notes.Prepare
+	a.prs = prbench.New(st, userHome, a.dir)
+	a.prs.Post, a.prs.Show, a.prs.Confirm = a.term.Post, a.ed.Show, a.sh.Confirm
+	a.prs.Focused = func() bool { return a.active }
+	a.prs.AgentPane = func(l *model.Lab) string {
+		for _, x := range a.term.Agents() {
+			if x.Tab.Bench.Lab == l {
+				return x.Tab.ID
+			}
+		}
+		return ""
+	}
+	a.prs.Paste = func(tab, text string) error {
+		if t := a.term.Find(tab); t != nil {
+			return a.term.Write(t, text)
+		}
+		return nil
+	}
+	a.agents = agentsbench.New(st, a.term, a.dir)
+	a.agents.Post, a.agents.Show, a.agents.Toast = a.term.Post, a.ed.Show, a.sh.Toast
+	a.agents.OpenFile = func(p string, line int) { a.ed.OpenPath(a.st.Window("main").Lab, p, line, 0) }
+	a.sh.Overlays = append(a.sh.Overlays, a.agents.Overlay)
 	a.ssh = sshbench.New(a.term, a.dir)
 	a.ssh.Confirm = a.sh.Confirm
 	a.db.TunnelFor = a.ssh.Tunnel
 	a.sh.Overlays = append(a.sh.Overlays, a.ssh.Overlay)
-	a.sh.Types = map[model.BenchType]shell.TabType{model.Terminal: a.term, model.Editor: a.ed, model.Files: a.files, model.Browser: a.web, model.HTTP: a.http, model.DB: a.db, model.SSH: a.ssh, model.Notes: a.notes}
+	a.sh.Types = map[model.BenchType]shell.TabType{model.Terminal: a.term, model.Editor: a.ed, model.Files: a.files, model.Browser: a.web, model.HTTP: a.http, model.DB: a.db, model.SSH: a.ssh, model.Notes: a.notes,
+		model.PullRequests: a.prs, model.Agents: a.agents}
 	a.sh.DaemonOK = a.term.Connected
 	a.sh.RestartDaemon = func() { go a.connect() }
 	mygo.App.OnDidBecomeActive(func() { a.active = true })
@@ -223,6 +249,7 @@ func (a *app) start() {
 	a.http.Win = a.main
 	a.db.Win = a.main
 	a.ssh.Win = a.main
+	a.prs.Win = a.main
 	a.web.CloseTab = a.sh.CloseTab
 	a.web.StartExtensions() // R-WEB-130
 	a.newNotch(userHome)

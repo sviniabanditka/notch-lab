@@ -1,0 +1,23 @@
+state ready, at start true, meta version "2.1.268" model "claude-opus-5" branch "main" title "Fixture session"
+3e49d1f0-db02-4618-afb8-0a0bb4aa0a65 r2 command "model" args="args" output="output"
+9d8fd367-99b3-4e61-958b-d187ba85e06b r1 prompt "prompt text"
+msg_011CevRMnTBnBJEbCohJxvQS/answer r1 answer "answer text"
+toolu_0149qQ6EaRj8uoo6REQrR5fN r2 tool agent Agent "x" state=done result="result text"
+msg_011CevRNgBvdPv7xZRUw6Kc6/answer r1 answer "answer text"
+d24efc78-d684-4134-9498-7827bfdc3002 r1 turn end 13.908s
+8f4099bf-a6f5-45d2-8c55-2af67d599e0e r1 notice "Agent \"task\" finished"
+msg_011CevRU4PJk8Gs5BUraq1EQ/answer r1 answer "answer text"
+f6e04077-4d4c-48be-a1d0-e710955948c7 r1 turn end 1m50.857s
+39de779b-8454-4584-918f-14266285df1e r1 prompt "prompt text"
+msg_011CevRY5sD1j2ZSKM7mJEam/answer r1 answer "answer text"
+2610beae-8c83-4332-9c95-81c0d6aa8c33 r1 turn end 13.877s
+72520bd6-13d2-4fc1-91f9-e183280c7e01 r1 prompt "prompt text"
+msg_011CevRbZ1CFdkynbD3DF48j/answer r1 answer "answer text"
+toolu_0192kaJrZZCBxNvJ2roZKbFE r2 tool shell Bash "x" state=done result="result text"
+toolu_01HsJaYCmU9aobQAoHQqkQ5H r2 tool shell Bash "x" state=failed result="result text"
+msg_011CevRc4bfx6MYNzkezTsuM/answer r1 answer "answer text"
+bf1a5f57-104c-45c8-ab87-c8c1c364afe2 r1 turn end 27.328s
+8509a44c-5450-4f1e-b4a7-fa6df860f188 r1 prompt "prompt text"
+msg_011CevRhNMtu17PpGFx1riyQ/answer r1 answer "answer text"
+89da3f7e-bb1b-4828-930f-e2a3d29fec1e r1 turn end 13.558s
+a1fedb1c-d345-4a13-8bd8-27b5c5a4dfe9 r1 recap "recap text"

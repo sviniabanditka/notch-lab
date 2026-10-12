@@ -25,6 +25,8 @@ func (a *app) startMCP() {
 	tools = append(tools, a.dbTools()...)
 	tools = append(tools, a.sshTools()...)
 	tools = append(tools, a.notesTools()...)
+	tools = append(tools, a.prTools()...)
+	tools = append(tools, a.agentTools()...)
 	a.mcp = &mcp.Server{
 		Path:     mcp.SocketPath(a.dir),
 		Tools:    tools,
@@ -181,6 +183,9 @@ func domainOf(t model.BenchType) string {
 	}
 	if t == model.SSH {
 		return "ssh"
+	}
+	if t == model.PullRequests {
+		return "pull-requests"
 	}
 	return string(t)
 }

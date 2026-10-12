@@ -2,6 +2,8 @@
 
 The pull-requests Bench shows the GitHub pull requests and issues that involve the user, and one of them in detail. The package is a port of herdr-go `internal/pullrequests` (MIT). Only GitHub is supported.
 
+> M11 status (2026-10-12). Done: the package ported from herdr-go (`internal/pullrequests`, its tests pass), the Panel as its list, a Tab as its detail, the MCP tools; checked live against GitHub through `gh`. Changed from the text below, to keep the port's behaviour: the detail has Overview (with the checks) and Files (R-PR-050); the token comes from `gh auth token` found on PATH, `/opt/homebrew/bin` or `/usr/local/bin` (R-PR-010); the cache is `$NOTCH_LAB_HOME/pullrequests/cache/pullrequests.json` (R-PR-040); one detail shows per Bench at a time, a second Leaf shows "Show here"; "Send review comments to agent" pastes into the Lab's first terminal Tab with an Agent (R-PR-067 is done); Open in browser uses the system browser. `[later]`: the lightbox for images (R-PR-053), Checkout in a terminal Tab (R-PR-060), approve and comment (R-PR-068).
+
 ## Tab and Panel
 
 R-PR-001. A Tab holds one Pull request or one Issue. The Tab's type data is `{"repo":"owner/name","number":123,"issue":false}`.

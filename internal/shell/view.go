@@ -6,6 +6,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"github.com/sviniabanditka/notch-lab/internal/model"
+	"github.com/sviniabanditka/notch-lab/internal/platform/theme"
 )
 
 // Sizes of the Shell, in pt (R-SHELL-003, R-SHELL-040, R-SHELL-070).
@@ -24,6 +25,7 @@ func (s *Shell) ApplyTheme(c *ui.Context) {
 	t := *c.Theme()
 	t.FontSize = float32(s.Set.S.Appearance.UIFontSize)
 	c.SetTheme(&t)
+	theme.Follow(&t) // the views ported from herdr-go read these tokens
 }
 
 // View draws the main window.

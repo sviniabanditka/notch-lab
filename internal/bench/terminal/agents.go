@@ -190,3 +190,48 @@ func (b *Bench) Alive(t *model.Tab) bool {
 func SetSSH(t *model.Tab, host, cwd string, argv []string) {
 	writeData(t, data{Host: host, Cwd: cwd, Argv: argv})
 }
+
+// AgentTab is a live terminal Tab with an Agent (12-agents.md).
+type AgentTab struct {
+	Tab   *model.Tab
+	Agent daemon.Agent
+	Cwd   string
+}
+
+// Agents lists the live Tabs whose Session runs an Agent.
+func (b *Bench) Agents() []AgentTab {
+	var out []AgentTab
+	for t, x := range b.tabs {
+		if x.st.Agent != nil && t.Bench != nil {
+			cwd := x.st.Cwd
+			if cwd == "" {
+				cwd = readData(t).Cwd
+			}
+			out = append(out, AgentTab{Tab: t, Agent: *x.st.Agent, Cwd: cwd})
+		}
+	}
+	return out
+}
+
+// Screen is the text on a Tab's Screen.
+func (b *Bench) Screen(t *model.Tab) (string, error) {
+	text, _, rows, err := b.Text(t)
+	if err != nil {
+		return "", err
+	}
+	lines := strings.Split(strings.TrimRight(text, "\n"), "\n")
+	if rows > 0 && len(lines) > rows {
+		lines = lines[len(lines)-rows:]
+	}
+	return strings.Join(lines, "\n"), nil
+}
+
+// Find finds a live Tab by id.
+func (b *Bench) Find(id string) *model.Tab {
+	for t := range b.tabs {
+		if t.ID == id {
+			return t
+		}
+	}
+	return nil
+}

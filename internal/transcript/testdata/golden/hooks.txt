@@ -1,0 +1,6 @@
+state ready, at start true, meta version "2.1.296" model "claude-opus-5-5" branch "main" title "Fixture session"
+msg_011CfuCnnperCMqf6NCJkK5Q/thinking r1 thinking ""
+msg_011CfuCnnperCMqf6NCJkK5Q/answer r1 answer "answer text"
+toolu_01L5gaJn8x3PwsBQnWfH7gXY r2 tool write Write "x" state=done result="result text"
+9f71b83c-86bd-4e5f-ac70-b8ae970d1aeb r1 prompt "prompt text" queued
+msg_011CfuCpSki6VS7EMbT2Z4Vz/thinking r1 thinking ""

@@ -1,0 +1,8 @@
+state ready, at start true, meta version "2.1.295" model "claude-haiku-5-5" branch "main" title "Fixture session"
+2f4ad80e-5200-4037-b7a1-78a72ad415b6 r1 prompt "prompt text"
+msg_011Cfs3JBSab78xYy4B9Tdyd/thinking r1 thinking ""
+toolu_01CvoYhAmn6LueegZweRN6Pm r2 tool shell Bash "x" state=done result="result text"
+msg_011Cfs3JPV8FbtnxtSb2QbKk/thinking r1 thinking ""
+toolu_0139ZTz21ZzCMSWu6oRLqUnF r2 tool shell Bash "x" state=interrupted result="The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed."
+7cb912b6-8b86-49be-9b29-cd8f08c0d8df r1 interrupted
+fa3adc4f-a869-44d1-9400-bf0d69a36153 r1 turn end 5.185s

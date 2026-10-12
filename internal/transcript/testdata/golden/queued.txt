@@ -1,0 +1,2 @@
+state ready, at start true, meta version "2.1.296" model "" branch "main" title ""
+9f71b83c-86bd-4e5f-ac70-b8ae970d1aeb r1 prompt "prompt text" queued

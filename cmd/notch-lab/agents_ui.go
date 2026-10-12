@@ -35,10 +35,10 @@ func exePath() string {
 
 // checkClaude asks `claude mcp get notch-lab` off the main goroutine.
 func (a *app) checkClaude() {
-	if a.agents.claude == "checking" || time.Since(a.agents.checked) < 10*time.Second {
+	if a.agentsUI.claude == "checking" || time.Since(a.agentsUI.checked) < 10*time.Second {
 		return
 	}
-	a.agents.claude, a.agents.checked = "checking", time.Now()
+	a.agentsUI.claude, a.agentsUI.checked = "checking", time.Now()
 	go func() {
 		out, err := exec.Command("/bin/zsh", "-lic", "claude mcp get notch-lab").CombinedOutput()
 		state := "absent"
@@ -49,7 +49,7 @@ func (a *app) checkClaude() {
 			}
 		}
 		a.main.Update(func() {
-			a.agents.claude = state
+			a.agentsUI.claude = state
 			if a.settings != nil && !a.settings.IsDestroyed() {
 				a.settings.Invalidate()
 			}
@@ -58,11 +58,11 @@ func (a *app) checkClaude() {
 }
 
 func (a *app) runClaude(args string) {
-	a.agents.busy = true
+	a.agentsUI.busy = true
 	go func() {
 		out, err := exec.Command("/bin/zsh", "-lic", "claude mcp "+args).CombinedOutput()
 		a.main.Update(func() {
-			a.agents.busy, a.agents.checked = false, time.Time{}
+			a.agentsUI.busy, a.agentsUI.checked = false, time.Time{}
 			if err != nil {
 				a.sh.Toast("claude mcp: " + strings.TrimSpace(string(out)))
 			}
@@ -193,20 +193,20 @@ func (a *app) agentsSettings(c *ui.Context) {
 	a.checkClaude()
 	cmd := fmt.Sprintf(`claude mcp add --scope user notch-lab -- "%s" --mcp`, exePath())
 	ui.Row(c.Key("claude")).Gap(8).AlignItems(ui.Center).Children(func() {
-		switch a.agents.claude {
+		switch a.agentsUI.claude {
 		case "connected":
 			ui.Text(c, "Claude Code: connected").Grow(1)
-			if ui.Button(c.Key("rm"), "Remove").Disabled(a.agents.busy).Clicked() {
+			if ui.Button(c.Key("rm"), "Remove").Disabled(a.agentsUI.busy).Clicked() {
 				a.runClaude("remove --scope user notch-lab")
 			}
 		case "other path":
 			ui.Text(c, "Claude Code: connected to another notch-lab").Grow(1)
-			if ui.Button(c.Key("up"), "Update").Disabled(a.agents.busy).Clicked() {
+			if ui.Button(c.Key("up"), "Update").Disabled(a.agentsUI.busy).Clicked() {
 				a.runClaude(fmt.Sprintf(`remove --scope user notch-lab; claude mcp add --scope user notch-lab -- "%s" --mcp`, exePath()))
 			}
 		default:
 			ui.Text(c, "Claude Code").Grow(1)
-			if ui.PrimaryButton(c.Key("add"), "Connect to Claude Code").Disabled(a.agents.busy || a.agents.claude == "checking").Clicked() {
+			if ui.PrimaryButton(c.Key("add"), "Connect to Claude Code").Disabled(a.agentsUI.busy || a.agentsUI.claude == "checking").Clicked() {
 				a.runClaude(strings.TrimPrefix(cmd, "claude mcp "))
 			}
 		}
@@ -229,20 +229,20 @@ func (a *app) agentsSettings(c *ui.Context) {
 
 	ui.Text(c, "Audit log").Bold()
 	ui.Row(c.Key("af")).Gap(8).Children(func() {
-		ui.TextInput(c.Key("filter"), &a.agents.filter).Placeholder("Filter by agent or tool").Grow(1)
+		ui.TextInput(c.Key("filter"), &a.agentsUI.filter).Placeholder("Filter by agent or tool").Grow(1)
 		if ui.Button(c.Key("clear"), "Clear").Clicked() && a.sh.Confirm("Clear the Audit log?", "Clear") {
 			_, _ = a.store.DB().Exec(`DELETE FROM audit`)
-			a.agents.auditKey = ""
+			a.agentsUI.auditKey = ""
 		}
 	})
-	key := fmt.Sprintf("%s|%d", a.agents.filter, time.Now().Unix()/2)
-	if key != a.agents.auditKey {
-		a.agents.auditKey, a.agents.rows = key, mcp.AuditRows(a.store.DB(), a.agents.filter, 100)
+	key := fmt.Sprintf("%s|%d", a.agentsUI.filter, time.Now().Unix()/2)
+	if key != a.agentsUI.auditKey {
+		a.agentsUI.auditKey, a.agentsUI.rows = key, mcp.AuditRows(a.store.DB(), a.agentsUI.filter, 100)
 	}
-	if len(a.agents.rows) == 0 {
+	if len(a.agentsUI.rows) == 0 {
 		muted("No calls yet.")
 	}
-	for i, r := range a.agents.rows {
+	for i, r := range a.agentsUI.rows {
 		line := fmt.Sprintf("%s  %s  %s  %d ms", r.Time.Format("01-02 15:04:05"), r.ClientName, r.Tool, r.DurationMs)
 		if r.Error != "" {
 			line += "  ✕ " + r.Error

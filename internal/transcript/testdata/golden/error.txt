@@ -1,0 +1,3 @@
+state ready, at start true, meta version "2.1.277" model "" branch "main" title ""
+cbda7ac9-71fd-417f-b749-dcfc467a3d6f r1 notice "prompt text"
+6c80aa90-49b1-439d-8fd5-6b713c7bf58b r1 error "Not logged in · Please run /login"

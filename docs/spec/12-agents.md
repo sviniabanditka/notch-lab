@@ -2,6 +2,8 @@
 
 # Agents: detection, status, the Transcript, the agents Bench, Tasks
 
+> M11 status (2026-10-12). Done: the agents Bench (`internal/bench/agents`) on herdr-go's `chat`, `tasks` and `transcript` packages (copied with their tests) and a small `internal/session` of their types; the Panel of every Agent, Chat Tabs with the composer and approvals, the Task form, the MCP tools `agents.list`, `agents.get`, `agents.prompt`, `agents.wait`. Detection and status were done in M2. Changed: the app finds a Claude Agent's session by `sessions/<pid>.json` in `$CLAUDE_CONFIG_DIR`, `~/.claude` and every `~/.claude-*` folder, not by the process's environment (R-AGENT-003, R-AGENT-021); a Task runs `zsh -lic 'exec claude … "<prompt>"'` and forks with `claude --resume <id> --fork-session` rather than a copied file (R-AGENT-072); a worktree goes to `../<repo>-<branch>`. `agents.get` returns the items as text lines. The views of `chat`, `tasks` and `filetree` take their colors from the window's theme through `theme.Follow`. `[later]`: the start-time check of a session file, Codex Transcripts (R-AGENT-022), Cmd+J (R-AGENT-047), Shift+Cmd+N (the Panel's menu has "New task"), Agents in the Switcher (R-AGENT-080), `agents.task`, the self check of R-AGENT-090.
+
 ## Parts
 
 | Part | Where | Role |

@@ -156,3 +156,32 @@ func Hex(c ui.Color) string {
 	}
 	return string(b)
 }
+
+// synced is the ui theme Follow last took its colors from.
+var synced struct {
+	set        bool
+	dark       bool
+	text, back ui.Color
+}
+
+// Follow takes the colors of the window's ui theme, light or dark, so the
+// views ported from herdr-go match the rest of notch-lab. It keeps the
+// preset's terminal colors and picks the code style by darkness; it does
+// nothing while the ui theme is unchanged. Main thread only.
+func Follow(t *ui.Theme) {
+	if synced.set && synced.dark == t.Dark && synced.text == t.Text && synced.back == t.Background {
+		return
+	}
+	synced.set, synced.dark, synced.text, synced.back = true, t.Dark, t.Text, t.Background
+	p := presets[0]
+	p.Dark = t.Dark
+	p.Background, p.Sidebar, p.Panel, p.Raised = t.Background, t.Surface, t.Surface, t.Surface
+	p.Text, p.TextMuted = t.Text, t.TextMuted
+	p.Accent, p.AccentText = t.Accent, t.AccentText
+	p.Attention, p.Success, p.Danger = t.Warning, t.Success, t.Danger
+	p.CodeStyle = "github"
+	if t.Dark {
+		p.CodeStyle = "github-dark"
+	}
+	use(p, ui.Color{}, false)
+}

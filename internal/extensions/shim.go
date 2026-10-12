@@ -88,7 +88,7 @@ func shimFor(folder string) string {
 	ev, _ := json.Marshal(events)
 	sc, _ := json.Marshal(scripts)
 	return strings.NewReplacer("__SEARCH_EVENTS__", string(ev), "__SEARCH_SCRIPTS__", string(sc),
-		"__SEARCH_CHROME__", ChromeVersion, "__SEARCH_VERBOSE__", "false").Replace(shimText)
+		"__SEARCH_CHROME__", ChromeVersion, "__SEARCH_VERBOSE__", verbose()).Replace(shimText)
 }
 
 // inside resolves a path a manifest names and keeps it in its folder; a
@@ -120,7 +120,9 @@ func Prepare(folder string, fresh bool) error {
 		os.Remove(filepath.Join(folder, stampFile))
 		os.Remove(filepath.Join(folder, addedFile))
 	}
-	if data, err := os.ReadFile(filepath.Join(folder, stampFile)); err == nil && string(data) == ShimVersion {
+	// A dev run writes the Shim each time: its edits and its logging
+	// (verbose) reach the folder without a new ShimVersion.
+	if data, err := os.ReadFile(filepath.Join(folder, stampFile)); err == nil && string(data) == ShimVersion && verbose() != "true" {
 		return nil
 	}
 	mpath := filepath.Join(folder, "manifest.json")
@@ -187,7 +189,7 @@ func Prepare(folder string, fresh bool) error {
 					for strings.HasPrefix(source, first) {
 						source = source[len(first):]
 					}
-					out := Marker + "\n" + script + "\n" + Ender + "\n" + source
+					out := Marker + "\n" + prologue() + script + "\n" + Ender + "\n" + source
 					if t, _ := bg["type"].(string); t == "module" {
 						out = first + source
 					}
@@ -279,3 +281,23 @@ func Added(folder string) []string {
 }
 
 var errNoManifest = errors.New("no manifest")
+
+// verbose makes the shim tell what an Extension logs as errors and
+// warnings, in dev runs (NOTCH_LAB_HOME set) only.
+func verbose() string {
+	if os.Getenv("NOTCH_LAB_HOME") != "" {
+		return "true"
+	}
+	return "false"
+}
+
+// prologue, in dev runs, makes a worker tell that it starts, and any error
+// as it starts, before the shim can: a worker that dies there says
+// nothing otherwise.
+func prologue() string {
+	if verbose() != "true" {
+		return ""
+	}
+	return `self.addEventListener("error",function(e){try{chrome.runtime.sendNativeMessage("search",{api:"debug.error",args:["worker error: "+e.message+" @ "+e.filename+":"+e.lineno]})}catch(x){}});` +
+		`try{chrome.runtime.sendNativeMessage("search",{api:"debug.error",args:["worker started"]})}catch(x){}` + "\n"
+}

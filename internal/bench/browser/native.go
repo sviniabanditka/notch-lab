@@ -257,6 +257,14 @@ func (b *Bench) run(self map[string]any, folder, api string, args []json.RawMess
 		return true, nil
 	case "background.wake", "background.revive", "action.popup":
 		return nil, nil
+	// No side panels in WebKit: their settings are taken, not refused, as
+	// a refusal stops the start of a worker that sets them (Bitwarden).
+	case "sidePanel.setOptions", "sidePanel.setPanelBehavior":
+		return nil, nil
+	case "sidePanel.getOptions":
+		return map[string]any{"enabled": false}, nil
+	case "sidePanel.getPanelBehavior":
+		return map[string]any{"openPanelOnActionClick": false}, nil
 	case "debug.error":
 		e, _ := arg[string](args, 0)
 		log.Printf("extensions: %s: %s", self["name"], e)

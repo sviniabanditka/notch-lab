@@ -557,6 +557,10 @@ func (e *Ext) PresentPopup(cx *webkit.Context, t *webkit.ExtTab) {
 		fly.Close()
 		return
 	}
+	webkit.SetInspectable(wv.NativeHandle(), true) // Safari › Develop shows the popup's console
+	if os.Getenv("NOTCH_LAB_HOME") != "" {
+		probePopup(cx.Name, wv)
+	}
 	_ = wv.Page().LoadURL(u)
 	wv.Page().OnPageTitleUpdated(func(ev *mygo.TitleEvent) { ev.PreventDefault() })
 	e.popup = fly
@@ -584,9 +588,12 @@ func liveURL(x *tab) string {
 }
 
 // act presses an Extension's button. WebKit asks for the popup through
-// its delegate; for some Extensions (Bitwarden) it does not, so the popup
-// of the manifest opens here when no request comes soon (R-WEB-161).
-func (e *Ext) act(cx *webkit.Context, x *tab) {
+// its delegate; for some Extensions it does not, so the popup of the
+// manifest opens here when no request comes soon (R-WEB-161). The worker
+// is not woken here: waking a worker that runs starts it over.
+func (e *Ext) act(cx *webkit.Context, x *tab) { e.press(cx, x) }
+
+func (e *Ext) press(cx *webkit.Context, x *tab) {
 	asked := time.Now()
 	cx.PerformAction(x.ext)
 	time.AfterFunc(400*time.Millisecond, func() {
@@ -612,4 +619,23 @@ func (e *Ext) windowOf(t *webkit.ExtTab) *mygo.Window {
 		return f.wv.Window()
 	}
 	return e.b.Win
+}
+
+// probePopup logs, in dev runs, what a popup shows and the errors it
+// meets in its first 15 s: its console is out of reach otherwise.
+func probePopup(name string, wv *mygo.WebView) {
+	webkit.AddUserScript(wv.NativeHandle(), `if(!window.__nlErrs){window.__nlErrs=[];var p=function(m){if(window.__nlErrs.length<30)window.__nlErrs.push(String(m).slice(0,300))};`+
+		`addEventListener('error',function(e){p('error: '+e.message+' @'+e.filename+':'+e.lineno)});`+
+		`addEventListener('unhandledrejection',function(e){p('rejection: '+(e.reason&&(e.reason.stack||e.reason.message)||e.reason))});`+
+		`var ce=console.error;console.error=function(){p('console: '+[].map.call(arguments,String).join(' '));return ce.apply(console,arguments)}}`, true, true, "")
+	go func() {
+		for i := 0; i < 5; i++ {
+			time.Sleep(3 * time.Second)
+			if wv.IsDestroyed() {
+				return
+			}
+			v, err := wv.Page().Eval(`JSON.stringify({u:location.href,t:(document.body&&document.body.innerText||'').slice(0,160),e:window.__nlErrs||[]})`)
+			log.Printf("extensions: %s: popup probe %d: %v %v", name, i, v, err)
+		}
+	}()
 }

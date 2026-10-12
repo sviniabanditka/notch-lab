@@ -2,7 +2,8 @@ notch-lab includes work from these projects.
 
 herdr-go (MIT) — https://github.com/MaxBoiko21/herdr-go
   tools/icon/letters.swift and tools/verify/{bg,keys,mouse}.swift are copied from it.
-  Packages under internal/ marked "copied from herdr-go" in their doc comment are too.
+  internal/filetree, filesearch, filepreview, diffview and platform/* are copied from it,
+  with notch-lab hooks added to filetree (Mark, Menu, Open, HideDots).
 
 mygo (MIT) — https://github.com/egoist/mygo
   The app builds on a fork, github.com/sviniabanditka/mygo, branch notch-lab.
@@ -20,3 +21,5 @@ Ghostty (MIT) — https://ghostty.org
   and the Daemon's headless terminals; the bundle carries libghostty-vt.dylib.
 
 creack/pty (MIT) — the Daemon's pseudo-terminals.
+
+chroma (MIT), go-gitdiff (MIT), goldmark (MIT) — highlighting, diffs, markdown.

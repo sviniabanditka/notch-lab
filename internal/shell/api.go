@@ -36,14 +36,20 @@ type Shell struct {
 	DaemonOK func() bool
 	// RestartDaemon reconnects to the Daemon (a click on its status).
 	RestartDaemon func()
+	// GoToFile opens Go to File (Cmd+P) on a root folder (R-SHELL-090).
+	GoToFile func(root string)
+	// Overlays draw over the window after the Shell, as the Go to File palette.
+	Overlays []func(c *ui.Context)
 
-	hist     history
-	toasts   []string
-	tabList  ui.ListState
-	resizing bool // the sidebar edge is dragged
-	sw       switcher
-	dlg      dialog
-	menuSig  string
+	hist      history
+	toasts    []string
+	tabList   ui.ListState
+	resizing  bool // the sidebar edge is dragged
+	sw        switcher
+	dlg       dialog
+	menuSig   string
+	panelH    map[*model.Bench]float32
+	panelDrag bool
 	// splits keeps a handle per Split node for its last frame's box.
 	splits map[*model.Node]*ui.Handle
 }
@@ -69,6 +75,35 @@ type TabType interface {
 	Zoom(b *model.Bench, step int)
 }
 
+// Paneler is a TabType with a Panel under the Tab list (R-SHELL-052).
+type Paneler interface {
+	Panel(c *ui.Context, b *model.Bench)
+}
+
+// Commander is a TabType that runs menu commands for its Tabs: save,
+// saveAll, saveAs, revert, find, replace, findNext, findPrevious,
+// gotoLine, reload, preview, diff, splitRight (Cmd+D, which an editor
+// takes for the next occurrence), toggleHidden. t is the focused Tab, or
+// nil. It reports whether it took the command.
+type Commander interface {
+	Command(b *model.Bench, t *model.Tab, name string) bool
+}
+
+// Closer is a TabType that asks its own question before a Tab closes, as
+// Save, Don't Save, Cancel (R-EDIT-006); false keeps the Tab.
+type Closer interface {
+	CanClose(t *model.Tab) bool
+}
+
+// command sends a menu command to the focused Bench's type.
+func (s *Shell) command(name string) bool {
+	b := s.bench()
+	if c, ok := s.typeOf(b).(Commander); ok {
+		return c.Command(b, b.FocusedTab(), name)
+	}
+	return false
+}
+
 func (s *Shell) typeOf(b *model.Bench) TabType {
 	if b == nil || s.Types == nil {
 		return nil
@@ -79,6 +114,9 @@ func (s *Shell) typeOf(b *model.Bench) TabType {
 // closeTab closes a Tab after the type's question (R-TERM-067), and frees it.
 func (s *Shell) closeTab(t *model.Tab) {
 	tt := s.typeOf(t.Bench)
+	if cl, ok := tt.(Closer); ok && !cl.CanClose(t) {
+		return
+	}
 	if tt != nil {
 		if q := tt.CloseQuestion(t); q != "" && !s.confirm(q, "Close") {
 			return
@@ -102,7 +140,7 @@ func (s *Shell) newTabOf(b *model.Bench) *model.Tab {
 
 // New returns the Shell of a window key.
 func New(st *model.State, set *settings.Store, key, home string) *Shell {
-	s := &Shell{St: st, Set: set, Key: key, Home: home, splits: map[*model.Node]*ui.Handle{}}
+	s := &Shell{St: st, Set: set, Key: key, Home: home, splits: map[*model.Node]*ui.Handle{}, panelH: map[*model.Bench]float32{}}
 	s.tabList.Key = func(i int) any { return s.bench().Ordered()[i].ID }
 	s.tabList.Reorder = func(rows []int, to int) { s.St.MoveTabs(s.bench(), rows, to) }
 	if t := s.bench().FocusedTab(); t != nil {
@@ -193,6 +231,9 @@ func (s *Shell) NewTab() {
 
 // Split opens a new Tab beside the focused Leaf (Cmd+D, Cmd+Shift+D).
 func (s *Shell) Split(dir model.Dir) {
+	if dir == model.Row && s.command("splitRight") {
+		return
+	}
 	b := s.bench()
 	if b == nil {
 		return
@@ -315,8 +356,18 @@ func (s *Shell) ToggleSidebar() {
 }
 
 // Back and Forward walk the History (Cmd+[ and Cmd+]).
-func (s *Shell) Back()    { s.show(s.hist.step(-1), false) }
-func (s *Shell) Forward() { s.show(s.hist.step(+1), false) }
+// A Tab's type walks its own history first (R-SHELL-103, R-FILES-005).
+func (s *Shell) Back() {
+	if !s.command("back") {
+		s.show(s.hist.step(-1), false)
+	}
+}
+
+func (s *Shell) Forward() {
+	if !s.command("forward") {
+		s.show(s.hist.step(+1), false)
+	}
+}
 
 // OpenSwitcher opens the Switcher (Cmd+K).
 func (s *Shell) OpenSwitcher() {
@@ -355,6 +406,9 @@ func (s *Shell) DeleteLab(l *model.Lab) {
 }
 
 // confirm asks a yes-or-no question with a system alert. Tests answer yes.
+// Confirm asks a yes-or-no question with a system alert.
+func (s *Shell) Confirm(question, yes string) bool { return s.confirm(question, yes) }
+
 func (s *Shell) confirm(question, yes string) bool {
 	if s.Win == nil {
 		return true

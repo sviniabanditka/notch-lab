@@ -15,6 +15,7 @@ const (
 	dlgLabSettings
 	dlgRename
 	dlgFirstRun
+	dlgAsk
 )
 
 // dialog is the one sheet the Shell shows at a time.
@@ -28,6 +29,8 @@ type dialog struct {
 	named bool // the user typed the New Bench name
 	lab   *model.Lab
 	apply func(string)
+	check func(string) string
+	err   string
 }
 
 // OpenNewBench opens the New Bench sheet (R-SHELL-046).
@@ -49,6 +52,12 @@ func (s *Shell) OpenLabSettings(l *model.Lab) {
 // OpenRename asks for a new name; apply gets it when the user confirms.
 func (s *Shell) OpenRename(title, current string, apply func(string)) {
 	s.dlg = dialog{kind: dlgRename, open: true, title: title, text: current, apply: apply}
+}
+
+// AskText asks for a text; check returns "" to accept it and close the
+// sheet, or the reason it refuses, which shows under the field (R-EDIT-148).
+func (s *Shell) AskText(title, current string, check func(string) string) {
+	s.dlg = dialog{kind: dlgAsk, open: true, title: title, text: current, check: check}
 }
 
 // OpenFirstRun shows the one-time welcome sheet (R-SHELL-181).
@@ -112,6 +121,17 @@ func (s *Shell) dialogView(c *ui.Context) {
 					d.apply(d.text)
 					s.St.Changed()
 					d.open = false
+				}
+			case dlgAsk:
+				ui.Text(c, d.title).Bold().FontSize(15)
+				submit := ui.TextInput(c.Key("name"), &d.text).AutoFocus().Submitted()
+				if d.err != "" {
+					ui.Text(c, d.err).FontSize(12).TextColor(t.Danger)
+				}
+				if s.buttons(c, "OK") || submit {
+					if d.err = d.check(d.text); d.err == "" {
+						d.open = false
+					}
 				}
 			case dlgFirstRun:
 				ui.Text(c, "Welcome to notch-lab").Bold().FontSize(17)

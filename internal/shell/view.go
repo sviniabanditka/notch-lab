@@ -54,6 +54,9 @@ func (s *Shell) View(c *ui.Context) {
 	})
 	s.switcherView(c)
 	s.dialogView(c)
+	for _, o := range s.Overlays {
+		o(c)
+	}
 	s.syncMenu()
 }
 
@@ -212,7 +215,11 @@ func (s *Shell) sidebar(c *ui.Context) {
 			})
 		} else {
 			s.benchHeader(c, b)
-			s.tabs(c, b)
+			if pn, ok := s.typeOf(b).(Paneler); ok {
+				s.tabsAndPanel(c, b, pn)
+			} else {
+				s.tabs(c, b)
+			}
 		}
 		// The right edge resizes the sidebar between 160 and 480 pt.
 		edge := ui.Box(c.Key("sidebar-edge")).Absolute().Top(0).Bottom(0).Right(-4).Width(8).Cursor(ui.CursorResizeEW)
@@ -225,6 +232,24 @@ func (s *Shell) sidebar(c *ui.Context) {
 		}
 	})
 	ui.Box(c).Width(1).Shrink(0).Background(t.Border)
+}
+
+// tabsAndPanel stacks the Tab list over the Panel with a divider the user
+// drags; the Panel is 80 pt high at least, and leaves 120 pt (R-SHELL-058).
+func (s *Shell) tabsAndPanel(c *ui.Context, b *model.Bench, pn Paneler) {
+	t := c.Theme()
+	h := s.panelH[b]
+	if h == 0 {
+		h = 360
+	}
+	ui.Column(c.Key("tabs-box")).Grow(1).Basis(0).MinHeight(60).AlignItems(ui.Stretch).Children(func() { s.tabs(c, b) })
+	grip := ui.Box(c.Key("panel-grip")).Height(7).Shrink(0).Cursor(ui.CursorResizeNS).Children(func() {
+		ui.Box(c).Height(1).FillWidth().Margin(3, 0, 0, 0).Background(t.Border)
+	})
+	if _, dy, held := grip.Dragged(); held {
+		s.panelH[b] = max(80, h-dy)
+	}
+	ui.Column(c.Key("panel")).Height(h).Shrink(1).MinHeight(80).AlignItems(ui.Stretch).Children(func() { pn.Panel(c, b) })
 }
 
 func (s *Shell) benchHeader(c *ui.Context, b *model.Bench) {

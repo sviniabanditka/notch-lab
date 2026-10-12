@@ -7,7 +7,7 @@ Each milestone ends with a build the user can run every day. The order is fixed.
 | M0 | Fork and skeleton (done 2026-10-12) | fork of mygo with the window patches (`14-mygo-fork.md`), app bundle, `tools/dev`, verify skill, empty main window | — |
 | M1 | Model and Shell (done 2026-10-12) | Labs, Benches, Tabs, Layout with Splits, State, rail, sidebar, Lab menu, Switcher, History, shortcuts, Settings window, theme | M0 |
 | M2 | Terminal (done 2026-10-12) | the Daemon, Sessions, the Emulator, terminal Bench, agent detection, Unread | M1 |
-| M3 | Editor and files | editor Bench with Explorer and Preview, Go to File, files Bench, git status and diff | M1 |
+| M3 | Editor and files (done 2026-10-12) | editor Bench with Explorer and Preview, Go to File, files Bench, git status and diff | M1 |
 | M4 | Browser | browser Bench, Profiles, Extensions, Store install, Probe, default browser | M1 |
 | M5 | Notch panel | notch panel on the fork's window patches, same State as the main window | M1 |
 | M6 | MCP | the server, the Bridge, Access levels, Audit log, tools for lab, terminal, browser, editor, notes | M2, M3, M4 |

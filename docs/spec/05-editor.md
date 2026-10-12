@@ -1,5 +1,16 @@
 # Editor Bench
 
+> M3 status (2026-10-12). Built on `ui.TextBuffer` (a balanced tree of chunks with a line index: R-EDIT-010 and R-EDIT-011 hold with it in place of a piece table), `ui.TextInputClient` for input methods, and undo by persistent snapshots of the buffer. Key changes where the shortcuts collided with the Shell (R-SHELL-130):
+> - Duplicate line is Alt+Shift+Down; Cmd+Shift+Down keeps "extend to the end".
+> - Upper and lower case are Ctrl+Shift+U and Ctrl+Shift+L (Cmd+K is the Switcher).
+> - Diff against HEAD is Cmd+Alt+G; Cmd+Shift+G is Find Previous.
+> - In an editor Tab, Cmd+D adds the next occurrence; Split Right stays in the View menu.
+> - The `line:col` status shows in the window's status bar, not a bar of the Leaf.
+> - New file, new folder and rename ask in a sheet, not an inline field.
+>
+> `[later]` in M3: indent conversion (R-EDIT-063), whitespace rendering (R-EDIT-070), incremental lexing (R-EDIT-081: the whole text is lexed again 150 ms after an edit, off the main thread), word occurrence marks (R-EDIT-085), the scroll bar and its match marks (R-EDIT-094), soft wrap (R-EDIT-122), smooth scrolling (R-EDIT-125), italic transient titles (R-EDIT-144), the Explorer filter (R-EDIT-151) and its 5 000-entry cap (R-EDIT-152), the removed-lines popover (R-EDIT-172), a Diff Tab that follows the Buffer as it changes (R-EDIT-173), Undo of a move to the Trash.
+
+
 The editor Bench is a native text editor drawn with mygo `ui`. It uses no web view. A Tab is one File. The Panel is the Explorer. The Preview shows files the editor cannot edit.
 
 Code from herdr-go that this Bench copies:

@@ -36,6 +36,9 @@ type Bench struct {
 	Toast func(string)
 	// Active reports whether the app is the active one.
 	Active func() bool
+	// OpenPath opens a file or a folder a Cmd+click found, at a line
+	// (R-TERM-103, R-TERM-104); URLs go to the system.
+	OpenPath func(l *model.Lab, path string, line, col int)
 
 	client *daemon.Client
 	known  map[string]bool // Session ids the Daemon had at connect
@@ -179,6 +182,7 @@ func (b *Bench) options(x *tab) vt.Options {
 				}
 			})
 		},
+		OpenLink: func(link string) bool { return b.openLink(x, link) },
 		OnKey: func(mods ui.Modifiers, key ui.Key) bool {
 			if x.st.Exited && key == ui.KeyEnter && mods == 0 {
 				b.restart(x)
@@ -187,6 +191,80 @@ func (b *Bench) options(x *tab) vt.Options {
 			return false
 		},
 	}
+}
+
+// openLink resolves a path a Cmd+click found: as given, against the
+// Session's folder, then the Bench's root (R-TERM-103). URLs and mailto
+// go to the system until the browser Bench (R-TERM-102).
+func (b *Bench) openLink(x *tab, link string) bool {
+	if strings.Contains(link, "://") || strings.HasPrefix(link, "mailto:") || b.OpenPath == nil {
+		return false
+	}
+	path, line, col := splitLine(strings.TrimPrefix(link, "file://"))
+	if strings.HasPrefix(path, "~/") {
+		path = filepath.Join(b.Home, path[2:])
+	}
+	for _, dir := range []string{"", readData(x.t).Cwd, x.t.Bench.EffectiveRoot(b.Home)} {
+		full := path
+		if !filepath.IsAbs(full) {
+			if dir == "" {
+				continue
+			}
+			full = filepath.Join(dir, path)
+		}
+		if _, err := os.Stat(full); err == nil {
+			b.OpenPath(x.t.Bench.Lab, full, line, col)
+			return true
+		}
+	}
+	return false
+}
+
+// splitLine cuts a :line:col or (line,col) suffix off a path.
+func splitLine(p string) (string, int, int) {
+	if i := strings.LastIndexByte(p, '('); i > 0 && strings.HasSuffix(p, ")") {
+		var l, c int
+		fmt.Sscanf(p[i:], "(%d,%d)", &l, &c)
+		return p[:i], l, c
+	}
+	parts := strings.Split(p, ":")
+	var nums []int
+	for len(parts) > 1 {
+		var n int
+		if _, err := fmt.Sscan(parts[len(parts)-1], &n); err != nil {
+			break
+		}
+		nums = append([]int{n}, nums...)
+		parts = parts[:len(parts)-1]
+	}
+	l, c := 0, 0
+	if len(nums) > 0 {
+		l = nums[0]
+	}
+	if len(nums) > 1 {
+		c = nums[1]
+	}
+	return strings.Join(parts, ":"), l, c
+}
+
+// OpenIn opens a terminal Tab in a folder, in the Lab's first terminal
+// Bench, made when missing (R-TERM-068).
+func (b *Bench) OpenIn(l *model.Lab, dir string) *model.Tab {
+	var bench *model.Bench
+	for _, x := range l.Benches {
+		if x.Type == model.Terminal {
+			bench = x
+			break
+		}
+	}
+	if bench == nil {
+		bench = b.St.NewBench(l, model.Terminal, "Terminal", "")
+	}
+	t := &model.Tab{ID: model.NewID(), Bench: bench, Title: filepath.Base(dir), Data: "{}"}
+	writeData(t, data{Cwd: dir})
+	bench.Tabs = append(bench.Tabs, t)
+	b.St.Changed()
+	return t
 }
 
 // state applies what the Daemon says of a Session.

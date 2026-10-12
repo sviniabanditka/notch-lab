@@ -14,6 +14,8 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
+	editorbench "github.com/sviniabanditka/notch-lab/internal/bench/editor"
+	filesbench "github.com/sviniabanditka/notch-lab/internal/bench/files"
 	"github.com/sviniabanditka/notch-lab/internal/bench/terminal"
 	"github.com/sviniabanditka/notch-lab/internal/daemon"
 	"github.com/sviniabanditka/notch-lab/internal/home"
@@ -64,6 +66,8 @@ type app struct {
 	tray     *mygo.Tray
 	traySig  string
 	term     *terminal.Bench
+	ed       *editorbench.Bench
+	files    *filesbench.Bench
 	active   bool
 }
 
@@ -109,7 +113,23 @@ func (a *app) start() {
 	a.term.Active = func() bool { return a.active }
 	a.term.Visible = a.visible
 	a.term.Show = func(t *model.Tab) { a.sh.Show(t); a.sh.ShowWindow() }
-	a.sh.Types = map[model.BenchType]shell.TabType{model.Terminal: a.term}
+	a.ed = editorbench.New(st, set, userHome, a.dir)
+	a.ed.Post = a.term.Post
+	a.ed.Show = func(t *model.Tab) { a.sh.Show(t) }
+	a.ed.Toast = a.sh.Toast
+	a.ed.Confirm = a.sh.Confirm
+	a.ed.AskText = a.sh.AskText
+	a.ed.OpenTerminal = func(l *model.Lab, dir string) { a.sh.Show(a.term.OpenIn(l, dir)) }
+	editorbench.Lab = func() *model.Lab { return a.st.Window("main").Lab }
+	a.term.OpenPath = func(l *model.Lab, path string, line, col int) { a.ed.OpenPath(l, path, line, col) }
+	a.sh.GoToFile = a.ed.GoToFile
+	a.sh.Overlays = append(a.sh.Overlays, a.ed.Overlay)
+	a.files = filesbench.New(st, userHome)
+	a.files.Post, a.files.Show, a.files.Toast = a.term.Post, a.ed.Show, a.sh.Toast
+	a.files.Confirm, a.files.AskText = a.sh.Confirm, a.sh.AskText
+	a.files.OpenFile = func(l *model.Lab, path string) { a.ed.OpenPath(l, path, 0, 0) }
+	a.files.OpenTerminal = a.ed.OpenTerminal
+	a.sh.Types = map[model.BenchType]shell.TabType{model.Terminal: a.term, model.Editor: a.ed, model.Files: a.files}
 	a.sh.DaemonOK = a.term.Connected
 	a.sh.RestartDaemon = func() { go a.connect() }
 	mygo.App.OnDidBecomeActive(func() { a.active = true })
@@ -128,6 +148,8 @@ func (a *app) start() {
 		Content:       ui.View(a.view),
 	})
 	a.sh.Win = a.main
+	a.ed.Win = a.main
+	a.files.Win = a.main
 	// The red button and Cmd+W with no Tab hide the window (R-SHELL-007).
 	a.main.OnClose(func(e *mygo.CloseEvent) {
 		e.PreventDefault()

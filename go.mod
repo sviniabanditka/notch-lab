@@ -5,7 +5,10 @@ go 1.27.1
 require github.com/egoist/mygo v0.4.5
 
 require (
+	github.com/alecthomas/chroma/v2 v2.27.0 // indirect
+	github.com/bluekeyes/go-gitdiff v0.9.0 // indirect
 	github.com/creack/pty v1.1.24 // indirect
+	github.com/dlclark/regexp2/v2 v2.2.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ebitengine/purego v0.11.1 // indirect
 	github.com/go-text/typesetting v0.3.5 // indirect
@@ -13,6 +16,7 @@ require (
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	github.com/yuin/goldmark v1.8.6 // indirect
 	golang.org/x/image v0.46.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	modernc.org/libc v1.77.1 // indirect

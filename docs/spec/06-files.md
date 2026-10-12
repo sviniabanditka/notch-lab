@@ -1,5 +1,8 @@
 # Files Bench
 
+> M3 status (2026-10-12). Copies and moves run `ditto` (modes, times and extended attributes kept). The clipboard holds file URLs, so Finder copies paste here and back. `[later]` in M3: system file icons (R-FILES-022), the progress bar for large copies (R-FILES-043), Undo of a move to the Trash, inline name fields (a sheet asks instead).
+
+
 The files Bench is a file manager. A Tab is one Folder view. The Panel lists favorites and recent folders. The Bench reuses the Explorer's file operations (`05-editor.md`, R-EDIT-147) and adds copy, paste, move, compress and "open with".
 
 ## Tab

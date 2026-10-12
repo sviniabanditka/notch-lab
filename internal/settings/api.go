@@ -81,6 +81,8 @@ type Editor struct {
 	TrimTrailingSpace bool    `json:"trimTrailingSpace"`
 	LineNumbers       bool    `json:"lineNumbers"`
 	Wrap              bool    `json:"wrap"`
+	External          string  `json:"external"`
+	HideDots          bool    `json:"hideDots"`
 }
 type MCP struct {
 	Access       string            `json:"access"`
@@ -103,7 +105,8 @@ func Defaults() Settings {
 	s.Terminal = Terminal{FontFamily: "JetBrains Mono, SF Mono, Menlo", FontSize: 13, LineHeight: 1.2, ScrollbackLines: 10000, Cursor: "block", Bell: "none",
 		AltIsMeta: true, ConfirmClose: true, OSCTitle: true}
 	s.Browser = Browser{SearchEngine: "https://duckduckgo.com/?q=%s", HomePage: "about:blank", DownloadFolder: "~/Downloads", BlockPopups: true, DefaultProfile: "shared"}
-	s.Editor = Editor{FontFamily: "Menlo", FontSize: 13, TabWidth: 4, InsertSpaces: true, Autosave: "off", LineNumbers: true}
+	s.Editor = Editor{FontFamily: "Menlo", FontSize: 13, TabWidth: 4, InsertSpaces: true, Autosave: "off", LineNumbers: true,
+		External: "cursor --goto {path}:{line}:{col}", HideDots: true}
 	s.MCP = MCP{Access: "off", Domains: map[string]string{}, ToastOnWrite: true}
 	s.Advanced = Advanced{LogLevel: "info"}
 	return s

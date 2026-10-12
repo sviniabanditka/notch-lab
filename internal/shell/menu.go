@@ -53,7 +53,8 @@ func (s *Shell) syncMenu() {
 	for _, b := range s.lab().Benches {
 		fmt.Fprintf(&sig, "b%s%s%v|", b.ID, b.Name, b == s.bench())
 	}
-	fmt.Fprintf(&sig, "s%v", s.win().Sidebar)
+	_, isCmd := s.typeOf(s.bench()).(Commander)
+	fmt.Fprintf(&sig, "s%v%v%v", s.win().Sidebar, isCmd, s.GoToFile != nil)
 	if sig.String() == s.menuSig {
 		return
 	}
@@ -70,6 +71,7 @@ func (s *Shell) menu() *mygo.Menu {
 	noBench := b == nil
 	noTab := noBench || b.FocusedTab() == nil
 	single := noBench || b.Layout.IsLeaf()
+	_, cmd := s.typeOf(b).(Commander)
 	open := func(section string) func() {
 		return func() {
 			if s.OpenSettings != nil {
@@ -95,8 +97,22 @@ func (s *Shell) menu() *mygo.Menu {
 		s.item("Reopen Closed Tab", "CmdOrCtrl+Shift+T", noBench || b.ClosedCount() == 0, s.Reopen),
 		s.item("Close Tab", "CmdOrCtrl+W", false, s.CloseFocused),
 		mygo.Separator(),
-		s.item("Save", "CmdOrCtrl+S", true, func() {}),
-		s.item("Save All", "CmdOrCtrl+Alt+S", true, func() {}),
+		s.item("Save", "CmdOrCtrl+S", !cmd, func() { s.command("save") }),
+		s.item("Save As…", "CmdOrCtrl+Shift+S", !cmd, func() { s.command("saveAs") }),
+		s.item("Save All", "CmdOrCtrl+Alt+S", !cmd, func() { s.command("saveAll") }),
+		s.item("Revert", "", !cmd, func() { s.command("revert") }),
+	}}
+	edit := &mygo.MenuItem{Label: "Edit", Submenu: []*mygo.MenuItem{
+		{Role: mygo.RoleUndo}, {Role: mygo.RoleRedo},
+		mygo.Separator(),
+		{Role: mygo.RoleCut}, {Role: mygo.RoleCopy}, {Role: mygo.RolePaste}, {Role: mygo.RolePasteAndMatchStyle}, {Role: mygo.RoleSelectAll},
+		mygo.Separator(),
+		s.item("Find", "CmdOrCtrl+F", !cmd, func() { s.command("find") }),
+		s.item("Find and Replace", "CmdOrCtrl+Alt+F", !cmd, func() { s.command("replace") }),
+		s.item("Find Next", "CmdOrCtrl+G", !cmd, func() { s.command("findNext") }),
+		s.item("Find Previous", "CmdOrCtrl+Shift+G", !cmd, func() { s.command("findPrevious") }),
+		s.item("Go to Line…", "Ctrl+G", !cmd, func() { s.command("gotoLine") }),
+		mygo.Separator(),
 	}}
 	sidebar := "Hide Sidebar"
 	if !s.win().Sidebar {
@@ -116,8 +132,11 @@ func (s *Shell) menu() *mygo.Menu {
 		s.item("Forward", "CmdOrCtrl+]", false, s.Forward),
 		mygo.Separator(),
 		s.item("Go to…", "CmdOrCtrl+K", false, s.OpenSwitcher),
-		s.item("Go to File…", "CmdOrCtrl+P", true, func() {}),
-		s.item("Reload", "CmdOrCtrl+R", true, func() {}),
+		s.item("Go to File…", "CmdOrCtrl+P", s.GoToFile == nil || noBench, func() { s.GoToFile(s.bench().EffectiveRoot(s.Home)) }),
+		s.item("Reload", "CmdOrCtrl+R", !cmd, func() { s.command("reload") }),
+		s.item("Toggle Preview", "CmdOrCtrl+E", !cmd, func() { s.command("preview") }),
+		s.item("Diff Against HEAD", "CmdOrCtrl+Alt+G", !cmd, func() { s.command("diff") }),
+		s.item("Show Hidden Files", "CmdOrCtrl+Shift+.", !cmd, func() { s.command("toggleHidden") }),
 		mygo.Separator(),
 		s.item("Actual Size", "CmdOrCtrl+0", s.typeOf(b) == nil, func() { s.zoom(0) }),
 		s.item("Zoom In", "CmdOrCtrl+=", s.typeOf(b) == nil, func() { s.zoom(+1) }),
@@ -209,7 +228,7 @@ func (s *Shell) menu() *mygo.Menu {
 		s.item("Open Log Folder", "", false, func() { _ = mygo.Shell.OpenPath(s.StateDir) }),
 	}}
 	return mygo.NewMenu([]*mygo.MenuItem{
-		appMenu, file, {Role: mygo.RoleEditMenu}, view,
+		appMenu, file, edit, view,
 		{Label: "Lab", Submenu: labItems},
 		{Label: "Bench", Submenu: benchItems},
 		{Label: "Tab", Submenu: tabItems},

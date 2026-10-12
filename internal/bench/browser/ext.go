@@ -244,16 +244,19 @@ func (e *Ext) wireStore(x *tab) {
 			}
 			// What gets installed is read from the Tab's address, never the page.
 			if _, ok := m["add"]; ok {
-				if id := extensions.StoreID(readData(x.t).URL); id != "" {
-					e.b.confirm("Add this Extension to notch-lab? It can read and change the sites it asks for.", "Add", func() { e.Install(id) })
+				id := extensions.StoreID(liveURL(x))
+				if id == "" {
+					e.b.Toast("Open the Extension's own page in the Store to add it")
+					return
 				}
+				e.b.confirm("Add this Extension to notch-lab? It can read and change the sites it asks for.", "Add", func() { e.Install(id) })
 			}
 		})
 	})
 }
 
 func (e *Ext) tellStore(x *tab) {
-	if x.wv == nil || !extensions.IsStorePage(readData(x.t).URL) {
+	if x.wv == nil || !extensions.IsStorePage(liveURL(x)) {
 		return
 	}
 	ids := []string{}
@@ -529,4 +532,17 @@ func (e *Ext) PresentPopup(cx *webkit.Context, t *webkit.ExtTab) {
 		}
 	})
 	fly.Show()
+}
+
+// liveURL is the address the Web view shows now: the Store changes its
+// address without a load, before the Tab's data hears of it.
+func liveURL(x *tab) string {
+	if x.wv != nil {
+		if p := x.wv.Page(); p != nil {
+			if u := p.URL(); u != "" {
+				return u
+			}
+		}
+	}
+	return readData(x.t).URL
 }

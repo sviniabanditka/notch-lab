@@ -242,7 +242,7 @@ R-WEB-140. On `https://chromewebstore.google.com`, the app injects a user script
 5. On a click on the clone, caught on the window in the capture phase, posts `{add: true}` to the app and stops the event.
 6. Labels the clone "Added to notch-lab" when the id is installed and "Adding…" while it installs; the app tells the page the installed ids and the busy id on every change.
 
-R-WEB-141. The app reads the Extension id from the Tab's URL only: the path matches `^/detail/(?:[^/]+/)?([a-p]{32})(?:/.*)?$` on `chromewebstore.google.com` or `^/webstore/detail/(?:[^/]+/)?([a-p]{32})(?:/.*)?$` on `chrome.google.com`. The URL must be `https` with no user or password. The page's own words are never read for the id.
+R-WEB-141. The app reads the Extension id from the Tab's URL only: the path matches `^/detail/(?:[^/]+/)?([a-p]{32})(?:/.*)?$` on `chromewebstore.google.com` or `^/webstore/detail/(?:[^/]+/)?([a-p]{32})(?:/.*)?$` on `chrome.google.com`. The URL must be `https` with no user or password. The page's own words are never read for the id. The URL is the one the Web view shows at the click: the Store changes its address without a load. With no id in it, a toast says to open the Extension's own page. The question before the download shows in the focused window: the notch panel or the main window.
 
 R-WEB-142. Before the download the app shows a sheet: the Extension's name and icon from the store page title, the text "notch-lab downloads this extension from the Chrome Web Store and checks its signature", and Add and Cancel. After the download and the check, a second sheet lists the manifest's `permissions` and `host_permissions` in plain words, with Add and Cancel. The second sheet is skipped when the lists are empty.
 
@@ -258,7 +258,7 @@ R-WEB-144. The CRX3 check, before any file of the package is read:
 
 The acceptance test: a CRX with one byte of the zip changed is refused; a CRX for another id is refused; uBlock Origin Lite installs.
 
-R-WEB-145. The zip is unpacked with `/usr/bin/ditto -x -k` into a scratch folder. The result must hold `manifest.json`. A package with a symbolic link anywhere is refused with "The extension couldn't be unpacked". The folder then replaces `$NOTCH_LAB_HOME/extensions/<id>/` whole. The folder mode is 0700.
+R-WEB-145. The zip is unpacked with `/usr/bin/ditto -x -k` into a scratch folder. The result must hold `manifest.json`. A package with a symbolic link anywhere is refused with "The extension couldn't be unpacked". The folder then replaces `$NOTCH_LAB_HOME/extensions/<id>/` whole. The folder mode is 0700. A name of the form `__MSG_key__` is read from `_locales/<default_locale>/messages.json`, then from `_locales/en`.
 
 R-WEB-146. On `https://addons.mozilla.org` the app injects a user script that replaces the "Add to Firefox" button with "Add to notch-lab". The id is the listing's slug from the URL path `/<locale>/firefox/addon/<slug>/`. The XPI downloads from `https://addons.mozilla.org/firefox/downloads/latest/<slug>/latest.xpi` over https. The XPI is a zip; the Mozilla signature in `META-INF` is not checked in v1 `[later]`. The permission sheet shows the text "This extension's signature is not checked" in v1.
 

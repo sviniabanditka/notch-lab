@@ -35,3 +35,16 @@ func TestManager(t *testing.T) {
 		t.Fatal("store script handler")
 	}
 }
+
+// A "__MSG_" name resolves from the default locale's messages, as
+// Bitwarden's does (R-WEB-145).
+func TestManifestLocalizedName(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "_locales", "en"), 0o755)
+	os.WriteFile(filepath.Join(dir, "manifest.json"), []byte(`{"name":"__MSG_extName__","version":"1.0","default_locale":"en"}`), 0o644)
+	os.WriteFile(filepath.Join(dir, "_locales", "en", "messages.json"), []byte(`{"extName":{"message":"Bitwarden Password Manager"}}`), 0o644)
+	name, version, err := manifest(dir)
+	if err != nil || name != "Bitwarden Password Manager" || version != "1.0" {
+		t.Fatalf("got %q %q %v", name, version, err)
+	}
+}

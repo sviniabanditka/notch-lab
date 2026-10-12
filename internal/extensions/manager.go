@@ -107,11 +107,14 @@ func manifest(folder string) (name, version string, err error) {
 	if err != nil {
 		return "", "", errNoManifest
 	}
-	var mf struct{ Name, Version string }
+	var mf struct {
+		Name, Version string
+		Locale        string `json:"default_locale"`
+	}
 	if err := json.Unmarshal(stripBOM(b), &mf); err != nil {
 		return "", "", err
 	}
-	return mf.Name, mf.Version, nil
+	return localized(folder, mf.Locale, mf.Name), mf.Version, nil
 }
 
 func (m *Manager) unpacked(zip []byte, id string) (*Entry, error) {
@@ -184,4 +187,30 @@ func (m *Manager) FetchFolder(folder string) (*Entry, error) {
 		return nil, errors.New("The folder has no manifest.json")
 	}
 	return &Entry{ID: LocalID(folder), Name: name, Version: version, Enabled: true, Local: folder, Updated: time.Now().Unix()}, nil
+}
+
+// localized resolves a "__MSG_key__" name from the Extension's messages in
+// its default locale, then in English; other names stay as they are.
+func localized(folder, locale, name string) string {
+	key, ok := strings.CutPrefix(name, "__MSG_")
+	if !ok || !strings.HasSuffix(key, "__") {
+		return name
+	}
+	key = strings.ToLower(strings.TrimSuffix(key, "__"))
+	for _, loc := range []string{locale, "en", "en_US"} {
+		b, err := os.ReadFile(filepath.Join(folder, "_locales", loc, "messages.json"))
+		if loc == "" || err != nil {
+			continue
+		}
+		var msgs map[string]struct{ Message string }
+		if json.Unmarshal(stripBOM(b), &msgs) != nil {
+			continue
+		}
+		for k, m := range msgs {
+			if strings.ToLower(k) == key && m.Message != "" {
+				return m.Message
+			}
+		}
+	}
+	return name
 }

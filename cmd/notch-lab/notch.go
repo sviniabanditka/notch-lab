@@ -42,10 +42,10 @@ func (a *app) newNotch(userHome string) {
 	sh.AgentStatus = a.sh.AgentStatus
 	sh.ToggleNotch = n.toggle
 	sh.Strip = n.stripView
-	sh.BeforeFrame = func() { a.drawingIn(n.win); a.drawing(sh, sh.Questions()) }
+	sh.BeforeFrame = func() { a.drawingIn(n.win); a.drawing(sh) }
 	sh.MenuOwner = func() bool { return n.win != nil && n.win.IsFocused() }
 	a.sh.ToggleNotch = n.toggle
-	a.sh.BeforeFrame = func() { a.drawingIn(a.main); a.drawing(a.sh, a.sh.Questions()) }
+	a.sh.BeforeFrame = func() { a.drawingIn(a.main); a.drawing(a.sh) }
 	a.sh.MenuOwner = func() bool { return n.win == nil || !n.win.IsFocused() }
 	a.sh.Elsewhere = func(t *model.Tab) string {
 		if n.win != nil && n.shows(t) {

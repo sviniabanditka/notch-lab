@@ -97,10 +97,8 @@ type app struct {
 	agents   *agentsbench.Bench
 	active   bool
 	notch    *notch
-	// cur and curQ are the Shell and the questions of the window that
-	// draws; see drawing.
+	// cur is the Shell of the window that draws; see drawing.
 	cur      *shell.Shell
-	curQ     *shell.Questions
 	mcp      *mcp.Server
 	agentsUI agentsUI
 	// lastToast counts repeats of an agent's Toast (R-MCP-044).
@@ -137,7 +135,7 @@ func (a *app) start() {
 	st.EnsureLab()
 
 	a.sh = shell.New(st, set, "main", userHome)
-	a.cur, a.curQ = a.sh, a.sh.Questions()
+	a.cur = a.sh
 	a.sh.StateDir = a.dir
 	a.sh.OpenSettings = a.openSettings
 	a.sh.Quit = mygo.App.Quit
@@ -426,10 +424,7 @@ func (a *app) openSettings(section string) {
 		StateKey:      "settings",
 		TitleBarStyle: mygo.TitleBarHidden,
 		Vibrancy:      mygo.VibrancySidebar,
-		Content: ui.View(func(c *ui.Context) {
-			a.curQ = &a.sv.Q
-			a.sv.View(c)
-		}),
+		Content:       ui.View(a.sv.View),
 	})
 	a.sv.Q.Win = a.settings
 }
@@ -524,18 +519,36 @@ func logf(level, format string, args ...any) {
 	log.Printf(time.Now().Format(time.RFC3339)+" "+level+" main: "+format, args...)
 }
 
-// drawing notes the window whose frame runs: a Bench's question shows in
-// the window the user acts in.
-func (a *app) drawing(sh *shell.Shell, q *shell.Questions) { a.cur, a.curQ = sh, q }
+// drawing notes the window whose frame runs, for the Layout's buttons a
+// Bench draws in its own bar.
+func (a *app) drawing(sh *shell.Shell) { a.cur = sh }
 
 func (a *app) confirm(question, yes string, then func(ok bool)) {
-	a.curQ.Confirm(question, yes, then)
+	_, q := a.asker()
+	q.Confirm(question, yes, then)
 }
 
 func (a *app) ask(question string, buttons []string, then func(int)) {
-	a.curQ.Ask(question, buttons, then)
+	_, q := a.asker()
+	q.Ask(question, buttons, then)
 }
 
 func (a *app) askText(title, current string, check func(string) string) {
-	a.cur.AskText(title, current, check)
+	sh, _ := a.asker()
+	sh.AskText(title, current, check)
+}
+
+// asker is the window a Bench's question shows in: the focused one, as a
+// question can come from outside a frame (a page's button, a timer). With
+// no window focused, the notch panel while it shows, else the main window.
+// The Settings window asks texts in the main window: it has no sheets.
+func (a *app) asker() (*shell.Shell, *shell.Questions) {
+	if a.settings != nil && !a.settings.IsDestroyed() && a.settings.IsFocused() {
+		return a.sh, &a.sv.Q
+	}
+	if n := a.notch; n != nil && n.win != nil && (n.win.IsFocused() || a.main == nil || !a.main.IsFocused()) {
+		return n.sh, n.sh.Questions()
+	}
+	a.sh.ShowWindow()
+	return a.sh, a.sh.Questions()
 }

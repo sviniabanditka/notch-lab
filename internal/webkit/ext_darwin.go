@@ -55,8 +55,15 @@ type ControllerHost interface {
 	Prompt(ctx *Context, what []string, done func(bool))
 	// PresentPopup shows an action's popup for the Tab.
 	PresentPopup(ctx *Context, tab *ExtTab)
-	// Message answers the Shim: api and args in, the reply envelope out.
-	Message(ctx *Context, api string, args []json.RawMessage) any
+	// Message answers the Shim: api and args in, the reply envelope to
+	// reply, at once or later on the main goroutine.
+	Message(ctx *Context, api string, args []json.RawMessage, reply func(any))
+	// ConnectPort takes a port to an app other than "notchlab": the app's
+	// socket or a native messaging host. An error refuses the port.
+	ConnectPort(ctx *Context, p *Port) error
+	// SendNative sends one message to a native messaging host; done gets
+	// the reply as JSON, on the main goroutine.
+	SendNative(ctx *Context, app string, message []byte, done func(reply []byte, err error))
 	ActionChanged(ctx *Context)
 }
 
@@ -78,6 +85,10 @@ type Context struct {
 	ID   string
 	Name string
 	ext  id
+	// popupURL is the address of the popup WebKit loaded, if it did.
+	popupURL string
+	// watcher is the observer of the context's errors (WatchErrors).
+	watcher id
 }
 
 // Controller is the app's one WKWebExtensionController.
@@ -85,6 +96,7 @@ type Controller struct {
 	obj      id
 	Host     ControllerHost
 	Contexts map[string]*Context
+	store    id // the Profile's data store, the extension pages' too
 }
 
 var (
@@ -214,10 +226,10 @@ func register() {
 				return 0
 			}},
 			{Cmd: sel("indexInWindowForWebExtensionContext:"), Fn: func(self id, _ objc.SEL, ctx id) uint {
-				if t := tabs[self]; t != nil {
-					return uint(max(0, t.Host.Index()))
+				if t := tabs[self]; t != nil && t.Host.Index() >= 0 {
+					return uint(t.Host.Index())
 				}
-				return ^uint(0) // NSNotFound
+				return uint(1<<63 - 1) // NSNotFound: a popup, a Tab of no row
 			}},
 			{Cmd: sel("webViewForWebExtensionContext:"), Fn: func(self id, _ objc.SEL, ctx id) id {
 				if t := tabs[self]; t != nil {
@@ -375,16 +387,34 @@ func register() {
 				}
 			}},
 			{Cmd: sel("webExtensionController:presentActionPopup:forExtensionContext:completionHandler:"), Fn: func(self id, _ objc.SEL, c, action, ctx id, handler uintptr) {
-				if h := ctl(); h != nil && byCtx[ctx] != nil {
-					h.PresentPopup(byCtx[ctx], tabs[send(action, "associatedTab")])
+				// WebKit's own popup only gives the address: the app shows
+				// its own, as Search does, and closes WebKit's, which would
+				// take the popup's first messages to its worker.
+				if cx := byCtx[ctx]; cx != nil {
+					cx.popupURL = goString(send(send(send(action, "popupWebView"), "URL"), "absoluteString"))
+					send(action, "closePopup")
+					if h := ctl(); h != nil {
+						h.PresentPopup(cx, tabs[send(action, "associatedTab")])
+					}
 				}
 				callBlock(copyBlock(handler), 0)
 			}},
 			{Cmd: sel("webExtensionController:sendMessage:toApplicationWithIdentifier:forExtensionContext:replyHandler:"), Fn: func(self id, _ objc.SEL, c, msg, app, ctx id, handler uintptr) {
 				done := copyBlock(handler)
 				h, cx := ctl(), byCtx[ctx]
-				if h == nil || cx == nil || (app != 0 && goString(app) != "notchlab") {
+				if h == nil || cx == nil {
 					callBlock(done, 0, uintptr(nsError("Specified native messaging host not found.")))
+					return
+				}
+				// Any other name is a Chrome native messaging host on this Mac.
+				if app != 0 && goString(app) != "notchlab" {
+					h.SendNative(cx, goString(app), toJSON(msg), func(reply []byte, err error) {
+						if err != nil {
+							callBlock(done, 0, uintptr(nsError(err.Error())))
+							return
+						}
+						callBlock(done, uintptr(fromJSON(reply)), 0)
+					})
 					return
 				}
 				var body struct {
@@ -392,16 +422,30 @@ func register() {
 					Args []json.RawMessage `json:"args"`
 				}
 				_ = json.Unmarshal(toJSON(msg), &body)
-				reply, _ := json.Marshal(h.Message(cx, body.API, body.Args))
-				callBlock(done, uintptr(fromJSON(reply)), 0)
+				h.Message(cx, body.API, body.Args, func(v any) {
+					reply, _ := json.Marshal(v)
+					callBlock(done, uintptr(fromJSON(reply)), 0)
+				})
 			}},
 			{Cmd: sel("webExtensionController:connectUsingMessagePort:forExtensionContext:completionHandler:"), Fn: func(self id, _ objc.SEL, c, port, ctx id, handler uintptr) {
-				// The Shim's probe of a port lets go at once; apps on this Mac are [later].
+				done := copyBlock(handler)
+				// The Shim's probe of a port lets go at once.
 				if goString(send(port, "applicationIdentifier")) == "notchlab" {
-					callBlock(copyBlock(handler), 0)
+					callBlock(done, 0)
 					return
 				}
-				callBlock(copyBlock(handler), uintptr(nsError("Specified native messaging host not found.")))
+				h, cx := ctl(), byCtx[ctx]
+				if h == nil || cx == nil {
+					callBlock(done, uintptr(nsError("Specified native messaging host not found.")))
+					return
+				}
+				p := newPort(port)
+				if err := h.ConnectPort(cx, p); err != nil {
+					p.forget()
+					callBlock(done, uintptr(nsError(err.Error())))
+					return
+				}
+				callBlock(done, 0)
 			}},
 		}
 		c, err = objc.RegisterClass("NotchExtDelegate", objc.GetClass("NSObject"), []*objc.Protocol{objc.GetProtocol("WKWebExtensionControllerDelegate")}, nil, delMethods)
@@ -460,7 +504,7 @@ func NewController(storeUUID, profileUUID string, host ControllerHost) (*Control
 	}
 	obj := retain(send(send(class("WKWebExtensionController"), "alloc"), "initWithConfiguration:", cfg))
 	send(obj, "setDelegate:", retain(send(send(delCls, "alloc"), "init")))
-	theController = &Controller{obj: obj, Host: host, Contexts: map[string]*Context{}}
+	theController = &Controller{obj: obj, Host: host, Contexts: map[string]*Context{}, store: stores[profileUUID]}
 	return theController, nil
 }
 
@@ -489,6 +533,30 @@ func NewWindow(h WindowHost) *ExtWindow {
 
 // Tab events for every context (R-WEB-133).
 func (c *Controller) DidOpenTab(t *ExtTab) { send(c.obj, "didOpenTab:", t.obj) }
+
+// UserGesture tells the context that the user acted in a Tab, as a press
+// of the Extension's button: activeTab grants follow it.
+func (cx *Context) UserGesture(t *ExtTab) {
+	if t != nil {
+		send(cx.obj, "userGesturePerformedInTab:", t.obj)
+	}
+}
+
+// ForgetWorkers removes the service worker registrations of the
+// controller's data store, then calls done. WebKit keeps the script a
+// worker first registered with and never updates it, and a stale one can
+// leave a worker dead for good; a fresh registration runs at once. Call
+// it before any Load (as Search's forgetWorkersIfChanged).
+func (c *Controller) ForgetWorkers(done func()) {
+	st := c.store
+	if st == 0 {
+		st = send(class("WKWebsiteDataStore"), "defaultDataStore")
+	}
+	types := send(class("NSSet"), "setWithObject:", nsString("WKWebsiteDataTypeServiceWorkerRegistrations"))
+	var blk objc.Block
+	blk = objc.NewBlock(func(_ objc.Block) { done() })
+	send(st, "removeDataOfTypes:modifiedSince:completionHandler:", types, send(class("NSDate"), "distantPast"), blk)
+}
 func (c *Controller) DidCloseTab(t *ExtTab) {
 	send(c.obj, "didCloseTab:windowIsClosing:", t.obj, false)
 	delete(tabs, t.obj)
@@ -501,8 +569,11 @@ func (c *Controller) DidActivateTab(t, prev *ExtTab) {
 	}
 	send(c.obj, "didActivateTab:previousActiveTab:", t.obj, p)
 }
+
+// DidChangeTab tells that a Tab's loading, title or URL changed
+// (WKWebExtensionTabChangedProperties: Loading 1<<1, Title 1<<7, URL 1<<8).
 func (c *Controller) DidChangeTab(t *ExtTab) {
-	send(c.obj, "didChangeTabProperties:forTab:", uint(1<<0|1<<2|1<<7), t.obj) // loading, title, URL
+	send(c.obj, "didChangeTabProperties:forTab:", uint(1<<1|1<<7|1<<8), t.obj)
 }
 func (c *Controller) DidOpenWindow(w *ExtWindow)  { send(c.obj, "didOpenWindow:", w.obj) }
 func (c *Controller) DidFocusWindow(w *ExtWindow) { send(c.obj, "didFocusWindow:", w.obj) }
@@ -532,11 +603,7 @@ func (c *Controller) Load(extID, folder string, done func(*Context, error)) {
 			}
 			send(ctx, "setPermissionStatus:forMatchPattern:", 3, m)
 		}
-		for _, scheme := range []string{"chrome-extension", "webkit-extension"} { // fence: never other Extensions' pages
-			if p := send(class("WKWebExtensionMatchPattern"), "matchPatternWithString:", nsString(scheme+"://*/*")); p != 0 {
-				send(ctx, "setPermissionStatus:forMatchPattern:", -3, p)
-			}
-		}
+		fence(ctx)
 		var errp id
 		ok := objc.Send[bool](c.obj, sel("loadExtensionContext:error:"), ctx, unsafe.Pointer(&errp))
 		if !ok {
@@ -559,6 +626,10 @@ func (c *Controller) Unload(cx *Context) {
 	}
 	var errp id
 	objc.Send[bool](c.obj, sel("unloadExtensionContext:error:"), cx.obj, unsafe.Pointer(&errp))
+	if cx.watcher != 0 {
+		send(send(class("NSNotificationCenter"), "defaultCenter"), "removeObserver:", cx.watcher)
+		release(cx.watcher)
+	}
 	delete(byCtx, cx.obj)
 	delete(c.Contexts, cx.ID)
 	release(cx.obj)
@@ -614,8 +685,12 @@ func (cx *Context) OptionsURL() string {
 	return goString(send(send(cx.obj, "optionsPageURL"), "absoluteString"))
 }
 
-// PopupURL is the action's popup page from the manifest, or "".
+// PopupURL is the action's popup page: the one WebKit's popup loaded,
+// else the manifest's, or "".
 func (cx *Context) PopupURL() string {
+	if cx.popupURL != "" {
+		return cx.popupURL
+	}
 	var mf struct {
 		Action struct {
 			DefaultPopup string `json:"default_popup"`
@@ -687,11 +762,226 @@ func (cx *Context) BackgroundView() uintptr {
 	return uintptr(send(cx.obj, "_backgroundWebView"))
 }
 
-// DropWorker drops the Extension's service worker registration: WebKit
-// keeps the script of a worker as it first registered it and does not
-// update it, so a worker without the app's prologue (EnsureWorker) never
-// answers. The context must load again (unload, load) to register the
-// worker afresh from the files. done gets the error, if any.
+// fence refuses other Extensions' pages to a context, also under "all
+// sites": with chrome-extension registered as a scheme, WebKit counts them
+// in <all_urls>, which Chrome does not (as Search's Extensions.fence).
+func fence(ctx id) {
+	for _, scheme := range []string{"chrome-extension", "webkit-extension"} {
+		if p := send(class("WKWebExtensionMatchPattern"), "matchPatternWithString:", nsString(scheme+"://*/*")); p != 0 {
+			send(ctx, "setPermissionStatus:forMatchPattern:", -3, p)
+		}
+	}
+}
+
+// constant reads an Objective-C string constant that a framework exports.
+func constant(name string) string {
+	load()
+	p, err := purego.Dlsym(purego.RTLD_DEFAULT, name)
+	if err != nil || p == 0 {
+		return ""
+	}
+	return goString(**(**id)(unsafe.Pointer(&p)))
+}
+
+// WatchErrors calls failed, on the main thread, each time WebKit records
+// that the context's background content did not load: WebKit then does
+// not try again (as Search's Extensions.watch).
+func (cx *Context) WatchErrors(failed func()) {
+	name := constant("WKWebExtensionContextErrorsDidUpdateNotification")
+	domain := constant("WKWebExtensionContextErrorDomain")
+	if name == "" {
+		return
+	}
+	blk := objc.NewBlock(func(_ objc.Block, note id) {
+		arr := send(cx.obj, "errors")
+		n := int(objc.Send[uint](arr, sel("count")))
+		for i := 0; i < n; i++ {
+			e := send(arr, "objectAtIndex:", uint(i))
+			// WKWebExtensionContextErrorBackgroundContentFailedToLoad
+			if goString(send(e, "domain")) == domain && objc.Send[int](e, sel("code")) == 6 {
+				failed()
+				return
+			}
+		}
+	})
+	center := send(class("NSNotificationCenter"), "defaultCenter")
+	cx.watcher = retain(send(center, "addObserverForName:object:queue:usingBlock:", nsString(name), cx.obj,
+		send(class("NSOperationQueue"), "mainQueue"), blk))
+}
+
+// HasPermission reports a permission WebKit holds for the context, an
+// optional one granted later included.
+func (cx *Context) HasPermission(name string) bool {
+	return sendBool(cx.obj, "hasPermission:", nsString(name))
+}
+
+// patterns parses match patterns, without other Extensions' pages.
+func patterns(origins []string) []id {
+	var out []id
+	for _, o := range origins {
+		p := send(class("WKWebExtensionMatchPattern"), "matchPatternWithString:", nsString(o))
+		if s := strings.ToLower(goString(send(p, "scheme"))); p == 0 || s == "chrome-extension" || s == "webkit-extension" {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
+}
+
+func strs(set id, word func(id) string) map[string]bool {
+	out := map[string]bool{}
+	for _, o := range setItems(set) {
+		out[word(o)] = true
+	}
+	return out
+}
+
+// Unmet is what a permissions.request asks of WebKit's permissions and
+// sites that the context does not hold explicitly; every tells that a
+// site matches every host or URL. named is false when the manifest does
+// not name it all, optional names included.
+func (cx *Context) Unmet(perms, origins []string) (missing, unreached []string, every, named bool) {
+	pstr := func(o id) string { return goString(o) }
+	mstr := func(o id) string { return goString(send(o, "string")) }
+	have := strs(send(cx.ext, "requestedPermissions"), pstr)
+	for k := range strs(send(cx.ext, "optionalPermissions"), pstr) {
+		have[k] = true
+	}
+	places := strs(send(cx.ext, "allRequestedMatchPatterns"), mstr)
+	for k := range strs(send(cx.ext, "optionalPermissionMatchPatterns"), mstr) {
+		places[k] = true
+	}
+	for _, p := range perms {
+		if !have[p] {
+			return nil, nil, false, false
+		}
+	}
+	pats := patterns(origins)
+	for _, m := range pats {
+		if !places[mstr(m)] {
+			return nil, nil, false, false
+		}
+	}
+	for _, p := range perms {
+		if objc.Send[int](cx.obj, sel("permissionStatusForPermission:"), nsString(p)) != 3 { // granted explicitly
+			missing = append(missing, p)
+		}
+	}
+	for _, m := range pats {
+		if objc.Send[int](cx.obj, sel("permissionStatusForMatchPattern:"), m) != 3 {
+			unreached = append(unreached, mstr(m))
+			every = every || sendBool(m, "matchesAllHosts") || sendBool(m, "matchesAllURLs")
+		}
+	}
+	return missing, unreached, every, true
+}
+
+// Grant grants permissions and sites explicitly, then fences the context
+// again.
+func (cx *Context) Grant(perms, origins []string) {
+	for _, p := range perms {
+		send(cx.obj, "setPermissionStatus:forPermission:", 3, nsString(p))
+	}
+	for _, m := range patterns(origins) {
+		send(cx.obj, "setPermissionStatus:forMatchPattern:", 3, m)
+	}
+	fence(cx.obj)
+}
+
+// Port is a WKWebExtensionMessagePort to an app: the app's socket or a
+// native messaging host. WebKit calls its handlers on the main thread. It
+// is kept until either end disconnects.
+type Port struct {
+	obj          id
+	blocks       []objc.Block
+	closed       bool
+	onMessage    func(msg []byte)
+	onDisconnect func()
+}
+
+var ports = map[id]*Port{}
+
+func newPort(obj id) *Port {
+	p := &Port{obj: retain(obj)}
+	ports[p.obj] = p
+	msg := objc.NewBlock(func(_ objc.Block, m, nserr id) {
+		if !p.closed && p.onMessage != nil {
+			p.onMessage(toJSON(m))
+		}
+	})
+	gone := objc.NewBlock(func(_ objc.Block, nserr id) {
+		if p.closed {
+			return
+		}
+		p.forget()
+		if p.onDisconnect != nil {
+			p.onDisconnect()
+		}
+	})
+	p.blocks = []objc.Block{msg, gone}
+	send(p.obj, "setMessageHandler:", msg)
+	send(p.obj, "setDisconnectHandler:", gone)
+	return p
+}
+
+// forget lets the port go. WebKit keeps its own copies of the handlers.
+func (p *Port) forget() {
+	if p.closed {
+		return
+	}
+	p.closed = true
+	delete(ports, p.obj)
+	for _, b := range p.blocks {
+		b.Release()
+	}
+	release(p.obj)
+}
+
+// SetMessageHandler gets each message from the Extension, as JSON.
+func (p *Port) SetMessageHandler(f func(msg []byte)) { p.onMessage = f }
+
+// SetDisconnectHandler is called once when the Extension's end goes. It
+// is not called for Disconnect.
+func (p *Port) SetDisconnectHandler(f func()) { p.onDisconnect = f }
+
+// ApplicationID is the name the Extension connected to.
+func (p *Port) ApplicationID() string {
+	if p.closed {
+		return ""
+	}
+	return goString(send(p.obj, "applicationIdentifier"))
+}
+
+// Disconnected reports a port that either end let go.
+func (p *Port) Disconnected() bool { return p.closed || sendBool(p.obj, "isDisconnected") }
+
+// Send posts v, as JSON, to the Extension. Main goroutine only.
+func (p *Port) Send(v any) {
+	if p.Disconnected() {
+		return
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return
+	}
+	send(p.obj, "sendMessage:completionHandler:", fromJSON(b), uintptr(0))
+}
+
+// Disconnect closes the port from the app's end.
+func (p *Port) Disconnect() {
+	if p.closed {
+		return
+	}
+	if !sendBool(p.obj, "isDisconnected") {
+		send(p.obj, "disconnect")
+	}
+	p.forget()
+}
+
+// DropWorker drops the Extension's service worker registration through
+// its background view, so that the next load registers it afresh: WebKit
+// starts a worker on its own only for a new registration. It uses
+// WebKit's private _backgroundWebView; done gets the error, if any.
 func (cx *Context) DropWorker(done func(error)) {
 	bv := cx.BackgroundView()
 	if bv == 0 {

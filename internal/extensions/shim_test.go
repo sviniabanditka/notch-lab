@@ -82,7 +82,7 @@ func TestPrepareModuleWorkerOnce(t *testing.T) {
 	}
 	b, _ := os.ReadFile(filepath.Join(dir, "bg.js"))
 	src := string(b)
-	if strings.Count(src, `import "/`+ShimFile+`"`) != 1 || strings.Count(src, Marker) != 1 || strings.Count(src, "worker.alive") != 1 || !strings.HasSuffix(src, "console.log(1);\n") {
+	if strings.Count(src, `import "/`+ShimFile+`"`) != 1 || strings.Count(src, Marker) != 1 || !strings.HasSuffix(src, "console.log(1);\n") {
 		t.Fatalf("bg.js:\n%s", src)
 	}
 }

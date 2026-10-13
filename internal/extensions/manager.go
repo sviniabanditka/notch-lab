@@ -29,6 +29,9 @@ type Entry struct {
 	// Local is the folder of an unpacked Extension, loaded in place.
 	Local   string `json:"local,omitempty"`
 	Updated int64  `json:"updated"`
+	// Granted are the permissions the app answers itself that
+	// permissions.request granted (R-WEB-170).
+	Granted []string `json:"granted,omitempty"`
 }
 
 // Manager keeps the installed list. Main goroutine only, except the
@@ -78,7 +81,7 @@ func (m *Manager) Folder(e *Entry) string {
 // Put adds or replaces an Entry, keeping its switches.
 func (m *Manager) Put(e *Entry) {
 	if old := m.Get(e.ID); old != nil {
-		e.Enabled, e.Pinned = old.Enabled, old.Pinned
+		e.Enabled, e.Pinned, e.Granted = old.Enabled, old.Pinned, old.Granted
 		*old = *e
 	} else {
 		m.List = append(m.List, e)

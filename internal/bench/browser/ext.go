@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"os/signal"
 	"path/filepath"
-	"sync"
+	"syscall"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -38,16 +39,35 @@ type Ext struct {
 	storeW  string
 	// menu shows the list of Extensions under the address bar's button.
 	menu bool
-	// presented is when a popup last opened; see act.
-	presented time.Time
-	// revived holds the Extensions revived as they loaded (see load).
-	revived map[string]bool
-	// alive is when each Extension's worker last told that it runs.
-	alive   map[string]time.Time
-	aliveMu sync.Mutex
+	// popupTab is the popup as WebKit's Tab: WebKit carries a page's
+	// messages only when it can name the Tab the page is in.
+	popupTab *webkit.ExtTab
+	// loaded holds the Extensions loaded in this run; before, whether the
+	// last load of each came after another (background.loadedBefore).
+	loaded, before map[string]bool
+	// revives counts the loads again of each Extension in this run: two at
+	// most, as one that did not bring the worker back will not either.
+	revives map[string]int
+	// sockets are each Extension's worker sockets (socket.go).
+	sockets map[string][]*socket
+	// reviving holds the Extensions that load again now.
+	reviving map[string]bool
+	// revivedAt is when each Extension was last loaded again (revive).
+	revivedAt map[string]time.Time
 	// openPopupFor is the button the popup hangs from.
 	openPopupFor ui.Rect
 	link         string // Settings › Extensions field
+	// clicked is when each Extension's button was last pressed
+	// (permissions.afterClick).
+	clicked map[string]time.Time
+	// popups are the pages an Extension set for its button (action.popup):
+	// by Tab ID, "*" for every Tab.
+	popups map[string]map[string]string
+	// hosts are the native messaging hosts that run, with their ports.
+	hosts map[*hostPipe]*webkit.Port
+	// failures are the recent failed one-shot native messages, by
+	// Extension and host.
+	failures map[string][]time.Time
 }
 
 // StartExtensions lets the browser load Extensions: the controller is
@@ -62,7 +82,8 @@ func (b *Bench) ensureExt() {
 		return
 	}
 	e := &Ext{b: b, M: extensions.Load(filepath.Join(b.Dir, "extensions")),
-		icons: map[string]*ui.Bitmap{}, iconPNG: map[string]string{}, anchors: map[string]*ui.Handle{}, alive: map[string]time.Time{}, revived: map[string]bool{},
+		icons: map[string]*ui.Bitmap{}, iconPNG: map[string]string{}, anchors: map[string]*ui.Handle{}, loaded: map[string]bool{}, before: map[string]bool{}, revivedAt: map[string]time.Time{}, reviving: map[string]bool{}, revives: map[string]int{}, sockets: map[string][]*socket{},
+		clicked: map[string]time.Time{}, popups: map[string]map[string]string{}, hosts: map[*hostPipe]*webkit.Port{}, failures: map[string][]time.Time{},
 		storeH: randName("s"), storeW: randName("w")}
 	ctl, err := webkit.NewController(extStore, SharedProfile, e)
 	if err != nil {
@@ -94,7 +115,28 @@ func (b *Bench) ensureExt() {
 		queue = queue[1:]
 		time.AfterFunc(400*time.Millisecond, func() { b.Post(next) })
 	}
-	next()
+	e.forgetWorkers(func() { b.Post(next) })
+	if os.Getenv("NOTCH_LAB_HOME") != "" { // dev runs: kill -USR2 probes every Extension's messaging
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, syscall.SIGUSR2)
+		go func() {
+			for range sig {
+				b.Post(func() {
+					live, withExt := 0, 0
+					for _, x := range b.tabs {
+						live++
+						if x.ext != nil {
+							withExt++
+						}
+					}
+					log.Printf("extensions: probe: %d live Tabs, %d with an ExtTab, %d in the window's row, ordered %d", live, withExt, len(e.Tabs()), len(b.ordered()))
+					for _, cx := range e.ctl.Contexts {
+						probeMessaging(cx)
+					}
+				})
+			}
+		}()
+	}
 	go e.updateDaily()
 }
 
@@ -102,6 +144,8 @@ func (e *Ext) load(en *extensions.Entry) {
 	if err := extensions.Prepare(e.M.Folder(en), false); err != nil {
 		log.Printf("extensions: %s: %v", en.ID, err)
 	}
+	e.before[en.ID] = e.loaded[en.ID]
+	e.loaded[en.ID] = true
 	e.ctl.Load(en.ID, e.M.Folder(en), func(cx *webkit.Context, err error) {
 		if err != nil {
 			log.Printf("extensions: %s: %v", en.ID, err)
@@ -112,22 +156,13 @@ func (e *Ext) load(en *extensions.Entry) {
 			en.Name = cx.Name
 			e.M.Save()
 		}
-		if e.renewWorker(cx, en) {
-			return
-		}
-		// WebKit starts a worker itself only when its registration is
-		// new: a worker that keeps silent is revived, once per run, so
-		// that its listeners are there when a popup connects.
-		loaded := time.Now()
-		time.AfterFunc(4*time.Second, func() {
-			e.b.Post(func() {
-				if e.lastAlive(en.ID).Before(loaded) && !e.revived[en.ID] {
-					e.revived[en.ID] = true
-					if cur := e.ctl.Contexts[en.ID]; cur != nil {
-						e.revive(cur, func(*webkit.Context) {})
-					}
-				}
-			})
+		// WebKit does not try again a worker that failed to start: the
+		// Extension is loaded again as soon as that shows.
+		// Logged only: WebKit lists an error a running worker throws as a
+		// failed start too (Bitwarden's SignalR), and a load again for it
+		// left the Extension without a worker.
+		cx.WatchErrors(func() {
+			log.Printf("extensions: %s: WebKit tells of a background error", en.ID)
 		})
 	})
 }
@@ -173,7 +208,7 @@ func (e *Ext) finish(en *extensions.Entry, err error) {
 		return
 	}
 	if old := e.ctl.Contexts[en.ID]; old != nil {
-		e.ctl.Unload(old)
+		e.unload(old)
 	}
 	e.M.Put(en)
 	if en := e.M.Get(en.ID); en.Enabled {
@@ -191,7 +226,7 @@ func (e *Ext) SetEnabled(id string, on bool) {
 	en.Enabled = on
 	e.M.Save()
 	if cx := e.ctl.Contexts[id]; cx != nil && !on {
-		e.ctl.Unload(cx)
+		e.unload(cx)
 	} else if cx == nil && on {
 		e.load(en)
 	}
@@ -200,7 +235,7 @@ func (e *Ext) SetEnabled(id string, on bool) {
 // Remove takes an Extension out with its files and storage (R-WEB-182).
 func (e *Ext) Remove(id string) {
 	if cx := e.ctl.Contexts[id]; cx != nil {
-		e.ctl.Unload(cx)
+		e.unload(cx)
 	}
 	e.M.Remove(id)
 	e.tellStores()
@@ -213,11 +248,18 @@ func (e *Ext) Reload(id string) {
 		return
 	}
 	if cx := e.ctl.Contexts[id]; cx != nil {
-		e.ctl.Unload(cx)
+		e.unload(cx)
 	}
 	if en.Enabled {
 		e.load(en)
 	}
+}
+
+// unload takes an Extension out with the native hosts of its ports.
+func (e *Ext) unload(cx *webkit.Context) {
+	e.ctl.Unload(cx)
+	// Its ports read as gone only once WebKit has had a turn.
+	e.b.Post(e.stopOrphans)
 }
 
 // Context is a loaded Extension, or nil.
@@ -352,10 +394,12 @@ func (h tabHost) Forward() {
 	}
 }
 
-// ordered is every live browser Tab of the shown Lab, Bench by Bench.
+// ordered is every live browser Tab, Lab by Lab, Bench by Bench.
 func (b *Bench) ordered() []*tab {
+	// Every Lab's: a Tab shown in the notch panel, on another Lab than the
+	// main window's, is a Tab of the window to the Extensions as well.
 	var out []*tab
-	if l := b.St.Window("main").Lab; l != nil {
+	for _, l := range b.St.Labs {
 		for _, bench := range l.Benches {
 			for _, t := range bench.Tabs {
 				if x := b.tabs[t]; x != nil {
@@ -419,7 +463,11 @@ func (e *Ext) OpenOptions(cx *webkit.Context) {
 }
 
 func (e *Ext) Prompt(cx *webkit.Context, what []string, done func(bool)) {
-	q := cx.Name + " asks for:\n" + joinLines(what)
+	e.ask(cx.Name+" asks for:\n"+joinLines(what), done)
+}
+
+// ask asks the user a yes-or-no question about an Extension.
+func (e *Ext) ask(q string, done func(bool)) {
 	e.b.Post(func() {
 		if e.b.Confirm == nil {
 			done(true)
@@ -441,27 +489,35 @@ func joinLines(s []string) string {
 	return out
 }
 
-func (e *Ext) Message(cx *webkit.Context, api string, args []json.RawMessage) any {
-	if api == "worker.alive" {
-		e.aliveMu.Lock()
-		if e.alive[cx.ID].IsZero() {
-			log.Printf("extensions: %s: worker runs", cx.Name)
-		}
-		e.alive[cx.ID] = time.Now()
-		e.aliveMu.Unlock()
+func (e *Ext) Message(cx *webkit.Context, api string, args []json.RawMessage, reply func(any)) {
+	// The shim's self-healing of a worker that stopped answering, as
+	// Search answers it (R-WEB-152).
+	switch api {
+	case "background.loadedBefore":
+		reply(map[string]any{"value": e.before[cx.ID]})
+		return
+	case "background.wake":
+		log.Printf("extensions: %s: background.wake asked", cx.Name)
+		e.wake(cx, 3)
+		reply(map[string]any{"value": nil})
+		return
+	case "background.revive":
+		e.revive(cx.ID, "its worker stopped answering")
+		reply(map[string]any{"value": nil})
+		return
 	}
 	en := e.M.Get(cx.ID)
-	perms := map[string]bool{}
+	folder := ""
 	if en != nil {
-		var mf struct{ Permissions []any }
-		if raw, err := os.ReadFile(filepath.Join(e.M.Folder(en), "manifest.json")); err == nil {
-			_ = json.Unmarshal(raw, &mf)
-		}
-		for _, p := range mf.Permissions {
-			if s, ok := p.(string); ok {
-				perms[s] = true
-			}
-		}
+		folder = e.M.Folder(en)
+	}
+	perms := map[string]bool{}
+	mf := readManifest(folder)
+	for _, p := range append(mf.Permissions, e.granted(cx.ID)...) {
+		perms[p] = true
+	}
+	if e.own(cx, mf, perms, api, args, reply) {
+		return
 	}
 	self := map[string]any{"id": cx.ID, "name": cx.Name, "shortName": cx.Name, "version": cx.Version(),
 		"description": "", "enabled": true, "type": "extension", "installType": "normal",
@@ -469,11 +525,7 @@ func (e *Ext) Message(cx *webkit.Context, api string, args []json.RawMessage) an
 	if en != nil && en.Local != "" {
 		self["installType"] = "development"
 	}
-	folder := ""
-	if en != nil {
-		folder = e.M.Folder(en)
-	}
-	return e.b.answer(perms, self, folder, api, args)
+	reply(e.b.answer(perms, self, folder, api, args))
 }
 
 func (e *Ext) ActionChanged(cx *webkit.Context) {
@@ -557,8 +609,7 @@ func (e *Ext) buttons(c *ui.Context, x *tab) {
 }
 
 func (e *Ext) PresentPopup(cx *webkit.Context, t *webkit.ExtTab) {
-	e.presented = time.Now()
-	u := cx.PopupURL()
+	u := e.popupURL(cx)
 	win := e.windowOf(t)
 	log.Printf("extensions: %s: popup %q", cx.Name, u)
 	if u == "" || win == nil {
@@ -582,7 +633,7 @@ func (e *Ext) PresentPopup(cx *webkit.Context, t *webkit.ExtTab) {
 		}),
 	})
 	var err error
-	wv, err = fly.NewWebView(mygo.WebViewOptions{Native: cx.WebViewConfiguration(), BackgroundColor: "#ffffff"})
+	wv, err = fly.NewWebView(mygo.WebViewOptions{Native: cx.WebViewConfiguration(), KeepConfiguration: true, BackgroundColor: "#ffffff"})
 	if err != nil {
 		log.Printf("extensions: popup: %v", err)
 		fly.Close()
@@ -591,8 +642,17 @@ func (e *Ext) PresentPopup(cx *webkit.Context, t *webkit.ExtTab) {
 	webkit.SetInspectable(wv.NativeHandle(), true) // Safari › Develop shows the popup's console
 	if os.Getenv("NOTCH_LAB_HOME") != "" {
 		probeBackground(cx)
-		probePopup(cx.Name, wv)
+		probeMessaging(cx)
+		probePopup(cx, wv)
 	}
+	// The popup is a Tab at no place in the window's row: WebKit carries a
+	// page's messages only when it can name its Tab (R-WEB-162).
+	if e.popupTab != nil {
+		e.ctl.DidCloseTab(e.popupTab)
+	}
+	pt := webkit.NewTab(popupHost{e: e, wv: wv, fly: fly, url: u, id: cx.ID})
+	e.popupTab = pt
+	e.ctl.DidOpenTab(pt)
 	_ = wv.Page().LoadURL(u)
 	wv.Page().OnPageTitleUpdated(func(ev *mygo.TitleEvent) { ev.PreventDefault() })
 	e.popup = fly
@@ -601,6 +661,10 @@ func (e *Ext) PresentPopup(cx *webkit.Context, t *webkit.ExtTab) {
 	fly.OnClosed(func() {
 		if e.popup == fly {
 			e.popup = nil
+		}
+		if e.popupTab == pt {
+			e.ctl.DidCloseTab(pt)
+			e.popupTab = nil
 		}
 	})
 	fly.Show()
@@ -619,110 +683,109 @@ func liveURL(x *tab) string {
 	return readData(x.t).URL
 }
 
-// act presses an Extension's button once its worker runs. WebKit starts
-// a worker on its own only when its registration is new; one registered
-// before starts only for the events WebKit heard of as it first ran, and
-// neither loadBackgroundContent nor a message starts it. A popup that
-// connects to a sleeping worker fails for good (Bitwarden). A worker
-// tells that it runs every 20 s (extensions' aliveScript); with no word
-// for 25 s, act revives it and presses on the new context. WebKit asks
-// for the popup through its delegate; for some Extensions it does not, so
-// the popup of the manifest opens here when no request comes soon
-// (R-WEB-161).
-func (e *Ext) act(cx *webkit.Context, x *tab) {
-	if time.Since(e.lastAlive(cx.ID)) < 25*time.Second {
-		e.press(cx, x)
-		return
-	}
-	e.revive(cx, func(fresh *webkit.Context) { e.press(fresh, x) })
-}
-
-// revive registers an Extension's worker afresh and loads the Extension
-// again, which starts the worker; then gets the new context once the
-// worker tells that it runs, or after 6 s.
-func (e *Ext) revive(cx *webkit.Context, then func(*webkit.Context)) {
-	id, name, asked := cx.ID, cx.Name, time.Now()
-	cx.DropWorker(func(err error) {
-		e.b.Post(func() {
-			if err != nil {
-				log.Printf("extensions: %s: revive: %v", name, err)
-				then(cx)
-				return
-			}
-			e.Reload(id)
-			var wait func()
-			wait = func() {
-				fresh := e.ctl.Contexts[id]
-				switch {
-				case fresh != nil && e.lastAlive(id).After(asked):
-					log.Printf("extensions: %s: worker revived in %v", name, time.Since(asked).Round(time.Millisecond))
-					time.AfterFunc(700*time.Millisecond, func() { e.b.Post(func() { then(fresh) }) }) // its listeners follow its start
-				case time.Since(asked) > 6*time.Second:
-					log.Printf("extensions: %s: worker silent after a revive", name)
-					if fresh == nil {
-						fresh = cx
-					}
-					then(fresh)
-				default:
-					time.AfterFunc(100*time.Millisecond, func() { e.b.Post(wait) })
-				}
-			}
-			wait()
-		})
-	})
-}
-
-func (e *Ext) lastAlive(id string) time.Time {
-	e.aliveMu.Lock()
-	defer e.aliveMu.Unlock()
-	return e.alive[id]
-}
+// act presses an Extension's button. An action with a popup opens the
+// popup here, after the user's gesture is told: left to WebKit, it builds
+// a popup of its own first, and closing that one lost the new popup's
+// first messages to its worker (as Search does). Only an action without a
+// popup goes to performActionForTab (R-WEB-161).
+func (e *Ext) act(cx *webkit.Context, x *tab) { e.press(cx, x) }
 
 func (e *Ext) press(cx *webkit.Context, x *tab) {
-	asked := time.Now()
+	cx.UserGesture(x.ext)
+	e.clicked[cx.ID] = time.Now()
+	if a, ok := cx.Action(x.ext); ok && a.Popup && e.popupURL(cx) != "" {
+		e.PresentPopup(cx, x.ext)
+		return
+	}
 	cx.PerformAction(x.ext)
-	time.AfterFunc(400*time.Millisecond, func() {
+}
+
+// wake loads an Extension's background content, up to tries times, 400 ms
+// apart; then revives the Extension (background.wake).
+func (e *Ext) wake(cx *webkit.Context, tries int) {
+	cx.Wake(func(err error) {
+		if err == nil {
+			return
+		}
 		e.b.Post(func() {
-			if e.presented.Before(asked) && cx.PopupURL() != "" {
-				log.Printf("extensions: %s: no popup request from WebKit; opening it", cx.Name)
-				e.PresentPopup(cx, x.ext)
+			if tries > 1 {
+				time.AfterFunc(400*time.Millisecond, func() { e.b.Post(func() { e.wake(cx, tries-1) }) })
+				return
 			}
+			e.revive(cx.ID, "its background did not load: "+err.Error())
 		})
 	})
 }
 
-// windowOf is the window that shows an Extension's Tab, which a popup
-// hangs from: the notch panel or the main window, not the one that drew
-// last.
-func (e *Ext) windowOf(t *webkit.ExtTab) *mygo.Window {
-	for _, x := range e.b.tabs {
-		if x.ext == t && t != nil && x.wv != nil && x.wv.Window() != nil {
-			return x.wv.Window()
-		}
+// revive loads an Extension again, at most once in 15 s and twice a run (R-WEB-155).
+func (e *Ext) revive(id, why string) {
+	if time.Since(e.revivedAt[id]) < 15*time.Second || e.revives[id] >= 2 {
+		return
 	}
-	if f := e.b.focus; f != nil && f.wv != nil && f.wv.Window() != nil {
-		return f.wv.Window()
-	}
-	return e.b.Win
+	e.revives[id]++
+	e.revivedAt[id] = time.Now()
+	log.Printf("extensions: %s: loaded again: %s", id, why)
+	e.reviving[id] = true
+	time.AfterFunc(3*time.Second, func() { e.b.Post(func() { delete(e.reviving, id) }) })
+	// A plain load again leaves the context without a worker: WebKit
+	// starts one only for a new registration, so the old one goes first.
+	// The data store's records go, as at launch: dropping the
+	// registration from a page leaves what WebKit keeps of a worker that
+	// threw, and the worker does not start again.
+	e.ctl.ForgetWorkers(func() { e.b.Post(func() { e.Reload(id) }) })
+}
+
+// forgetWorkers clears the service worker registrations, then calls next.
+// WebKit starts a worker on its own only when its registration is new: a
+// worker registered in an earlier run starts neither as its Extension
+// loads nor for loadBackgroundContent, and keeps the script it first
+// registered with. So every launch registers the workers afresh, and they
+// start with the Extensions (R-WEB-165).
+func (e *Ext) forgetWorkers(next func()) {
+	e.ctl.ForgetWorkers(func() {
+		log.Printf("extensions: workers' registrations cleared")
+		next()
+	})
 }
 
 // probePopup logs, in dev runs, what a popup shows and the errors it
 // meets in its first 15 s: its console is out of reach otherwise.
-func probePopup(name string, wv *mygo.WebView) {
-	webkit.AddUserScript(wv.NativeHandle(), `if(!window.__nlErrs){window.__nlErrs=[];var p=function(m){if(window.__nlErrs.length<30)window.__nlErrs.push(String(m).slice(0,300))};`+
-		`addEventListener('error',function(e){p('error: '+e.message+' @'+e.filename+':'+e.lineno)});`+
-		`addEventListener('unhandledrejection',function(e){p('rejection: '+(e.reason&&(e.reason.stack||e.reason.message)||e.reason))});`+
-		`var ce=console.error;console.error=function(){p('console: '+[].map.call(arguments,String).join(' '));return ce.apply(console,arguments)}}`, true, true, "")
+func probePopup(cx *webkit.Context, wv *mygo.WebView) {
+	name := cx.Name
 	go func() {
 		for i := 0; i < 5; i++ {
 			time.Sleep(3 * time.Second)
 			if wv.IsDestroyed() {
 				return
 			}
-			v, err := wv.Page().Eval(`JSON.stringify({u:location.href,t:(document.body&&document.body.innerText||'').slice(0,160),e:window.__nlErrs||[]})`)
+			switch i {
+			case 0: // a listener for a broadcast from a content script
+				_, _ = wv.Page().Eval(`chrome.runtime.onMessage.addListener((m) => { if (m && m.command === "__notchProbe") window.__notchGot = (window.__notchGot || 0) + 1; }); true`)
+			case 1: // the content script of the active Tab broadcasts
+				probeBroadcast(cx)
+			}
+			v, err := wv.Page().Eval(`JSON.stringify({u:location.href,got:window.__notchGot||0,e:window.__nlErrs||[]})`)
 			log.Printf("extensions: %s: popup probe %d: %v %v", name, i, v, err)
 		}
 	}()
+}
+
+// probeBroadcast makes the content script of the active Tab send a message
+// to the Extension's pages, as Bitwarden's page details answer goes.
+func probeBroadcast(cx *webkit.Context) {
+	bv := cx.BackgroundView()
+	if bv == 0 {
+		return
+	}
+	webkit.CallAsync(bv, `globalThis.__notchGot = 0;
+if (!globalThis.__notchListening) { globalThis.__notchListening = true; chrome.runtime.onMessage.addListener((m) => { if (m && m.command === "__notchProbe") globalThis.__notchGot++; }); }
+const tab = (await chrome.tabs.query({active: true, currentWindow: true}))[0];
+if (!tab) return "no tab";
+const r = await chrome.scripting.executeScript({target: {tabId: tab.id}, func: () => { chrome.runtime.sendMessage({command: "__notchProbe"}).catch(() => {}); return "sent"; }});
+await new Promise((w) => setTimeout(w, 1500));
+return {sent: r && r[0] && r[0].result, backgroundPageGot: globalThis.__notchGot};`, nil, "", func(res []byte, err error) {
+		log.Printf("extensions: %s: broadcast probe: %s %v", cx.Name, res, err)
+	})
 }
 
 // probeBackground logs, in dev runs, the service workers of an
@@ -741,32 +804,89 @@ return {at: location.href, ctl: !!navigator.serviceWorker.controller, regs: regs
 		})
 }
 
-// workerFile holds, in an Extension's folder, the Shim version its service
-// worker was registered with.
-const workerFile = ".notch-worker"
+// popupHost is an Extension's popup as WebKit's Tab: in the browser's
+// window at no place (index NSNotFound), never selected (as Search's
+// PopupPage). The Shim takes the Tab off what the Extension sees.
+type popupHost struct {
+	e   *Ext
+	wv  *mygo.WebView
+	fly *mygo.Window
+	url string
+	id  string // the Extension's
+}
 
-// renewWorker registers an Extension's service worker afresh once the
-// Shim in its files changed: WebKit keeps the script a worker first
-// registered with and never updates it, so the worker would run without
-// the Shim's fixes (Bitwarden's then never took a popup's connect).
-// It reports whether it renews, and so loads the Extension again.
-func (e *Ext) renewWorker(cx *webkit.Context, en *extensions.Entry) bool {
-	stamp := filepath.Join(e.M.Folder(en), workerFile)
-	if b, _ := os.ReadFile(stamp); string(b) == extensions.ShimVersion {
-		return false
+func (h popupHost) Window() *webkit.ExtWindow { return h.e.win }
+func (h popupHost) Index() int                { return -1 }
+func (h popupHost) WebView() uintptr          { return h.wv.NativeHandle() }
+func (h popupHost) Title() string             { return "" }
+func (h popupHost) URL() string {
+	if u := h.wv.Page().URL(); u != "" {
+		return u
 	}
-	cx.DropWorker(func(err error) {
-		e.b.Post(func() {
-			if err != nil { // no background view: nothing to renew
-				log.Printf("extensions: %s: worker not renewed: %v", en.ID, err)
-			} else {
-				log.Printf("extensions: %s: worker renewed for Shim %s", en.ID, extensions.ShimVersion)
-			}
-			_ = os.WriteFile(stamp, []byte(extensions.ShimVersion), 0o600)
-			if err == nil {
-				e.Reload(en.ID)
-			}
-		})
+	return h.url
+}
+func (h popupHost) Loading() bool  { return false }
+func (h popupHost) Selected() bool { return false }
+func (h popupHost) Pinned() bool   { return false }
+func (h popupHost) Activate()      {}
+func (h popupHost) Close()         { h.fly.Close() }
+
+// LoadURL opens the address as a Tab and closes the popup, as a link of a
+// popup does in Chrome.
+func (h popupHost) LoadURL(u string) {
+	if t := h.e.b.OpenURL(h.e.b.St.Window("main").Lab, u); t != nil {
+		h.e.b.Show(t)
+	}
+	h.fly.Close()
+}
+func (h popupHost) Reload()  { h.wv.Page().Reload() }
+func (h popupHost) Back()    {}
+func (h popupHost) Forward() {}
+
+// probeMessaging logs, in dev runs, a message round trip each way between
+// an Extension's background and its content script in the active Tab:
+// what autofill needs (Bitwarden's own commands). It asks for the autofill
+// scripts as Bitwarden's start script does, then looks for them.
+func probeMessaging(cx *webkit.Context) {
+	bv := cx.BackgroundView()
+	if bv == 0 {
+		return
+	}
+	webkit.CallAsync(bv, `const tab = (await chrome.tabs.query({active: true, currentWindow: true}))[0] || (await chrome.tabs.query({})).find((t) => /^https?:/.test(t.url || ""));
+if (!tab) return {tab: null, all: (await chrome.tabs.query({})).length};
+const out = {tab: [tab.id, tab.windowId, (tab.url || "").slice(0, 60), tab.status]};
+const race = (p, ms) => Promise.race([p, new Promise((r) => setTimeout(() => r("no answer"), ms || 3000))]);
+const look = async () => { try { return (await chrome.scripting.executeScript({target: {tabId: tab.id}, func: () => typeof window.bitwardenAutofillInit}))[0].result; } catch (e) { return "err " + e.message; } };
+out.before = await look();
+try {
+  const r = await chrome.scripting.executeScript({target: {tabId: tab.id}, func: async () => {
+    const said = await Promise.race([chrome.runtime.sendMessage({command: "triggerAutofillScriptInjection"}), new Promise((r) => setTimeout(() => r("no answer"), 3000))]);
+    return JSON.stringify(said === undefined ? "undefined" : said);
+  }});
+  out.trigger = r && r[0] && r[0].result;
+} catch (e) { out.trigger = "err " + e.message; }
+await new Promise((r) => setTimeout(r, 2000));
+out.after = await look();
+try {
+  const d = await race(chrome.tabs.sendMessage(tab.id, {command: "collectPageDetailsImmediately", sender: "notch-probe"}, {frameId: 0}));
+  out.details = d && typeof d === "object" ? {fields: (d.fields || []).length, forms: Object.keys(d.forms || {}).length} : String(d);
+} catch (e) { out.details = "err " + e.message; }
+return out;`, nil, "", func(res []byte, err error) {
+		log.Printf("extensions: %s: messaging probe: %s %v", cx.Name, res, err)
 	})
-	return true
+}
+
+// windowOf is the window that shows an Extension's Tab, which a popup
+// hangs from: the notch panel or the main window, not the one that drew
+// last.
+func (e *Ext) windowOf(t *webkit.ExtTab) *mygo.Window {
+	for _, x := range e.b.tabs {
+		if x.ext == t && t != nil && x.wv != nil && x.wv.Window() != nil {
+			return x.wv.Window()
+		}
+	}
+	if f := e.b.focus; f != nil && f.wv != nil && f.wv.Window() != nil {
+		return f.wv.Window()
+	}
+	return e.b.Win
 }

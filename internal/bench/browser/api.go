@@ -221,7 +221,10 @@ func (b *Bench) wire(x *tab) {
 	})
 	p.OnPageTitleUpdated(func(e *mygo.TitleEvent) {
 		e.PreventDefault() // the window keeps its own title
-		b.Post(func() { b.setTitle(x, e.Title) })
+		b.Post(func() {
+			b.setTitle(x, e.Title)
+			b.tabChanged(x)
+		})
 	})
 	p.OnWillNavigate(func(e *mygo.NavigateEvent) {
 		if !webScheme(e.URL) { // R-WEB-037
@@ -240,6 +243,7 @@ func (b *Bench) wire(x *tab) {
 			x.loading, x.retry = false, ""
 			b.restoreScroll(x)
 			b.favicon(x)
+			b.tabChanged(x)
 		})
 	})
 	p.OnDidFailLoad(func(err *mygo.LoadError) {
@@ -301,9 +305,7 @@ func (b *Bench) navigated(x *tab, u string) {
 	}
 	b.St.Changed()
 	b.retitle(x)
-	if b.Ext != nil && x.ext != nil {
-		b.Ext.ctl.DidChangeTab(x.ext)
-	}
+	b.tabChanged(x)
 	if z, ok := b.Set.S.Browser.Zoom[Origin(u)]; ok { // R-WEB-091
 		x.wv.Page().SetZoomFactor(z)
 	}
@@ -588,14 +590,17 @@ func (b *Bench) View(c *ui.Context, t *model.Tab, focused bool) bool {
 		}
 	})
 	if focused && b.focus != x {
+		var prev *webkit.ExtTab
+		if b.focus != nil {
+			prev = b.focus.ext
+		}
+		// The new Tab is the focused one before WebKit hears of it: it asks
+		// at once which Tab is selected (R-WEB-162).
+		b.focus = x
 		if b.Ext != nil && x.ext != nil {
-			var prev *webkit.ExtTab
-			if b.focus != nil {
-				prev = b.focus.ext
-			}
+			b.Ext.ctl.DidFocusWindow(b.Ext.win)
 			b.Ext.ctl.DidActivateTab(x.ext, prev)
 		}
-		b.focus = x
 		if x.focusAddr || d.URL == "" {
 			x.addrH.Focus()
 		} else if x.wv != nil {
@@ -1271,4 +1276,12 @@ func (b *Bench) confirm(q, yes string, then func()) {
 			then()
 		}
 	})
+}
+
+// tabChanged tells WebKit that a Tab's URL, title or loading changed: an
+// Extension's tabs.onUpdated hears of it.
+func (b *Bench) tabChanged(x *tab) {
+	if b.Ext != nil && x.ext != nil {
+		b.Ext.ctl.DidChangeTab(x.ext)
+	}
 }

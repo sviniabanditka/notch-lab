@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -57,14 +58,20 @@ func (h *host) Prompt(_ *webkit.Context, what []string, done func(bool)) {
 	done(true)
 }
 func (h *host) PresentPopup(*webkit.Context, *webkit.ExtTab) {}
-func (h *host) Message(_ *webkit.Context, api string, args []json.RawMessage) any {
-	return map[string]any{"value": fmt.Sprintf("%s:%s", api, strings.Join(func() []string {
+func (h *host) Message(_ *webkit.Context, api string, args []json.RawMessage, reply func(any)) {
+	reply(map[string]any{"value": fmt.Sprintf("%s:%s", api, strings.Join(func() []string {
 		var s []string
 		for _, a := range args {
 			s = append(s, string(a))
 		}
 		return s
-	}(), ","))}
+	}(), ","))})
+}
+func (h *host) ConnectPort(*webkit.Context, *webkit.Port) error {
+	return errors.New("Specified native messaging host not found.")
+}
+func (h *host) SendNative(_ *webkit.Context, _ string, _ []byte, done func([]byte, error)) {
+	done(nil, errors.New("Specified native messaging host not found."))
 }
 func (h *host) ActionChanged(*webkit.Context) {}
 func (h *host) Tabs() []*webkit.ExtTab {

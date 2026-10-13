@@ -41,10 +41,9 @@ var shimText = strings.NewReplacer(
 	"search-passkeys.js", PasskeysFile,
 ).Replace(searchShim)
 
-// ShimVersion is the first 8 bytes of the SHA-256 of the Shim and the
-// worker's prologue, as hex.
+// ShimVersion is the first 8 bytes of the Shim's SHA-256 as hex.
 var ShimVersion = func() string {
-	h := sha256.Sum256([]byte(shimText + aliveScript))
+	h := sha256.Sum256([]byte(shimText))
 	return hex.EncodeToString(h[:8])
 }()
 
@@ -300,20 +299,20 @@ func verbose() string {
 	return "false"
 }
 
-// prologue goes before the shim in a worker. It tells the app that the
-// worker runs (aliveScript); in dev runs it also tells that the worker
-// starts, and any error as it starts, before the shim can: a worker that
-// dies there says nothing otherwise.
+// prologue goes before the shim in a worker in dev runs: it tells that
+// the worker starts, and any error as it starts, before the shim can: a
+// worker that dies there says nothing otherwise.
 func prologue() string {
 	if verbose() != "true" {
-		return aliveScript
+		return ""
 	}
-	return aliveScript + `self.addEventListener("error",function(e){try{chrome.runtime.sendNativeMessage("` + Application + `",{api:"debug.error",args:["worker error: "+e.message+" @ "+e.filename+":"+e.lineno]})}catch(x){}});` +
+	return traceTabs + `self.addEventListener("error",function(e){try{chrome.runtime.sendNativeMessage("` + Application + `",{api:"debug.error",args:["worker error: "+e.message+" @ "+e.filename+":"+e.lineno]})}catch(x){}});` +
 		`try{chrome.runtime.sendNativeMessage("` + Application + `",{api:"debug.error",args:["worker started"]})}catch(x){}` + "\n"
 }
 
-// aliveScript tells the app, as the worker starts and every 20 s, that it
-// runs: WebKit wakes a sleeping worker only for the events it heard of as
-// the worker first ran, so the app starts it before a popup connects
-// (browser.Ext.act).
-const aliveScript = `(function(){var a=function(){try{chrome.runtime.sendNativeMessage("` + Application + `",{api:"worker.alive",args:[]}).catch(function(){})}catch(x){}};a();setInterval(a,20000)})();` + "\n"
+// traceTabs, in dev runs, logs a worker's calls that name a Tab, with
+// their answer or error: which Tab an Extension acts on.
+const traceTabs = `(function(){var say=function(t){try{chrome.runtime.sendNativeMessage("` + Application + `",{api:"debug.error",args:[String(t).slice(0,600)]}).catch(function(){})}catch(x){}};` +
+	`var wrap=function(o,k,name){if(!o||typeof o[k]!=="function")return;var f=o[k];o[k]=function(){var a=[].slice.call(arguments);var r;try{r=f.apply(this,a)}catch(e){say("trace "+name+" "+JSON.stringify(a.filter(function(x){return typeof x!=="function"}))+" threw "+e.message);throw e}` +
+	`if(r&&typeof r.then==="function")r.then(function(v){say("trace "+name+" "+JSON.stringify(a.filter(function(x){return typeof x!=="function"})).slice(0,200)+" -> "+JSON.stringify(v===undefined?"undefined":v).slice(0,200))},function(e){say("trace "+name+" "+JSON.stringify(a.filter(function(x){return typeof x!=="function"})).slice(0,200)+" !! "+(e&&e.message))});return r}};` +
+	`wrap(chrome.scripting,"executeScript","scripting.executeScript");wrap(chrome.webNavigation,"getAllFrames","webNavigation.getAllFrames");wrap(chrome.tabs,"sendMessage","tabs.sendMessage");wrap(chrome.tabs,"query","tabs.query")})();` + "\n"

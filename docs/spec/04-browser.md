@@ -4,7 +4,7 @@ The browser Bench shows web Pages in WebKit views inside the Layout. It loads Ch
 
 Requirements are numbered `R-WEB-nnn`.
 
-> M4 status (2026-10-12). Done: Tabs, Profiles, the Probe, default browser (stage A); the Extension controller and adapters, Store install with the "Add to notch-lab" button, CRX3 check, the Shim, the native answers for bookmarks, history, downloads, userScripts and scripting, action buttons with a popup, the options page, Settings › Extensions, daily updates (stage B). `tools/extcheck` checks the bridge against real WebKit and installs uBlock Origin Lite from the Store. `[later]` in M4: AMO installs and `.xpi`/`.zip` files (R-WEB-146, R-WEB-148), the second permission sheet (R-WEB-142), side panels, offscreen documents, `identity`, `webRequest`, `tabGroups` answers (R-WEB-151), capture (R-WEB-153), popup sizing to its content and the 300 ms reopen guard (R-WEB-161), the "more" menu for unpinned Extensions and the button's context menu (R-WEB-160, R-WEB-163), remembered grants (R-WEB-170), the permission diff on update (R-WEB-171), removal of an Extension's WebKit data (R-WEB-181), the notch panel as an Extension window (R-WEB-132), the 2 s wait of early Pages (R-WEB-134).
+> M4 status (2026-10-12). Done: Tabs, Profiles, the Probe, default browser (stage A); the Extension controller and adapters, Store install with the "Add to notch-lab" button, CRX3 check, the Shim, the native answers for bookmarks, history, downloads, userScripts and scripting, action buttons with a popup, the options page, Settings › Extensions, daily updates (stage B). `tools/extcheck` checks the bridge against real WebKit and installs uBlock Origin Lite from the Store. `[later]` in M4: AMO installs and `.xpi`/`.zip` files (R-WEB-146, R-WEB-148), the second permission sheet (R-WEB-142), side panels, offscreen documents, `identity`, `webRequest`, `tabGroups` kept per Bench (R-WEB-151), capture (R-WEB-153), popup sizing to its content and the 300 ms reopen guard (R-WEB-161), the "more" menu for unpinned Extensions and the button's context menu (R-WEB-160, R-WEB-163), remembered grants (R-WEB-170), the permission diff on update (R-WEB-171), removal of an Extension's WebKit data (R-WEB-181), the notch panel as an Extension window (R-WEB-132), the 2 s wait of early Pages (R-WEB-134).
 
 
 ## Tabs and Web views
@@ -289,12 +289,21 @@ R-WEB-151. The native message handler in Go answers the Shim's messages. One han
 | `downloads.*` | the downloads list (R-WEB-042); `download` starts one |
 | `sidePanel.*` | a drawer at the right of the Leaf, 320 pt wide, that shows the panel page |
 | `offscreen.*` | a hidden Web view per Extension, one at a time, closed on `closeDocument` or when the Extension unloads |
-| `tabGroups.*` | groups kept in memory per Bench, `[later]` shown in the sidebar |
+| `tabGroups.*`, `tabs.group`, `tabs.groups`, `tabs.ungroup` | as Search with tab groups off: no groups; `tabs.group` is an error. `[later]` groups kept in memory per Bench and shown in the sidebar |
+| `tabs.describe`, `tabs.activate`, `tabs.discard` | the Tab at that index of the window's row |
+| `clients.pages` | the Extension's popup and its own pages in Tabs |
+| `action.popup` | the page `setPopup` set, per Tab or for all, which a press of the button opens |
+| `permissions.request`, `permissions.granted`, `permissions.remove` | the grants of R-WEB-170; `permissions.afterClick` asks for WebKit's permissions and sites within 10 s of a press of the button |
+| `capture.grant`, `offscreen.sendMessage` | no capture and no offscreen documents yet: an empty stream id, `{"handled": false}` |
 | `identity.*` | `launchWebAuthFlow` opens the URL in a popup Web view window 480×640 pt; the app returns the redirect URL that starts with the Extension's redirect prefix and closes the window; `getAuthToken` is refused with "not supported" |
 | `webRequest.*` | observation only: the app sends `onBeforeRequest`, `onCompleted` and `onErrorOccurred` from the Probe's network entries of Tabs the Extension has host permission for |
 | `runtime.userAgent` | the Chrome user agent string with version 140.0.0.0 |
 
 R-WEB-152. A message the handler does not know answers with `{"error": "unsupported: <name>"}` and writes one log line per name per Extension per run.
+
+R-WEB-154. A port to `notchlab.socket` is a worker's WebSocket, as Search's `ExtensionSocket`: the app opens the socket with the Origin `chrome-extension://<id>` and carries its frames over the port. Any other application name in `sendNativeMessage` and `connectNative` is a Chrome native messaging host, as Search's `ExtensionNative`, only for an Extension whose manifest asks for `nativeMessaging`: the app finds `<name>.json` in Chrome's, Chromium's, Edge's, Brave's, Arc's, Vivaldi's and Opera's `NativeMessagingHosts` folders, runs its program when `allowed_origins` has the Extension's origin, and speaks 4-byte little-endian length and JSON over stdin and stdout. A host stops with its port.
+
+R-WEB-155. The app loads an Extension again (revive) when its shim asks (`background.revive`, or `background.wake` that fails three times) at most once in 15 s and twice a run. A revive drops the worker's registration first: WebKit starts a worker on its own only for a new registration. An error WebKit records for an Extension's background is logged only: WebKit records an error a running worker throws as a failed load too.
 
 R-WEB-153. Screen capture from an Extension (`tabCapture`, `desktopCapture`) asks on a sheet named for the Extension and is remembered per Extension, as Search's `ExtensionCapture`. The app never shows WebKit's own dialog for it.
 
@@ -316,7 +325,7 @@ R-WEB-164. A side panel (R-WEB-151) opens in a drawer at the right of the Leaf. 
 
 ### Permissions and updates
 
-R-WEB-170. A permission request from an Extension (`permissions.request`, host access on first use) shows a sheet named for the Extension with the permissions in plain words, Allow and Deny. The choice is remembered per Extension in `installed.json` under `granted`.
+R-WEB-170. A permission request from an Extension (`permissions.request`, host access on first use) shows a sheet named for the Extension with the permissions in plain words, Allow and Deny. The choice is remembered per Extension in `installed.json` under `granted` (`[later]` for WebKit's own permissions; the permissions the app answers itself are kept there now).
 
 R-WEB-171. Every hour the app downloads again each Store Extension whose last download is older than a day. A new version installs in place and reloads the Extension; the same version only updates `updated`. The text below is the full rule `[later]`: the app asks the Store for each Store Extension's current version through the same download URL with a HEAD request. When the version in the redirect's file name is newer, the app downloads and checks the CRX (R-WEB-143, R-WEB-144), compares the manifest's permissions with the installed ones minus `.notch-added`, and:
 

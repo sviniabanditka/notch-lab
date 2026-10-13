@@ -5,6 +5,7 @@ go 1.27.1
 require (
 	github.com/alecthomas/chroma/v2 v2.27.0
 	github.com/bluekeyes/go-gitdiff v0.9.0
+	github.com/coder/websocket v1.8.15
 	github.com/creack/pty v1.1.24
 	github.com/ebitengine/purego v0.11.1
 	github.com/egoist/mygo v0.4.5
@@ -43,4 +44,4 @@ require (
 	modernc.org/memory v1.12.1 // indirect
 )
 
-replace github.com/egoist/mygo => github.com/sviniabanditka/mygo v0.4.6-0.20261012183644-4185ee039ac9
+replace github.com/egoist/mygo => github.com/sviniabanditka/mygo v0.4.6-0.20261013174702-a84324ceaff0

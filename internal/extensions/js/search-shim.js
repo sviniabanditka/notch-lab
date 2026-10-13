@@ -3000,41 +3000,6 @@
         swap("windows", "create", one);
       })();
 
-      // In a test run, a worker's chrome calls that never settle, and its
-      // onConnect listeners: what a worker that hangs as it starts waits on.
-      if (__SEARCH_VERBOSE__ && worker && root.chrome) {
-        const say = (t) => { try { native("debug.error", [String(t).slice(0, 1500)]).catch(() => {}); } catch (e) {} };
-        const pending = new Map();
-        let seq = 0, connects = 0;
-        const trace = (o, path, depth) => {
-          for (const k of Object.keys(o)) {
-            let f;
-            try { f = o[k]; } catch (e) { continue; }
-            if (f && typeof f === "object" && depth < 2 && !/^on[A-Z]/.test(k)) { trace(f, path + k + ".", depth + 1); continue; }
-            if (typeof f !== "function" || /^on[A-Z]/.test(k)) continue;
-            const name = path + k;
-            try {
-              o[k] = function (...args) {
-                let r;
-                try { r = f.apply(this, args); } catch (e) { say("trace: " + name + " threw " + e.message); throw e; }
-                if (r && typeof r.then === "function") {
-                  const id = ++seq;
-                  pending.set(id, name);
-                  r.then(() => pending.delete(id), (e) => { pending.delete(id); say("trace: " + name + " rejected " + (e && e.message)); });
-                }
-                return r;
-              };
-            } catch (e) {}
-          }
-        };
-        try {
-          const oc = root.chrome.runtime.onConnect, add = oc.addListener;
-          oc.addListener = function (...x) { connects++; return add.apply(this, x); };
-        } catch (e) {}
-        trace(root.chrome, "", 0);
-        setTimeout(() => say("trace: after 8 s, onConnect listeners " + connects + ", pending " + JSON.stringify([...pending.values()])), 8000);
-      }
-
       // Errors in an extension's own pages and worker are told to the browser,
       // which lists them — the only window onto a worker there is.
       if (root.addEventListener) {

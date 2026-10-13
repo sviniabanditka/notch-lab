@@ -44,6 +44,7 @@ R-MYGO-016. Documented gotcha, carried from notch-browser: `SetActivationPolicy`
 | screen-notch | `Screen.Notch() (Rectangle, bool)` | R-MYGO-019 | `notch: Screen.Notch` |
 | global-pointer | `App.OnGlobalPointer(func(x, y int)) (off func())` | R-MYGO-020 | `notch: global pointer` |
 | flyout-dialogs | none (behaviour of `Dialog.*` with a flyout `Parent`) | R-MYGO-021 | `notch: dialogs over flyouts` |
+| native-configuration | `WebViewOptions.KeepConfiguration` | R-MYGO-022 | `notch: native configuration` |
 
 R-MYGO-010. `FlyoutOptions.Screen: true` makes a flyout with neither a Parent nor a Tray. `Anchor` is then in screen coordinates (`Display.Bounds`). The flyout is placed against the anchor inside the bounds of the display the anchor's center is on, the menu bar included, not the work area. The panel has level floating and collection behavior `canJoinAllSpaces | transient | ignoresCycle | fullScreenAuxiliary`. Acceptance: `examples/notch-screen-flyout` hangs a panel from the top center of the primary display over the windows of other apps.
 
@@ -54,6 +55,8 @@ R-MYGO-019. `Screen.Notch()` returns the notch rectangle in screen coordinates a
 R-MYGO-020. `App.OnGlobalPointer` installs one global and one local `NSEvent` monitor for mouse moves while a listener is registered, and removes them when the last `off` runs. The callback runs on the main goroutine with the position in `Display.Bounds` coordinates. No Accessibility permission is needed. Acceptance: `examples/notch-pointer` prints positions while another app is in front.
 
 R-MYGO-021. A dialog (`Dialog.Message`, `Open`, `Save`) whose `Parent` is a flyout is application modal, not a sheet: a flyout does not show sheets, and the caller waited for ever. While the dialog shows, the flyout is at the floating level, under the dialog, and a press in the dialog or the dialog's keyboard does not close a `KeyOnClick` flyout. The flyout's level comes back when the dialog closes. Acceptance: in the notch panel, Cmd+W on a terminal Tab with a running program shows the question over the panel; the panel stays open.
+
+R-MYGO-022. `WebViewOptions.KeepConfiguration` makes a web view from `Native`'s configuration as it is: mygo adds no content controller, bridge or scripts, and removes none as the view closes. An Extension's popup uses it, as Search shows its popup with the extension's configuration untouched.
 
 ## Patches: WebKit (M4, done)
 

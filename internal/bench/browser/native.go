@@ -255,7 +255,7 @@ func (b *Bench) run(self map[string]any, folder, api string, args []json.RawMess
 		return true, nil
 	case "background.loadedBefore":
 		return true, nil
-	case "background.wake", "background.revive", "action.popup":
+	case "background.wake", "background.revive", "action.popup", "worker.alive":
 		return nil, nil
 	// No side panels in WebKit: their settings are taken, not refused, as
 	// a refusal stops the start of a worker that sets them (Bitwarden).

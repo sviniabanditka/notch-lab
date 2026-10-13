@@ -41,9 +41,10 @@ var shimText = strings.NewReplacer(
 	"search-passkeys.js", PasskeysFile,
 ).Replace(searchShim)
 
-// ShimVersion is the first 8 bytes of the Shim's SHA-256 as hex.
+// ShimVersion is the first 8 bytes of the SHA-256 of the Shim and the
+// worker's prologue, as hex.
 var ShimVersion = func() string {
-	h := sha256.Sum256([]byte(shimText))
+	h := sha256.Sum256([]byte(shimText + aliveScript))
 	return hex.EncodeToString(h[:8])
 }()
 
@@ -180,18 +181,26 @@ func Prepare(folder string, fresh bool) error {
 			if p := inside(worker, folder); p != "" {
 				if data, err := os.ReadFile(p); err == nil {
 					source := string(data)
-					if strings.HasPrefix(source, Marker) {
-						if i := strings.Index(source, Ender); i >= 0 {
-							source = strings.TrimPrefix(source[i+len(Ender):], "\n")
-						}
-					}
 					first := `import "/` + ShimFile + "\";\n"
-					for strings.HasPrefix(source, first) {
-						source = source[len(first):]
+					// What an earlier Prepare put first, in either order.
+					for {
+						if strings.HasPrefix(source, first) {
+							source = source[len(first):]
+							continue
+						}
+						if strings.HasPrefix(source, Marker) {
+							if i := strings.Index(source, Ender); i >= 0 {
+								source = strings.TrimPrefix(source[i+len(Ender):], "\n")
+								continue
+							}
+						}
+						break
 					}
 					out := Marker + "\n" + prologue() + script + "\n" + Ender + "\n" + source
 					if t, _ := bg["type"].(string); t == "module" {
-						out = first + source
+						// A module imports the Shim; the prologue runs as
+						// the module starts (imports come first anyway).
+						out = first + Marker + "\n" + prologue() + Ender + "\n" + source
 					}
 					if err := os.WriteFile(p, []byte(out), 0o600); err != nil {
 						return err
@@ -291,13 +300,20 @@ func verbose() string {
 	return "false"
 }
 
-// prologue goes before the shim in a worker in dev runs: it tells that
-// the worker starts, and any error as it starts, before the shim can: a
-// worker that dies there says nothing otherwise.
+// prologue goes before the shim in a worker. It tells the app that the
+// worker runs (aliveScript); in dev runs it also tells that the worker
+// starts, and any error as it starts, before the shim can: a worker that
+// dies there says nothing otherwise.
 func prologue() string {
 	if verbose() != "true" {
-		return ""
+		return aliveScript
 	}
-	return `self.addEventListener("error",function(e){try{chrome.runtime.sendNativeMessage("` + Application + `",{api:"debug.error",args:["worker error: "+e.message+" @ "+e.filename+":"+e.lineno]})}catch(x){}});` +
+	return aliveScript + `self.addEventListener("error",function(e){try{chrome.runtime.sendNativeMessage("` + Application + `",{api:"debug.error",args:["worker error: "+e.message+" @ "+e.filename+":"+e.lineno]})}catch(x){}});` +
 		`try{chrome.runtime.sendNativeMessage("` + Application + `",{api:"debug.error",args:["worker started"]})}catch(x){}` + "\n"
 }
+
+// aliveScript tells the app, as the worker starts and every 20 s, that it
+// runs: WebKit wakes a sleeping worker only for the events it heard of as
+// the worker first ran, so the app starts it before a popup connects
+// (browser.Ext.act).
+const aliveScript = `(function(){var a=function(){try{chrome.runtime.sendNativeMessage("` + Application + `",{api:"worker.alive",args:[]}).catch(function(){})}catch(x){}};a();setInterval(a,20000)})();` + "\n"

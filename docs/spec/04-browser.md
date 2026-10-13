@@ -306,6 +306,8 @@ R-WEB-161. A click on the button opens the action's popup in a popover anchored 
 
 R-WEB-165. WebKit keeps the script an Extension's service worker first registered with and does not update it. When the Shim version in an Extension's folder differs from the one its worker registered with (the file `.notch-worker`), the app drops the worker's registration through the context's background view and loads the Extension again, once, so that the worker runs the files with the current Shim. A worker on an old script loses the Shim's fixes: Bitwarden's then never took a popup's `runtime.connect`. sidePanel settings calls succeed and do nothing; WebKit has no side panels.
 
+R-WEB-166. Every Extension's worker tells the app that it runs as it starts and every 20 s (`worker.alive`, the worker's prologue, also in module workers). WebKit starts a worker on its own only when its registration is new: neither `loadBackgroundContent` nor a message starts a worker registered before, and WebKit wakes it only for the events it heard of as the worker first ran. So a worker that keeps silent 4 s after its Extension loads is revived, once per run: its registration is dropped and the Extension loads again. A press on an action whose worker has been silent for 25 s revives it first and opens the popup on the new context when the worker tells that it runs (at most 6 s). A popup that connects to a sleeping worker fails for good.
+
 R-WEB-162. The popup's `WKWebExtensionTab` has no window of its own: "the current window" from a popup is the window that holds the button.
 
 R-WEB-163. An Extension's options page opens as a Tab in the Bench with the title "<Extension name> options". The context menu of the Extension button has Options, Pin/Unpin, Disable, Remove, Manage.

@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -39,6 +40,11 @@ type Ext struct {
 	menu bool
 	// presented is when a popup last opened; see act.
 	presented time.Time
+	// revived holds the Extensions revived as they loaded (see load).
+	revived map[string]bool
+	// alive is when each Extension's worker last told that it runs.
+	alive   map[string]time.Time
+	aliveMu sync.Mutex
 	// openPopupFor is the button the popup hangs from.
 	openPopupFor ui.Rect
 	link         string // Settings › Extensions field
@@ -56,7 +62,7 @@ func (b *Bench) ensureExt() {
 		return
 	}
 	e := &Ext{b: b, M: extensions.Load(filepath.Join(b.Dir, "extensions")),
-		icons: map[string]*ui.Bitmap{}, iconPNG: map[string]string{}, anchors: map[string]*ui.Handle{},
+		icons: map[string]*ui.Bitmap{}, iconPNG: map[string]string{}, anchors: map[string]*ui.Handle{}, alive: map[string]time.Time{}, revived: map[string]bool{},
 		storeH: randName("s"), storeW: randName("w")}
 	ctl, err := webkit.NewController(extStore, SharedProfile, e)
 	if err != nil {
@@ -106,7 +112,23 @@ func (e *Ext) load(en *extensions.Entry) {
 			en.Name = cx.Name
 			e.M.Save()
 		}
-		e.renewWorker(cx, en)
+		if e.renewWorker(cx, en) {
+			return
+		}
+		// WebKit starts a worker itself only when its registration is
+		// new: a worker that keeps silent is revived, once per run, so
+		// that its listeners are there when a popup connects.
+		loaded := time.Now()
+		time.AfterFunc(4*time.Second, func() {
+			e.b.Post(func() {
+				if e.lastAlive(en.ID).Before(loaded) && !e.revived[en.ID] {
+					e.revived[en.ID] = true
+					if cur := e.ctl.Contexts[en.ID]; cur != nil {
+						e.revive(cur, func(*webkit.Context) {})
+					}
+				}
+			})
+		})
 	})
 }
 
@@ -420,6 +442,14 @@ func joinLines(s []string) string {
 }
 
 func (e *Ext) Message(cx *webkit.Context, api string, args []json.RawMessage) any {
+	if api == "worker.alive" {
+		e.aliveMu.Lock()
+		if e.alive[cx.ID].IsZero() {
+			log.Printf("extensions: %s: worker runs", cx.Name)
+		}
+		e.alive[cx.ID] = time.Now()
+		e.aliveMu.Unlock()
+	}
 	en := e.M.Get(cx.ID)
 	perms := map[string]bool{}
 	if en != nil {
@@ -589,10 +619,64 @@ func liveURL(x *tab) string {
 	return readData(x.t).URL
 }
 
-// act presses an Extension's button. WebKit asks for the popup through
-// its delegate; for some Extensions it does not, so the popup of the
-// manifest opens here when no request comes soon (R-WEB-161).
-func (e *Ext) act(cx *webkit.Context, x *tab) { e.press(cx, x) }
+// act presses an Extension's button once its worker runs. WebKit starts
+// a worker on its own only when its registration is new; one registered
+// before starts only for the events WebKit heard of as it first ran, and
+// neither loadBackgroundContent nor a message starts it. A popup that
+// connects to a sleeping worker fails for good (Bitwarden). A worker
+// tells that it runs every 20 s (extensions' aliveScript); with no word
+// for 25 s, act revives it and presses on the new context. WebKit asks
+// for the popup through its delegate; for some Extensions it does not, so
+// the popup of the manifest opens here when no request comes soon
+// (R-WEB-161).
+func (e *Ext) act(cx *webkit.Context, x *tab) {
+	if time.Since(e.lastAlive(cx.ID)) < 25*time.Second {
+		e.press(cx, x)
+		return
+	}
+	e.revive(cx, func(fresh *webkit.Context) { e.press(fresh, x) })
+}
+
+// revive registers an Extension's worker afresh and loads the Extension
+// again, which starts the worker; then gets the new context once the
+// worker tells that it runs, or after 6 s.
+func (e *Ext) revive(cx *webkit.Context, then func(*webkit.Context)) {
+	id, name, asked := cx.ID, cx.Name, time.Now()
+	cx.DropWorker(func(err error) {
+		e.b.Post(func() {
+			if err != nil {
+				log.Printf("extensions: %s: revive: %v", name, err)
+				then(cx)
+				return
+			}
+			e.Reload(id)
+			var wait func()
+			wait = func() {
+				fresh := e.ctl.Contexts[id]
+				switch {
+				case fresh != nil && e.lastAlive(id).After(asked):
+					log.Printf("extensions: %s: worker revived in %v", name, time.Since(asked).Round(time.Millisecond))
+					time.AfterFunc(700*time.Millisecond, func() { e.b.Post(func() { then(fresh) }) }) // its listeners follow its start
+				case time.Since(asked) > 6*time.Second:
+					log.Printf("extensions: %s: worker silent after a revive", name)
+					if fresh == nil {
+						fresh = cx
+					}
+					then(fresh)
+				default:
+					time.AfterFunc(100*time.Millisecond, func() { e.b.Post(wait) })
+				}
+			}
+			wait()
+		})
+	})
+}
+
+func (e *Ext) lastAlive(id string) time.Time {
+	e.aliveMu.Lock()
+	defer e.aliveMu.Unlock()
+	return e.alive[id]
+}
 
 func (e *Ext) press(cx *webkit.Context, x *tab) {
 	asked := time.Now()
@@ -665,10 +749,11 @@ const workerFile = ".notch-worker"
 // Shim in its files changed: WebKit keeps the script a worker first
 // registered with and never updates it, so the worker would run without
 // the Shim's fixes (Bitwarden's then never took a popup's connect).
-func (e *Ext) renewWorker(cx *webkit.Context, en *extensions.Entry) {
+// It reports whether it renews, and so loads the Extension again.
+func (e *Ext) renewWorker(cx *webkit.Context, en *extensions.Entry) bool {
 	stamp := filepath.Join(e.M.Folder(en), workerFile)
 	if b, _ := os.ReadFile(stamp); string(b) == extensions.ShimVersion {
-		return
+		return false
 	}
 	cx.DropWorker(func(err error) {
 		e.b.Post(func() {
@@ -683,4 +768,5 @@ func (e *Ext) renewWorker(cx *webkit.Context, en *extensions.Entry) {
 			}
 		})
 	})
+	return true
 }

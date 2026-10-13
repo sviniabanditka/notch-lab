@@ -67,3 +67,22 @@ func TestPrepare(t *testing.T) {
 		t.Fatal("a way out of the folder")
 	}
 }
+
+// A module worker gets the Shim's import and the prologue once, however
+// many times Prepare runs (R-WEB-150, R-WEB-165).
+func TestPrepareModuleWorkerOnce(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "manifest.json"), []byte(`{"manifest_version":3,"name":"m","version":"1","background":{"service_worker":"bg.js","type":"module"}}`), 0o644)
+	os.WriteFile(filepath.Join(dir, "bg.js"), []byte("console.log(1);\n"), 0o644)
+	for i := 0; i < 3; i++ {
+		if err := Prepare(dir, i == 0); err != nil {
+			t.Fatal(err)
+		}
+		os.Remove(filepath.Join(dir, stampFile)) // as a dev run writes the Shim each time
+	}
+	b, _ := os.ReadFile(filepath.Join(dir, "bg.js"))
+	src := string(b)
+	if strings.Count(src, `import "/`+ShimFile+`"`) != 1 || strings.Count(src, Marker) != 1 || strings.Count(src, "worker.alive") != 1 || !strings.HasSuffix(src, "console.log(1);\n") {
+		t.Fatalf("bg.js:\n%s", src)
+	}
+}

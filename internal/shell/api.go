@@ -6,6 +6,7 @@ package shell
 import (
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -62,9 +63,11 @@ type Shell struct {
 	toasts   []string
 	actions  []toastAction
 	tabList  ui.ListState
-	resizing bool // the sidebar edge is dragged
-	peek     bool // the hidden sidebar shows while the pointer is over it (body)
-	shown    bool // the sidebar shows this frame
+	resizing bool      // the sidebar edge is dragged
+	peek     bool      // the hidden sidebar shows while the pointer is over it (body)
+	shown    bool      // the sidebar shows this frame
+	built    bool      // the sidebar was built in the last frame
+	slidOut  time.Time // when a sidebar that hides has slid out
 	sw       switcher
 	dlg      dialog
 	// toolbarShown is set while the card draws its toolbar this frame.

@@ -3,6 +3,7 @@ package shell
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -78,8 +79,30 @@ func (s *Shell) View(c *ui.Context) {
 func (s *Shell) body(c *ui.Context) {
 	s.rail(c)
 	s.shown = s.win().Sidebar || s.peek || s.resizing
+	// The sidebar slides: its slot's width goes between 0 and the
+	// sidebar's, which keeps its own width under the slot's clip.
+	w := float32(0)
 	if s.shown {
-		s.sidebar(c)
+		w = float32(s.Set.S.Sidebar.Width)
+	}
+	slot := ui.Row(c.Key("sidebar-slot")).Width(w).Shrink(0).AlignItems(ui.Stretch).Clip()
+	if !s.resizing {
+		slot = slot.Transition(slideMotion)
+	}
+	// A sidebar that hides is built until it has slid out.
+	if s.shown {
+		s.slidOut = time.Time{}
+	} else if s.slidOut.IsZero() && s.built {
+		s.slidOut = time.Now().Add(slideMotion.Duration)
+	}
+	s.built = s.shown || time.Now().Before(s.slidOut)
+	slot.Children(func() {
+		if s.built {
+			s.sidebar(c)
+		}
+	})
+	if !s.shown && s.built {
+		c.After(time.Until(s.slidOut))
 	}
 	left := float32(cardInset)
 	if s.shown {

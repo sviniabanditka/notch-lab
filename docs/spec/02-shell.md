@@ -129,7 +129,7 @@ R-SHELL-048. Cmd+Shift+1 to Cmd+Shift+9 select the Bench at that position. A pos
 
 R-SHELL-050. The sidebar is right of the rail, 240 pt wide by default. The user drags its right edge between 160 and 480 pt. The width is stored in `settings.json` key `sidebar.width`.
 
-R-SHELL-051. Cmd+B hides and shows the sidebar. The state is per window, stored in State row `window` column `sidebar`. While the sidebar hides, it shows, the same as a sidebar that does not hide, while the pointer is over the rail, and hides again when the pointer leaves the rail and the sidebar.
+R-SHELL-051. Cmd+B hides and shows the sidebar. The state is per window, stored in State row `window` column `sidebar`. While the sidebar hides, it shows, the same as a sidebar that does not hide, while the pointer is over the rail, and hides again when the pointer leaves the rail and the sidebar. The sidebar slides in and out in 180 ms, as it does for Cmd+B.
 
 R-SHELL-052. The sidebar holds, top to bottom: the Bench header (name, Tab count, "new Tab" button), the Tab list, a divider, the Panel.
 

@@ -60,6 +60,7 @@ func (a *app) newNotch(userHome string) {
 		logf("warn", "notch: Alt+Space: %v", err)
 	}
 	mygo.App.OnGlobalPointer(n.pointer)
+	mygo.App.OnGlobalPointer(sh.Pointer) // the hidden sidebar on rail hover (R-SHELL-051)
 	watchPresses(func() { // R-SHELL-011: a click on the notch
 		r, ok := mygo.Screen.Notch()
 		p := mygo.Screen.CursorScreenPoint()

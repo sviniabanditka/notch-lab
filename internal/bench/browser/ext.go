@@ -759,12 +759,13 @@ func probePopup(cx *webkit.Context, wv *mygo.WebView) {
 				return
 			}
 			switch i {
-			case 0: // a listener for a broadcast from a content script
-				_, _ = wv.Page().Eval(`chrome.runtime.onMessage.addListener((m) => { if (m && m.command === "__notchProbe") window.__notchGot = (window.__notchGot || 0) + 1; }); true`)
+			case 0: // a listener for a broadcast from a content script, and for relayed ones
+				_, _ = wv.Page().Eval(`chrome.runtime.onMessage.addListener((m) => { if (m && m.command === "__notchProbe") window.__notchGot = (window.__notchGot || 0) + 1; });
+window.__notchRelayed = []; new BroadcastChannel("search-messages").onmessage = (e) => { const d = e.data; if (d && d.relay) window.__notchRelayed.push(String(d.relay.command || "?")); }; true`)
 			case 1: // the content script of the active Tab broadcasts
 				probeBroadcast(cx)
 			}
-			v, err := wv.Page().Eval(`JSON.stringify({u:location.href,got:window.__notchGot||0,e:window.__nlErrs||[]})`)
+			v, err := wv.Page().Eval(`JSON.stringify({u:location.href,got:window.__notchGot||0,relayed:window.__notchRelayed||[]})`)
 			log.Printf("extensions: %s: popup probe %d: %v %v", name, i, v, err)
 		}
 	}()

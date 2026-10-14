@@ -41,9 +41,10 @@ var shimText = strings.NewReplacer(
 	"search-passkeys.js", PasskeysFile,
 ).Replace(searchShim)
 
-// ShimVersion is the first 8 bytes of the Shim's SHA-256 as hex.
+// ShimVersion is the first 8 bytes of the SHA-256 of the Shim and the
+// worker's prologue, as hex.
 var ShimVersion = func() string {
-	h := sha256.Sum256([]byte(shimText))
+	h := sha256.Sum256([]byte(shimText + contentRelay))
 	return hex.EncodeToString(h[:8])
 }()
 
@@ -299,14 +300,15 @@ func verbose() string {
 	return "false"
 }
 
-// prologue goes before the shim in a worker in dev runs: it tells that
-// the worker starts, and any error as it starts, before the shim can: a
-// worker that dies there says nothing otherwise.
+// prologue goes before the shim in a worker: it relays content scripts'
+// messages to the extension's pages (contentRelay); in dev runs it also
+// tells that the worker starts, and any error as it starts, before the
+// shim can: a worker that dies there says nothing otherwise.
 func prologue() string {
 	if verbose() != "true" {
-		return ""
+		return contentRelay
 	}
-	return traceTabs + `self.addEventListener("error",function(e){try{chrome.runtime.sendNativeMessage("` + Application + `",{api:"debug.error",args:["worker error: "+e.message+" @ "+e.filename+":"+e.lineno]})}catch(x){}});` +
+	return contentRelay + traceTabs + `self.addEventListener("error",function(e){try{chrome.runtime.sendNativeMessage("` + Application + `",{api:"debug.error",args:["worker error: "+e.message+" @ "+e.filename+":"+e.lineno]})}catch(x){}});` +
 		`try{chrome.runtime.sendNativeMessage("` + Application + `",{api:"debug.error",args:["worker started"]})}catch(x){}` + "\n"
 }
 
@@ -315,4 +317,18 @@ func prologue() string {
 const traceTabs = `(function(){var say=function(t){try{chrome.runtime.sendNativeMessage("` + Application + `",{api:"debug.error",args:[String(t).slice(0,600)]}).catch(function(){})}catch(x){}};` +
 	`var wrap=function(o,k,name){if(!o||typeof o[k]!=="function")return;var f=o[k];o[k]=function(){var a=[].slice.call(arguments);var r;try{r=f.apply(this,a)}catch(e){say("trace "+name+" "+JSON.stringify(a.filter(function(x){return typeof x!=="function"}))+" threw "+e.message);throw e}` +
 	`if(r&&typeof r.then==="function")r.then(function(v){say("trace "+name+" "+JSON.stringify(a.filter(function(x){return typeof x!=="function"})).slice(0,200)+" -> "+JSON.stringify(v===undefined?"undefined":v).slice(0,200))},function(e){say("trace "+name+" "+JSON.stringify(a.filter(function(x){return typeof x!=="function"})).slice(0,200)+" !! "+(e&&e.message))});return r}};` +
+	`chrome.runtime.onMessage.addListener(function(m,s){if(m&&m.command&&!/^(checkMostRecently|getAutofillInlineMenu)/.test(m.command))say("trace onMessage "+m.command+" from "+(s&&s.tab?("tab "+s.tab.id+"@"+s.tab.index):"page")+" "+(s&&s.url||"").slice(0,60))});` +
+	`chrome.runtime.onInstalled.addListener(function(d){say("trace onInstalled "+JSON.stringify(d))});wrap(chrome.tabs,"create","tabs.create");` +
+	`chrome.runtime.onConnect.addListener(function(p){var s=p.sender||{};say("trace onConnect "+p.name+" from "+(s.tab?("tab "+s.tab.id+" frame "+s.frameId):"page")+" "+(s.url||"").slice(0,60));p.onDisconnect.addListener(function(){say("trace disconnect "+p.name)})});` +
 	`wrap(chrome.scripting,"executeScript","scripting.executeScript");wrap(chrome.webNavigation,"getAllFrames","webNavigation.getAllFrames");wrap(chrome.tabs,"sendMessage","tabs.sendMessage");wrap(chrome.tabs,"query","tabs.query")})();` + "\n"
+
+// contentRelay gives a content script's runtime message to the
+// extension's pages too, as Chrome does: WebKit gives it to the worker
+// only, and Bitwarden's popup waits for its page's fields that way
+// ("collectPageDetailsResponse"). It goes over the Shim's channel of
+// relayed messages, which the pages' Shim hands to their onMessage
+// listeners with the content script's sender (its Tab and frame: the
+// popup keeps only answers from a known frame); the listener here
+// answers nothing (R-WEB-167).
+const contentRelay = `(function(){if(typeof BroadcastChannel!=="function"||!self.chrome||!chrome.runtime||!chrome.runtime.onMessage)return;var ch=new BroadcastChannel("search-messages");` +
+	`chrome.runtime.onMessage.addListener(function(m,s){if(s&&s.tab&&s.tab.index>=0&&s.id===chrome.runtime.id){try{ch.postMessage({relay:m,from:"content",url:s.url,sender:JSON.parse(JSON.stringify(s))})}catch(e){}}})})();` + "\n"

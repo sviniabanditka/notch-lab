@@ -583,7 +583,7 @@
               if (key && pending(heardNatively, key)) { count(heardNatively, key, -1); return; }
               if (key) count(heardRelayed, key, 1);
               relaying = true;
-              try { deliverRelayed(data.relay, { id: runtime.id, url: data.url, origin: location.origin }); } finally { relaying = false; }
+              try { deliverRelayed(data.relay, data.sender || { id: runtime.id, url: data.url, origin: location.origin }); } finally { relaying = false; }
             }, 50);
             return;
           }

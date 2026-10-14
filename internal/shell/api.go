@@ -415,6 +415,31 @@ func (s *Shell) ToggleSidebar() {
 	s.St.Changed()
 }
 
+// Pointer takes the pointer's place on the screen, from
+// mygo.App.OnGlobalPointer: the window's own pointer events stop over a
+// web view and come late after the layout moves. The hidden sidebar shows
+// while the pointer is over the rail, and stays while it is over the rail
+// or the sidebar (R-SHELL-051).
+func (s *Shell) Pointer(x, y int) {
+	if s.Win == nil {
+		return
+	}
+	b := s.Win.ContentBounds()
+	if peek := s.peekAt(x-b.X, y-b.Y, b.Height); peek != s.peek && !s.resizing {
+		s.Win.Update(func() { s.peek = peek })
+	}
+}
+
+// peekAt tells whether the hidden sidebar shows with the pointer at x, y
+// in a window h high.
+func (s *Shell) peekAt(x, y, h int) bool {
+	edge := railW
+	if s.peek {
+		edge += int(s.Set.S.Sidebar.Width)
+	}
+	return !s.win().Sidebar && x >= 0 && x < edge && y >= 0 && y < h
+}
+
 // Back and Forward walk the History (Cmd+[ and Cmd+]).
 // A Tab's type walks its own history first (R-SHELL-103, R-FILES-005).
 func (s *Shell) Back() {

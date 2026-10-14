@@ -74,15 +74,12 @@ func (s *Shell) View(c *ui.Context) {
 
 // body is the rail, the sidebar and the card. A hidden sidebar shows, as
 // it is, while the pointer is over the rail or over the sidebar itself
-// (R-SHELL-051).
+// (Pointer, R-SHELL-051).
 func (s *Shell) body(c *ui.Context) {
-	over := s.rail(c).Hovered()
-	s.shown = s.win().Sidebar || over || s.peek || s.resizing
+	s.rail(c)
+	s.shown = s.win().Sidebar || s.peek || s.resizing
 	if s.shown {
-		side := s.sidebar(c)
-		s.peek = !s.win().Sidebar && (over || side.Hovered() || s.resizing)
-	} else {
-		s.peek = false
+		s.sidebar(c)
 	}
 	left := float32(cardInset)
 	if s.shown {

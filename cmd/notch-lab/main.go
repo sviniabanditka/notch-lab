@@ -250,6 +250,7 @@ func (a *app) start() {
 		Content:       ui.View(a.view),
 	})
 	a.sh.Win = a.main
+	mygo.App.OnGlobalPointer(a.sh.Pointer) // the hidden sidebar on rail hover (R-SHELL-051)
 	a.ed.Win = a.main
 	a.files.Win = a.main
 	a.web.Win = a.main

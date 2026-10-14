@@ -200,22 +200,28 @@ func TestNotchShell(t *testing.T) {
 	}
 }
 
-// R-SHELL-051: the hidden sidebar shows over the card while the pointer is
-// over the rail or the sidebar.
+// R-SHELL-051: the hidden sidebar shows while the pointer is over the
+// rail, and stays while it is over the rail or the sidebar.
 func TestSidebarPeek(t *testing.T) {
 	s, _, _ := fixture(t)
 	s.win().Sidebar = false
-	tt := ui.NewTester(s.View, 1200, 800)
-	tt.Frame()
 	for _, step := range []struct {
-		x    float32
+		x, y int
 		peek bool
-	}{{railW / 2, true}, {railW + 100, true}, {900, false}, {railW + 100, false}} {
-		tt.Move(step.x, 400)
-		tt.Frame()
-		tt.Frame()
+	}{{railW / 2, 400, true}, {railW + 100, 400, true}, {railW / 2, 900, false}, {railW + 100, 400, false}, {-5, 400, false}} {
+		s.peek = s.peekAt(step.x, step.y, 800)
 		if s.peek != step.peek {
-			t.Fatalf("pointer at x %v: peek %v, want %v", step.x, s.peek, step.peek)
+			t.Fatalf("pointer at %v, %v: peek %v, want %v", step.x, step.y, s.peek, step.peek)
 		}
+	}
+	tt := ui.NewTester(s.View, 1200, 800)
+	s.peek = true
+	tt.Frame()
+	if !s.shown {
+		t.Fatal("the sidebar shows while it peeks")
+	}
+	s.win().Sidebar = true
+	if s.peekAt(railW/2, 400, 800) {
+		t.Fatal("a sidebar that shows does not peek")
 	}
 }

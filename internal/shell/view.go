@@ -2,6 +2,7 @@ package shell
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -435,7 +436,12 @@ func (s *Shell) benchHeader(c *ui.Context, b *model.Bench) {
 // tabs draws the Tab list: pinned first, a row per Tab (R-SHELL-053 … R-SHELL-057).
 func (s *Shell) tabs(c *ui.Context, b *model.Bench) {
 	t := c.Theme()
-	list := b.Ordered()
+	all := b.Ordered()
+	n := 0 // the pinned Tabs come first
+	for n < len(all) && all[n].Pinned {
+		n++
+	}
+	list := all[n:]
 	shown := map[*model.Tab]bool{}
 	for _, l := range b.Layout.Leaves() {
 		if l.Tab != nil {
@@ -445,9 +451,18 @@ func (s *Shell) tabs(c *ui.Context, b *model.Bench) {
 	focused := b.FocusedTab()
 	var closeTab, splitTab *model.Tab
 	var showTab *model.Tab
-	ui.List(c.Key("tabs"), &s.tabList, len(list), func(i int) {
+	dragging := false
+	s.pins(c, b, all[:n], focused, shown, &showTab, &closeTab, &dragging)
+	tabs := ui.List(c.Key("tabs"), &s.tabList, len(list), func(i int) {
 		tab := list[i]
-		row := ui.Row(c).Height(rowH).Padding(0, 6, 0, 10).Margin(0, 8).Gap(7).Radius(radiusSm).AlignItems(ui.Center).Transition(hoverMotion)
+		row := ui.Row(c.Key(tab.ID)).Height(rowH).Padding(0, 6, 0, 10).Margin(0, 8).Gap(7).Radius(radiusSm).AlignItems(ui.Center).Transition(hoverMotion).Drag(tab)
+		dragging = dragging || row.Dragging()
+		if _, over := ui.DragOver[*model.Tab](row); over {
+			row.BorderWidth(2, 0, 0, 0).BorderColor(t.Accent)
+		}
+		if moved, ok := ui.Drop[*model.Tab](row); ok && moved != tab && moved.Bench == b {
+			s.moveTab(b, moved, false, tab)
+		}
 		hovered := row.Hovered()
 		fg := t.Text
 		iconCol := t.TextMuted
@@ -483,9 +498,6 @@ func (s *Shell) tabs(c *ui.Context, b *model.Bench) {
 					}
 					glyph(c, g, col)
 				}
-			}
-			if tab.Pinned {
-				ui.Icon(c, iconPin).FontSize(11).TextColor(fg)
 			}
 			if tab.Unread {
 				ui.Box(c).Size(6, 6).Radius(3).Background(t.Accent)
@@ -532,7 +544,7 @@ func (s *Shell) tabs(c *ui.Context, b *model.Bench) {
 				closeTab = tab
 			}
 			if m.Item("Close Others").Chosen() {
-				for _, x := range list {
+				for _, x := range all {
 					if x != tab && !x.Pinned {
 						s.closeTab(x)
 					}
@@ -547,7 +559,7 @@ func (s *Shell) tabs(c *ui.Context, b *model.Bench) {
 			}
 		})
 	}).Grow(1).Basis(0).MinHeight(0).Padding(2, 0).Children(func() {
-		if len(list) == 0 {
+		if len(all) == 0 {
 			ui.Column(c).Padding(8, 18).Gap(4).Children(func() {
 				ui.Text(c, "No Tabs").TextColor(t.TextMuted)
 				if kit.TextButton(c, "new-tab-empty", "New Tab").Margin(0, -10).Tooltip("⌘T").Clicked() {
@@ -556,6 +568,11 @@ func (s *Shell) tabs(c *ui.Context, b *model.Bench) {
 			})
 		}
 	})
+	// A tile dropped on the list, past its rows, is unpinned at its end.
+	if moved, ok := ui.Drop[*model.Tab](tabs); ok && moved.Bench == b {
+		s.moveTab(b, moved, false, nil)
+	}
+	s.tabDrag = dragging
 	switch {
 	case closeTab != nil:
 		s.closeTab(closeTab)
@@ -563,6 +580,109 @@ func (s *Shell) tabs(c *ui.Context, b *model.Bench) {
 		s.SplitTab(splitTab)
 	case showTab != nil:
 		s.show(showTab, true)
+	}
+}
+
+// pins draws the pinned Tabs as tiles over the Tab list, as many in a
+// row as the sidebar holds; a Tab row dropped on them is pinned there,
+// and while a row is dragged an empty grid shows where (R-SHELL-053,
+// R-SHELL-056).
+func (s *Shell) pins(c *ui.Context, b *model.Bench, pinned []*model.Tab, focused *model.Tab, shown map[*model.Tab]bool,
+	showTab, closeTab **model.Tab, dragging *bool) {
+	if len(pinned) == 0 && !s.tabDrag {
+		return
+	}
+	t := c.Theme()
+	icons, _ := s.typeOf(b).(TabIconer)
+	grid := ui.Row(c.Key("pins")).Wrap().Gap(6).Padding(4, 10, 6, 10).Shrink(0)
+	if moved, ok := ui.Drop[*model.Tab](grid); ok && moved.Bench == b {
+		s.moveTab(b, moved, true, nil)
+	}
+	_, over := ui.DragOver[*model.Tab](grid)
+	grid.Children(func() {
+		if len(pinned) == 0 {
+			col := faint(t)
+			if over {
+				col = t.Accent
+			}
+			ui.Row(c).Grow(1).Height(tileH).Radius(radiusMd).Border(1, col).Center().Children(func() {
+				ui.Text(c, "Drop here to pin").FontSize(11).TextColor(col)
+			})
+			return
+		}
+		for _, tab := range pinned {
+			tile := ui.Button(c.Key("pin-"+tab.ID), "").Label(tab.DisplayTitle()).Tooltip(tab.DisplayTitle()).
+				Grow(1).Basis(tileMin).Height(tileH).Padding(0).Radius(radiusMd).Border(1, ui.Transparent).Transition(hoverMotion).Drag(tab)
+			*dragging = *dragging || tile.Dragging()
+			hovered := tile.Hovered()
+			switch {
+			case tab == focused:
+				tile.Background(chosen(t))
+			case hovered:
+				tile.Background(pressed(t))
+			case shown[tab]:
+				tile.Background(pressed(t))
+			default:
+				tile.Background(hover(t))
+			}
+			if _, over := ui.DragOver[*model.Tab](tile); over {
+				tile.BorderColor(t.Accent)
+			}
+			if moved, ok := ui.Drop[*model.Tab](tile); ok && moved != tab && moved.Bench == b {
+				s.moveTab(b, moved, true, tab)
+			}
+			tile.Children(func() {
+				var src ui.ImageSource
+				if icons != nil {
+					src = icons.TabIcon(tab)
+				}
+				if src != nil {
+					ui.Image(c, src).Size(18, 18)
+				} else {
+					col := t.TextMuted
+					if tab == focused {
+						col = t.Accent
+					}
+					ui.Icon(c, TypeIcon(b.Type)).FontSize(16).TextColor(col)
+				}
+				if tab.Unread {
+					ui.Box(c).Size(6, 6).Radius(3).Background(t.Accent).Absolute().Top(5).Right(5)
+				}
+			})
+			if tile.Clicked() {
+				*showTab = tab
+			}
+			tile.ContextMenu(func(m *ui.Menu) {
+				if m.Item("Unpin").Chosen() {
+					s.St.SetPinned(tab, false)
+				}
+				m.Separator()
+				if m.Item("Close").Chosen() {
+					*closeTab = tab
+				}
+			})
+		}
+	})
+}
+
+// moveTab pins or unpins a dragged Tab and puts it before another Tab,
+// or at the end of its group when before is nil (R-SHELL-056).
+func (s *Shell) moveTab(b *model.Bench, tab *model.Tab, pinned bool, before *model.Tab) {
+	if tab.Pinned != pinned {
+		s.St.SetPinned(tab, pinned)
+	}
+	list := b.Ordered()
+	from, to := slices.Index(list, tab), len(list)
+	if before != nil {
+		to = slices.Index(list, before)
+	} else if pinned {
+		to = 0
+		for to < len(list) && list[to].Pinned {
+			to++
+		}
+	}
+	if from >= 0 && to >= 0 && to != from {
+		s.St.MoveTabs(b, []int{from}, to)
 	}
 }
 

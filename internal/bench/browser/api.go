@@ -36,6 +36,7 @@ type Bench struct {
 	Dir     string // NOTCH_LAB_HOME
 	History *History
 	Marks   *Bookmarks
+	icons   map[string]ui.ImageSource // site icons by address (TabIcon)
 	Loads   *Downloads
 	Win     *mygo.Window
 	Post    func(func())

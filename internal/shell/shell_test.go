@@ -227,3 +227,41 @@ func TestSidebarPeek(t *testing.T) {
 		t.Fatal("a sidebar that shows does not peek")
 	}
 }
+
+// R-SHELL-053, R-SHELL-056: pinned Tabs are tiles over the list; a row
+// dragged onto the tiles is pinned, a tile dragged onto the list unpinned.
+func TestPinnedTiles(t *testing.T) {
+	s, term, _ := fixture(t)
+	alpha, gamma := term.Tabs[0], term.Tabs[2]
+	s.St.SetPinned(alpha, true)
+	tt := ui.NewTester(s.View, 1200, 800)
+	tt.Frame()
+	tile, ok := tt.Find("alpha")
+	if !ok || tile.H != tileH {
+		t.Fatalf("alpha is a tile: %v %v", tile, ok)
+	}
+	row, _ := tt.Find("gamma")
+	drag := func(from, to ui.Rect) {
+		x, y := from.X+from.W/2, from.Y+from.H/2
+		tt.Move(x, y)
+		tt.Press(x, y)
+		for i := 1; i <= 8; i++ {
+			f := float32(i) / 8
+			tt.Move(x+(to.X+to.W/2-x)*f, y+(to.Y+to.H/2-y)*f)
+			tt.Frame()
+		}
+		tt.Release(to.X+to.W/2, to.Y+to.H/2)
+		tt.Frame()
+		tt.Frame()
+	}
+	drag(row, tile)
+	if !gamma.Pinned || term.Ordered()[0] != gamma {
+		t.Fatalf("gamma dropped on alpha's tile is pinned before it: %v %v", gamma.Pinned, term.Ordered()[0].Title)
+	}
+	tile, _ = tt.Find("gamma")
+	beta, _ := tt.Find("beta")
+	drag(tile, beta)
+	if gamma.Pinned {
+		t.Fatal("gamma dropped on the list is unpinned")
+	}
+}

@@ -68,6 +68,7 @@ type Shell struct {
 	shown                      bool      // the sidebar shows this frame
 	slideW, slideFrom, slideTo float32   // the sidebar slot's width, and where it slides from and to
 	slideAt                    time.Time // when the slide began
+	tabDrag                    bool      // a Tab row or tile is dragged (pins)
 	sw                         switcher
 	dlg                        dialog
 	// toolbarShown is set while the card draws its toolbar this frame.
@@ -119,6 +120,12 @@ type Commander interface {
 // the sidebar, as an SSH session's remote folder (R-SSH-027).
 type Subtitler interface {
 	Subtitle(t *model.Tab) string
+}
+
+// TabIconer is a TabType with an image for a Tab, as a site's icon, on
+// its pinned tile (R-SHELL-053); nil shows the type's icon.
+type TabIconer interface {
+	TabIcon(t *model.Tab) ui.ImageSource
 }
 
 // ToolbarOwner is a TabType whose Tab draws its own bar in place of the

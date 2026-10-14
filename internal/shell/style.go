@@ -27,6 +27,8 @@ const (
 	paneGap      = 6  // between the panes of a Split
 	toolbarH     = 40 // the card's top bar
 	iconButton   = 28
+	tileH        = 38 // a pinned Tab's tile
+	tileMin      = 46 // the least width of a tile; tiles grow to fill a row
 )
 
 // hoverMotion eases the colors of hovered and chosen controls.

@@ -133,13 +133,13 @@ R-SHELL-051. Cmd+B hides and shows the sidebar. The state is per window, stored 
 
 R-SHELL-052. The sidebar holds, top to bottom: the Bench header (name, Tab count, "new Tab" button), the Tab list, a divider, the Panel.
 
-R-SHELL-053. The Tab list shows pinned Tabs first under a "Pinned" caption, then the other Tabs in order. A row is 28 pt: the type's icon or favicon (16 pt), the title, a status glyph the type supplies, an Unread dot, a close button on hover.
+R-SHELL-053. The pinned Tabs show as tiles over the Tab list, in order: 38 pt high, at least 46 pt wide, as many in a row as the sidebar holds, in more rows when needed; the tiles of a row grow to fill it. A tile shows the site's icon (a browser Tab's favicon: PNG, JPEG, GIF, WebP, BMP, SVG or ICO), else the type's icon, with the title in its tooltip and an Unread dot. A click shows the Tab; its context menu has Unpin and Close. The Tab list shows the other Tabs in order. A row is 28 pt: the type's icon or favicon (16 pt), the title, a status glyph the type supplies, an Unread dot, a close button on hover.
 
 R-SHELL-054. The selected Tab (the one in the focused Leaf) has the accent background. A Tab that is in another Leaf of the Layout has a muted background. A Tab in no Leaf has no background.
 
 R-SHELL-055. A click on a Tab row shows the Tab in the focused Leaf (R-MODEL-033). Alt+click opens it in a new Split (R-MODEL-035). `[later]` Middle-click closes it (mygo reports no middle click).
 
-R-SHELL-056. The user drags a Tab row to reorder. A pinned Tab can be dropped among pinned Tabs only.
+R-SHELL-056. The user drags a Tab row or tile to reorder. A row dropped on the tiles is pinned before the tile under it, or last; while a row is dragged and no Tab is pinned, an empty "Drop here to pin" area shows. A tile dropped on the list is unpinned before the row under it, or last.
 
 R-SHELL-057. The Tab context menu:
 

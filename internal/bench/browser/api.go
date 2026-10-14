@@ -219,9 +219,19 @@ func (b *Bench) wire(x *tab) {
 	webkit.AddMessageHandler(h, ProbeWorld, ProbeHandler, func(batch string) {
 		b.Post(func() { x.log.Add(batch) })
 	})
+	// A Page's events come late, maybe after its Tab closed or slept:
+	// they act only while the Tab still has this web view.
+	wv := x.wv
+	post := func(fn func()) {
+		b.Post(func() {
+			if b.tabs[x.t] == x && x.wv == wv {
+				fn()
+			}
+		})
+	}
 	p.OnPageTitleUpdated(func(e *mygo.TitleEvent) {
 		e.PreventDefault() // the window keeps its own title
-		b.Post(func() {
+		post(func() {
 			b.setTitle(x, e.Title)
 			b.tabChanged(x)
 		})
@@ -230,16 +240,16 @@ func (b *Bench) wire(x *tab) {
 		if !webScheme(e.URL) { // R-WEB-037
 			e.PreventDefault()
 			u := e.URL
-			b.Post(func() { b.external(x, u) })
+			post(func() { b.external(x, u) })
 			return
 		}
-		b.Post(func() { x.loading = true })
+		post(func() { x.loading = true })
 	})
 	p.OnDidNavigate(func(u string) {
-		b.Post(func() { b.navigated(x, u) })
+		post(func() { b.navigated(x, u) })
 	})
 	p.OnDidFinishLoad(func() {
-		b.Post(func() {
+		post(func() {
 			x.loading, x.retry = false, ""
 			b.restoreScroll(x)
 			b.favicon(x)
@@ -247,7 +257,7 @@ func (b *Bench) wire(x *tab) {
 		})
 	})
 	p.OnDidFailLoad(func(err *mygo.LoadError) {
-		b.Post(func() { b.failed(x, err) })
+		post(func() { b.failed(x, err) })
 	})
 	p.OnWillDownload(func(e *mygo.DownloadEvent) {
 		item := &DownloadItem{Name: filepath.Base(e.Path), URL: e.URL, Path: e.Path, State: "running", At: time.Now().Unix()}
@@ -1021,11 +1031,13 @@ func (b *Bench) CloseQuestion(*model.Tab) string { return "" }
 // Closed frees the Tab's web view.
 func (b *Bench) Closed(t *model.Tab) {
 	if x := b.tabs[t]; x != nil {
-		if x.wv != nil {
-			x.wv.Destroy()
-		}
+		// Extensions hear of the close while the web view still is.
 		if b.Ext != nil && x.ext != nil {
 			b.Ext.ctl.DidCloseTab(x.ext)
+		}
+		if x.wv != nil {
+			x.wv.Destroy()
+			x.wv = nil
 		}
 		if b.focus == x {
 			b.focus = nil

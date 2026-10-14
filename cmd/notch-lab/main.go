@@ -63,6 +63,11 @@ func main() {
 		log.Fatal(err)
 	}
 	defer logFile.Close()
+	// A fatal error writes to stderr, which is nowhere for an app that
+	// Finder or `open` starts: app.log keeps it too.
+	if err := debug.SetCrashOutput(logFile, debug.CrashOptions{}); err != nil {
+		logf("warn", "crash output: %v", err)
+	}
 	logf("info", "notch-lab %s (%s) starting in %s", version, commit(), dir)
 	// window-state.json (the window frames) lives in the home folder too.
 	mygo.App.SetPath(mygo.PathUserData, dir)

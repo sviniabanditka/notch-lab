@@ -75,7 +75,7 @@ func (s *Shell) View(c *ui.Context) {
 // body is the rail, the sidebar and the card.
 func (s *Shell) body(c *ui.Context) {
 	{
-		s.rail(c)
+		rail := s.rail(c)
 		if s.win().Sidebar {
 			s.sidebar(c)
 		}
@@ -86,7 +86,27 @@ func (s *Shell) body(c *ui.Context) {
 		ui.Column(c.Key("stage")).Grow(1).Basis(0).MinWidth(0).Padding(cardInset, cardInset, cardInset, left).AlignItems(ui.Stretch).Children(func() {
 			s.card(c)
 		})
+		s.peekSidebar(c, rail)
 	}
+}
+
+// peekSidebar shows the hidden sidebar over the card while the pointer is
+// over the rail or over the sidebar itself (R-SHELL-051).
+func (s *Shell) peekSidebar(c *ui.Context, rail ui.Element) {
+	over := rail.Hovered()
+	if s.win().Sidebar || !(over || s.peek || s.resizing) {
+		s.peek = false
+		return
+	}
+	t := c.Theme()
+	shadow := ui.RGBA(0, 0, 0, 0.12)
+	if t.Dark {
+		shadow = ui.RGBA(0, 0, 0, 0.4)
+	}
+	pane := ui.Row(c.Key("sidebar-peek")).Absolute().Left(railW).Top(0).Bottom(0).AlignItems(ui.Stretch).
+		Background(chrome(t)).BorderWidth(0, 1, 0, 0).BorderColor(stroke(t)).Shadow(6, 0, 18, 0, shadow).
+		Children(func() { s.sidebar(c) })
+	s.peek = over || pane.Hovered() || s.resizing
 }
 
 // card is the rounded, raised surface the Layout lives on.
@@ -203,9 +223,9 @@ func (s *Shell) titleStrip(c *ui.Context) { s.toolbar(c) }
 
 // rail draws the Lab button, the Bench icons, "+" and Settings over the
 // material (R-SHELL-040).
-func (s *Shell) rail(c *ui.Context) {
+func (s *Shell) rail(c *ui.Context) ui.Element {
 	t := c.Theme()
-	ui.Column(c.Key("rail")).Width(railW).Shrink(0).AlignItems(ui.Center).Gap(6).Children(func() {
+	return ui.Column(c.Key("rail")).Width(railW).Shrink(0).AlignItems(ui.Center).Gap(6).Children(func() {
 		top := float32(titleH + 6) // under the window buttons
 		if s.Strip != nil {
 			top = 2

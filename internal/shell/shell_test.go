@@ -199,3 +199,23 @@ func TestNotchShell(t *testing.T) {
 		t.Fatalf("placeholder: %q", mt.Texts())
 	}
 }
+
+// R-SHELL-051: the hidden sidebar shows over the card while the pointer is
+// over the rail or the sidebar.
+func TestSidebarPeek(t *testing.T) {
+	s, _, _ := fixture(t)
+	s.win().Sidebar = false
+	tt := ui.NewTester(s.View, 1200, 800)
+	tt.Frame()
+	for _, step := range []struct {
+		x    float32
+		peek bool
+	}{{railW / 2, true}, {railW + 100, true}, {900, false}, {railW + 100, false}} {
+		tt.Move(step.x, 400)
+		tt.Frame()
+		tt.Frame()
+		if s.peek != step.peek {
+			t.Fatalf("pointer at x %v: peek %v, want %v", step.x, s.peek, step.peek)
+		}
+	}
+}

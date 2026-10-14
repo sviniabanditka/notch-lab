@@ -79,38 +79,41 @@ func (s *Shell) View(c *ui.Context) {
 func (s *Shell) body(c *ui.Context) {
 	s.rail(c)
 	s.shown = s.win().Sidebar || s.peek || s.resizing
-	// The sidebar slides: its slot's width goes between 0 and the
-	// sidebar's, which keeps its own width under the slot's clip.
-	w := float32(0)
-	if s.shown {
-		w = float32(s.Set.S.Sidebar.Width)
-	}
-	slot := ui.Row(c.Key("sidebar-slot")).Width(w).Shrink(0).AlignItems(ui.Stretch).Clip()
-	if !s.resizing {
-		slot = slot.Transition(slideMotion)
-	}
-	// A sidebar that hides is built until it has slid out.
-	if s.shown {
-		s.slidOut = time.Time{}
-	} else if s.slidOut.IsZero() && s.built {
-		s.slidOut = time.Now().Add(slideMotion.Duration)
-	}
-	s.built = s.shown || time.Now().Before(s.slidOut)
-	slot.Children(func() {
-		if s.built {
-			s.sidebar(c)
+	// The sidebar slides: its slot's width goes between the card's inset
+	// and the sidebar's width, frame by frame, so the card moves with it;
+	// the sidebar keeps its width at the slot's right edge, under the
+	// slot's clip, so it moves with the edge.
+	w := s.slide(c)
+	ui.Row(c.Key("sidebar-slot")).Width(w).Shrink(0).Clip().Children(func() {
+		if s.shown || w > cardInset-2 {
+			s.sidebar(c).Absolute().Top(0).Bottom(0).Right(0)
 		}
 	})
-	if !s.shown && s.built {
-		c.After(time.Until(s.slidOut))
-	}
-	left := float32(cardInset)
-	if s.shown {
-		left = 2
-	}
-	ui.Column(c.Key("stage")).Grow(1).Basis(0).MinWidth(0).Padding(cardInset, cardInset, cardInset, left).AlignItems(ui.Stretch).Children(func() {
+	ui.Column(c.Key("stage")).Grow(1).Basis(0).MinWidth(0).Padding(cardInset, cardInset, cardInset, 2).AlignItems(ui.Stretch).Children(func() {
 		s.card(c)
 	})
+}
+
+// slide returns the width of the sidebar's slot in this frame, on its
+// way to the inset or to the sidebar's width.
+func (s *Shell) slide(c *ui.Context) float32 {
+	to := float32(cardInset - 2)
+	if s.shown {
+		to = float32(s.Set.S.Sidebar.Width)
+	}
+	now := time.Now()
+	if to != s.slideTo {
+		s.slideFrom, s.slideTo, s.slideAt = s.slideW, to, now
+	}
+	p := float32(now.Sub(s.slideAt)) / float32(slideTime)
+	if s.resizing || s.slideFrom == 0 || p >= 1 {
+		s.slideW = to
+		return to
+	}
+	p = 1 - (1-p)*(1-p)*(1-p) // ease out
+	s.slideW = s.slideFrom + (to-s.slideFrom)*p
+	c.After(time.Second / 120)
+	return s.slideW
 }
 
 // card is the rounded, raised surface the Layout lives on.

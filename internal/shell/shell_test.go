@@ -50,7 +50,7 @@ func TestRailAndSidebar(t *testing.T) {
 	}
 	s.ToggleSidebar()
 	tt.Frame()
-	time.Sleep(slideMotion.Duration) // the sidebar slides out
+	time.Sleep(slideTime) // the sidebar slides out
 	tt.Frame()
 	if tt.HasText("beta") {
 		t.Error("Cmd+B should hide the sidebar")

@@ -59,17 +59,17 @@ type Shell struct {
 	// nil means always.
 	MenuOwner func() bool
 
-	hist     history
-	toasts   []string
-	actions  []toastAction
-	tabList  ui.ListState
-	resizing bool      // the sidebar edge is dragged
-	peek     bool      // the hidden sidebar shows while the pointer is over it (body)
-	shown    bool      // the sidebar shows this frame
-	built    bool      // the sidebar was built in the last frame
-	slidOut  time.Time // when a sidebar that hides has slid out
-	sw       switcher
-	dlg      dialog
+	hist                       history
+	toasts                     []string
+	actions                    []toastAction
+	tabList                    ui.ListState
+	resizing                   bool      // the sidebar edge is dragged
+	peek                       bool      // the hidden sidebar shows while the pointer is over it (body)
+	shown                      bool      // the sidebar shows this frame
+	slideW, slideFrom, slideTo float32   // the sidebar slot's width, and where it slides from and to
+	slideAt                    time.Time // when the slide began
+	sw                         switcher
+	dlg                        dialog
 	// toolbarShown is set while the card draws its toolbar this frame.
 	toolbarShown bool
 	q            Questions

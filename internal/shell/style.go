@@ -32,8 +32,8 @@ const (
 // hoverMotion eases the colors of hovered and chosen controls.
 var hoverMotion = ui.ElementTransition{Duration: 120 * time.Millisecond, Colors: true}
 
-// slideMotion slides the sidebar in and out.
-var slideMotion = ui.ElementTransition{Duration: 180 * time.Millisecond, Ease: ui.EaseOut, Size: true}
+// slideTime is how long the sidebar takes to slide in or out.
+const slideTime = 220 * time.Millisecond
 
 // The tints are kit's (internal/kit), so that the Shell and the Benches
 // look the same.

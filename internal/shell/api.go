@@ -63,7 +63,8 @@ type Shell struct {
 	actions  []toastAction
 	tabList  ui.ListState
 	resizing bool // the sidebar edge is dragged
-	peek     bool // the hidden sidebar shows over the card (peekSidebar)
+	peek     bool // the hidden sidebar shows while the pointer is over it (body)
+	shown    bool // the sidebar shows this frame
 	sw       switcher
 	dlg      dialog
 	// toolbarShown is set while the card draws its toolbar this frame.

@@ -72,41 +72,25 @@ func (s *Shell) View(c *ui.Context) {
 	s.syncMenu()
 }
 
-// body is the rail, the sidebar and the card.
+// body is the rail, the sidebar and the card. A hidden sidebar shows, as
+// it is, while the pointer is over the rail or over the sidebar itself
+// (R-SHELL-051).
 func (s *Shell) body(c *ui.Context) {
-	{
-		rail := s.rail(c)
-		if s.win().Sidebar {
-			s.sidebar(c)
-		}
-		left := float32(cardInset)
-		if s.win().Sidebar {
-			left = 2
-		}
-		ui.Column(c.Key("stage")).Grow(1).Basis(0).MinWidth(0).Padding(cardInset, cardInset, cardInset, left).AlignItems(ui.Stretch).Children(func() {
-			s.card(c)
-		})
-		s.peekSidebar(c, rail)
-	}
-}
-
-// peekSidebar shows the hidden sidebar over the card while the pointer is
-// over the rail or over the sidebar itself (R-SHELL-051).
-func (s *Shell) peekSidebar(c *ui.Context, rail ui.Element) {
-	over := rail.Hovered()
-	if s.win().Sidebar || !(over || s.peek || s.resizing) {
+	over := s.rail(c).Hovered()
+	s.shown = s.win().Sidebar || over || s.peek || s.resizing
+	if s.shown {
+		side := s.sidebar(c)
+		s.peek = !s.win().Sidebar && (over || side.Hovered() || s.resizing)
+	} else {
 		s.peek = false
-		return
 	}
-	t := c.Theme()
-	shadow := ui.RGBA(0, 0, 0, 0.12)
-	if t.Dark {
-		shadow = ui.RGBA(0, 0, 0, 0.4)
+	left := float32(cardInset)
+	if s.shown {
+		left = 2
 	}
-	pane := ui.Row(c.Key("sidebar-peek")).Absolute().Left(railW).Top(0).Bottom(0).AlignItems(ui.Stretch).
-		Background(chrome(t)).BorderWidth(0, 1, 0, 0).BorderColor(stroke(t)).Shadow(6, 0, 18, 0, shadow).
-		Children(func() { s.sidebar(c) })
-	s.peek = over || pane.Hovered() || s.resizing
+	ui.Column(c.Key("stage")).Grow(1).Basis(0).MinWidth(0).Padding(cardInset, cardInset, cardInset, left).AlignItems(ui.Stretch).Children(func() {
+		s.card(c)
+	})
 }
 
 // card is the rounded, raised surface the Layout lives on.
@@ -121,7 +105,7 @@ func (s *Shell) card(c *ui.Context) {
 		// A Bench that owns the toolbar draws LayoutButtons in its own bar;
 		// the toolbar stays while the window's buttons need its room.
 		_, owner := s.typeOf(s.bench()).(ToolbarOwner)
-		s.toolbarShown = !owner || (!s.win().Sidebar && s.Strip == nil)
+		s.toolbarShown = !owner || (!s.shown && s.Strip == nil)
 		if s.toolbarShown {
 			s.toolbar(c)
 		}
@@ -153,7 +137,7 @@ func (s *Shell) toolbar(c *ui.Context) {
 	b := s.bench()
 	// The window's buttons sit over the card while the sidebar hides.
 	inset := float32(14)
-	if !s.win().Sidebar {
+	if !s.shown {
 		inset = max(inset, c.TitleBar().Left-railW-cardInset+6)
 	}
 	ui.Row(c.Key("toolbar")).Height(toolbarH).Shrink(0).Padding(0, 8, 0, inset).Gap(8).AlignItems(ui.Center).
@@ -162,7 +146,7 @@ func (s *Shell) toolbar(c *ui.Context) {
 			ui.Text(c, "notch-lab").FontWeight(600).TextColor(t.TextMuted)
 			return
 		}
-		if !s.win().Sidebar {
+		if !s.shown {
 			if iconBtn(c, "show-sidebar", "Show Sidebar (⌘B)", iconSidebar, false).Clicked() {
 				s.ToggleSidebar()
 			}
@@ -354,10 +338,10 @@ func (s *Shell) benchIcon(c *ui.Context, b *model.Bench, i int) {
 
 // sidebar draws the Bench header and the Tab list over the material
 // (R-SHELL-050 … R-SHELL-058).
-func (s *Shell) sidebar(c *ui.Context) {
+func (s *Shell) sidebar(c *ui.Context) ui.Element {
 	t := c.Theme()
 	w := float32(s.Set.S.Sidebar.Width)
-	ui.Column(c.Key("sidebar")).Width(w).Shrink(0).AlignItems(ui.Stretch).Children(func() {
+	return ui.Column(c.Key("sidebar")).Width(w).Shrink(0).AlignItems(ui.Stretch).Children(func() {
 		if s.Strip == nil {
 			ui.Row(c).Height(titleH).Shrink(0).DragWindow()
 		} else {
